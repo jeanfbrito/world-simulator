@@ -1,0 +1,30 @@
+[package]
+name = "world_sim_core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Bevy ECS - NO DefaultPlugins!
+bevy_ecs = { workspace = true }
+bevy_app = { workspace = true }
+
+# Interface
+world_sim_interface = { path = "../world_sim_interface" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }

@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "world_sim_core",
+    "world_sim_interface", 
+    "world_sim_bevy_viz",
+    "world_sim_terminal",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Jean F. Brito <jeanfbrito@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/jeanfbrito/world-simulator"
+
+[workspace.dependencies]
+# Bevy - using specific version for stability
+bevy = { version = "0.14", default-features = false, features = ["bevy_asset", "bevy_winit", "bevy_render", "bevy_sprite", "x11"] }
+bevy_ecs = "0.14"
+bevy_app = "0.14"
+bevy_egui = "0.28"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Common utilities
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Testing
+proptest = "1.4"
+criterion = "0.5"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
