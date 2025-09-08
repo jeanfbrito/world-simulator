@@ -5,6 +5,7 @@
 
 pub mod components;
 pub mod engine;
+pub mod plugin;
 pub mod recipes;
 pub mod resources;
 pub mod systems;
@@ -12,6 +13,7 @@ pub mod world;
 
 // Re-export main types
 pub use engine::SimulationEngine;
+pub use plugin::SimulationPlugin;
 pub use recipes::RecipeRegistry;
 
 // Re-export interface types for convenience
