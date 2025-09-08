@@ -59,7 +59,11 @@ impl Plugin for SimulationPlugin {
            .init_resource::<ai::AIProcessingQueue>()
            .init_resource::<ai::SpatialGrid>()
            .init_resource::<ai::SquadManager>()
-           .init_resource::<ai::FrameCount>();
+           .init_resource::<ai::FrameCount>()
+           // Parallel processing resources
+           .init_resource::<ai::ParallelAIProcessor>()
+           .init_resource::<ai::AIMetrics>()
+           .init_resource::<ai::MemoryPool>();
         
         // Add systems in proper order
         app.add_systems(Update, (
@@ -161,6 +165,27 @@ impl Plugin for SimulationPlugin {
             ai::execute_squad_goals_system,
             ai::squad_cooperation_system,
         ).chain());
+        
+        // Parallel processing systems
+        app.add_systems(Update, (
+            ai::parallel_score_evaluation_system,
+            ai::parallel_spatial_query_system,
+            ai::batch_update_worker_needs_system,
+        ).chain());
+        
+        app.add_systems(Update, (
+            ai::parallel_goap_planning_system,
+            ai::collect_planning_results_system,
+            ai::parallel_pathfinding_system,
+        ).chain());
+        
+        // Metrics and debugging
+        app.add_systems(Update, (
+            ai::update_metrics_system,
+            ai::display_metrics_system,
+            ai::compare_performance_system,
+            ai::spawn_benchmark_entities,
+        ));
         
         // Debug system (optional)
         app.add_systems(Update, ai::debug_ai_mode_system);

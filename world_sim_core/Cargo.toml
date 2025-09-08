@@ -35,6 +35,19 @@ tracing = { workspace = true }
 # Random generation
 rand = "0.8"
 
+# Parallel processing
+rayon = "1.10"
+num_cpus = "1.16"
+bevy_tasks = { workspace = true }
+futures-lite = "2.3"
+
+# SIMD optimizations
+packed_simd_2 = { version = "0.3", optional = true }
+
+[features]
+default = []
+simd = ["packed_simd_2"]
+
 [dev-dependencies]
 proptest = { workspace = true }
 criterion = { workspace = true }
