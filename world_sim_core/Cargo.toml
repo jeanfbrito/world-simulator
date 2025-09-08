@@ -11,6 +11,10 @@ repository.workspace = true
 bevy_ecs = { workspace = true }
 bevy_app = { workspace = true }
 
+# GOAP AI
+dogoap = "0.5"
+bevy_dogoap = "0.5"
+
 # Interface
 world_sim_interface = { path = "../world_sim_interface" }
 

@@ -3,6 +3,7 @@
 //! This crate provides a pure simulation engine with ZERO rendering dependencies.
 //! It uses Bevy ECS for entity management and emits events for visualization.
 
+pub mod ai;
 pub mod components;
 pub mod engine;
 pub mod plugin;
