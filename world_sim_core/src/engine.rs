@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use world_sim_interface::{
     EngineCommand, EngineEvent, EngineObserver, WorldSnapshot, CommandResult,
     WorldConfig, EntityId, EntitySnapshot, Position, EntityType, 
-    BuildingType, ResourceType, Recipe, RecipeId, WorkerState,
+    BuildingType, ResourceType, Recipe, RecipeId,
 };
 use crate::components::*;
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ impl SimulationEngine {
         self.tick_count = 0;
         
         // Initialize world state
-        let mut world_state = WorldState::new(config.clone());
+        let world_state = WorldState::new(config.clone());
         self.app.world_mut().insert_resource(world_state);
         
         // Generate terrain and resources
@@ -95,7 +95,7 @@ impl SimulationEngine {
             EngineCommand::AssignWorker { worker_id, building_id } => {
                 self.handle_assign_worker(worker_id, building_id)
             }
-            EngineCommand::StartRecipe { building_id, recipe_id } => {
+            EngineCommand::StartRecipe { recipe_id, building_id } => {
                 self.handle_start_recipe(building_id, recipe_id)
             }
             _ => CommandResult::failure("Command not implemented"),
@@ -119,11 +119,11 @@ impl SimulationEngine {
         self.app.update();
     }
     
-    pub fn snapshot(&self) -> WorldSnapshot {
+    pub fn snapshot(&mut self) -> WorldSnapshot {
         let mut entities = Vec::new();
         
         // Collect all entities
-        let world = self.app.world();
+        let world = self.app.world_mut();
         let mut query = world.query::<(Entity, Option<&PositionComponent>, Option<&WorkerComponent>, Option<&BuildingComponent>, Option<&ResourceNodeComponent>, Option<&InventoryComponent>)>();
         
         for (entity, pos, worker, building, resource, inventory) in query.iter(world) {
@@ -169,7 +169,7 @@ impl SimulationEngine {
             
             // Add building storage/output if present
             if building.is_some() {
-                if let Ok(storage) = world.get::<StorageComponent>(entity) {
+                if let Some(storage) = world.get::<StorageComponent>(entity) {
                     let storage_data: HashMap<String, u32> = storage.resources
                         .iter()
                         .map(|(k, v)| (format!("{:?}", k).to_lowercase(), *v))
@@ -177,7 +177,7 @@ impl SimulationEngine {
                     components.insert("storage".to_string(), serde_json::to_value(storage_data).unwrap());
                 }
                 
-                if let Ok(production) = world.get::<ProductionComponent>(entity) {
+                if let Some(production) = world.get::<ProductionComponent>(entity) {
                     let output_data: HashMap<String, u32> = production.output_storage
                         .iter()
                         .map(|(k, v)| (format!("{:?}", k).to_lowercase(), *v))
@@ -214,11 +214,11 @@ impl SimulationEngine {
         self.recipes.clone()
     }
     
-    pub fn get_population_cap(&self) -> usize {
+    pub fn get_population_cap(&mut self) -> usize {
         // Base cap + houses
         let mut cap = 5;
         
-        let world = self.app.world();
+        let world = self.app.world_mut();
         let mut query = world.query::<&BuildingComponent>();
         for building in query.iter(world) {
             if building.is_complete && matches!(building.building_type, BuildingType::House) {
@@ -229,7 +229,7 @@ impl SimulationEngine {
         cap
     }
     
-    pub fn save_state(&self) -> Result<Vec<u8>, String> {
+    pub fn save_state(&mut self) -> Result<Vec<u8>, String> {
         // Serialize world state
         let snapshot = self.snapshot();
         serde_json::to_vec(&snapshot)
@@ -340,8 +340,10 @@ impl SimulationEngine {
     }
     
     fn emit_event(&mut self, event: EngineEvent) {
+        // Send to observers
+        let events = vec![event.clone()];
         for observer in &mut self.observers {
-            observer.on_event(event.clone());
+            observer.on_events(&events);
         }
         
         // Also add to internal event queue
@@ -352,7 +354,7 @@ impl SimulationEngine {
     
     // Command handlers
     
-    fn handle_move_command(&mut self, entity_id: EntityId, target: Position) -> CommandResult {
+    fn handle_move_command(&mut self, _entity_id: EntityId, _target: Position) -> CommandResult {
         CommandResult::success()
     }
     
@@ -365,9 +367,6 @@ impl SimulationEngine {
     }
     
     fn handle_build_command(&mut self, builder_id: EntityId, building_type: BuildingType, position: Position) -> CommandResult {
-        // Check if builder has resources
-        let world = self.app.world();
-        
         // For now, just emit event
         self.emit_event(EngineEvent::ConstructionStarted {
             building_type: building_type.clone(),
@@ -404,13 +403,14 @@ impl SimulationEngine {
         CommandResult::failure("Entity not found or has no inventory")
     }
     
-    fn handle_spawn_worker(&mut self, position: Position, settlement_id: Option<u64>) -> CommandResult {
+    fn handle_spawn_worker(&mut self, position: Position, _settlement_id: Option<u64>) -> CommandResult {
         let current_pop = self.snapshot().entities
             .iter()
             .filter(|e| matches!(e.entity_type, EntityType::Worker))
             .count();
         
-        if current_pop >= self.get_population_cap() {
+        let pop_cap = self.get_population_cap();
+        if current_pop >= pop_cap {
             return CommandResult::failure("Population cap reached");
         }
         
@@ -418,15 +418,15 @@ impl SimulationEngine {
         CommandResult::success()
     }
     
-    fn handle_store_command(&mut self, worker_id: EntityId, building_id: EntityId) -> CommandResult {
+    fn handle_store_command(&mut self, _worker_id: EntityId, _building_id: EntityId) -> CommandResult {
         CommandResult::success()
     }
     
-    fn handle_assign_worker(&mut self, worker_id: EntityId, building_id: EntityId) -> CommandResult {
+    fn handle_assign_worker(&mut self, _worker_id: EntityId, _building_id: EntityId) -> CommandResult {
         CommandResult::success()
     }
     
-    fn handle_start_recipe(&mut self, building_id: EntityId, recipe_id: RecipeId) -> CommandResult {
+    fn handle_start_recipe(&mut self, _building_id: EntityId, recipe_id: RecipeId) -> CommandResult {
         // Find recipe
         let recipe = self.recipes.iter()
             .find(|r| r.id == recipe_id);

@@ -1,8 +1,8 @@
 //! Test world generation functionality
 //! This test MUST fail first (TDD)
 
-use world_sim_core::{SimulationEngine, WorldState};
-use world_sim_interface::{WorldConfig, EntityType, Position};
+use world_sim_core::SimulationEngine;
+use world_sim_interface::{WorldConfig, EntityType};
 
 #[test]
 fn test_world_generates_terrain() {

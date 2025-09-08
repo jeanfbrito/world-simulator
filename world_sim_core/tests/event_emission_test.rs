@@ -34,8 +34,15 @@ impl TestObserver {
 }
 
 impl EngineObserver for TestObserver {
-    fn on_event(&mut self, event: EngineEvent) {
-        self.events.lock().unwrap().push_back(event);
+    fn on_events(&mut self, events: &[EngineEvent]) {
+        let mut queue = self.events.lock().unwrap();
+        for event in events {
+            queue.push_back(event.clone());
+        }
+    }
+    
+    fn on_snapshot(&mut self, _snapshot: &WorldSnapshot) {
+        // Not used in tests
     }
 }
 

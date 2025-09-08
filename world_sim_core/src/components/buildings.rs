@@ -22,9 +22,12 @@ impl BuildingComponent {
         let (max_health, max_workers) = match building_type {
             BuildingType::House => (100, 0),
             BuildingType::Stockpile => (50, 2),
+            BuildingType::Granary => (80, 2),
             BuildingType::Farm => (75, 3),
             BuildingType::Sawmill => (150, 2),
+            BuildingType::Quarry => (180, 3),
             BuildingType::Mine => (200, 4),
+            BuildingType::Smithy => (130, 2),
             BuildingType::Barracks => (250, 1),
             BuildingType::Workshop => (100, 2),
             BuildingType::Market => (120, 3),

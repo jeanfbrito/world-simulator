@@ -9,8 +9,35 @@ use super::entities::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum EngineEvent {
+    // === World Events ===
+    WorldCreated {
+        width: u32,
+        height: u32,
+        seed: Option<u64>,
+    },
+    
+    Tick {
+        tick: u64,
+    },
+    
+    // === Command Events ===
+    CommandReceived {
+        command: Option<serde_json::Value>,
+    },
+    
+    CommandExecuted {
+        success: bool,
+        result: Option<serde_json::Value>,
+    },
+    
     // === Entity Lifecycle ===
     EntitySpawned {
+        entity_id: EntityId,
+        entity_type: EntityType,
+        position: Position,
+    },
+    
+    EntitySpawnedDetailed {
         id: EntityId,
         entity_type: EntityType,
         position: Position,
@@ -38,6 +65,23 @@ pub enum EngineEvent {
     },
     
     // === Game Events ===
+    HarvestStarted {
+        worker_id: EntityId,
+        resource_id: EntityId,
+    },
+    
+    HarvestCompleted {
+        worker_id: EntityId,
+        resource_id: EntityId,
+        amount: u32,
+    },
+    
+    ResourceCollected {
+        worker_id: EntityId,
+        resource_type: ResourceType,
+        amount: u32,
+    },
+    
     ResourceHarvested {
         worker_id: EntityId,
         resource_id: EntityId,
@@ -49,6 +93,18 @@ pub enum EngineEvent {
         resource_id: EntityId,
         will_regenerate: bool,
         regeneration_time: Option<Tick>,
+    },
+    
+    ConstructionStarted {
+        building_type: BuildingType,
+        position: Position,
+        builder_id: EntityId,
+    },
+    
+    ConstructionCompleted {
+        building_id: EntityId,
+        building_type: BuildingType,
+        position: Position,
     },
     
     BuildingConstructionStarted {
