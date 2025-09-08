@@ -54,7 +54,12 @@ impl Plugin for SimulationPlugin {
            .init_resource::<systems::MoveRequests>()
            .init_resource::<systems::BuildRequests>()
            .init_resource::<systems::RecipeRequests>()
-           .insert_resource(RecipeRegistry::new());
+           .insert_resource(RecipeRegistry::new())
+           // AI optimization resources
+           .init_resource::<ai::AIProcessingQueue>()
+           .init_resource::<ai::SpatialGrid>()
+           .init_resource::<ai::SquadManager>()
+           .init_resource::<ai::FrameCount>();
         
         // Add systems in proper order
         app.add_systems(Update, (
@@ -125,6 +130,37 @@ impl Plugin for SimulationPlugin {
         
         // Add AI coordination system
         app.add_systems(Update, ai::ai_coordination_system);
+        
+        // AI Optimization Systems
+        app.add_systems(PreUpdate, (
+            ai::increment_frame_count,
+            ai::update_spatial_grid_system,
+            ai::update_lod_system,
+            ai::update_ai_priority_system,
+        ).chain());
+        
+        // Priority-based AI processing
+        app.add_systems(Update, (
+            ai::process_ai_queue_system,
+            ai::staggered_update_system,
+        ).chain());
+        
+        // Social systems
+        app.add_systems(Update, (
+            ai::propagate_alerts_system,
+            ai::react_to_alerts_system,
+            ai::spread_alerts_system,
+            ai::cleanup_alerts_system,
+        ).chain());
+        
+        // Squad systems
+        app.add_systems(Update, (
+            ai::form_squads_system,
+            ai::share_squad_plans_system,
+            ai::squad_movement_system,
+            ai::execute_squad_goals_system,
+            ai::squad_cooperation_system,
+        ).chain());
         
         // Debug system (optional)
         app.add_systems(Update, ai::debug_ai_mode_system);
