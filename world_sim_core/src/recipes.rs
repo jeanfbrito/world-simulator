@@ -1,10 +1,11 @@
 //! Recipe registry for managing crafting recipes
 
+use bevy_ecs::prelude::*;
 use world_sim_interface::{Recipe, RecipeId, BuildingType};
 use std::collections::HashMap;
 
 /// Registry for managing all available recipes
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Resource)]
 pub struct RecipeRegistry {
     recipes: HashMap<RecipeId, Recipe>,
     by_building: HashMap<BuildingType, Vec<RecipeId>>,

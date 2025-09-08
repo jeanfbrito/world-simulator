@@ -1,6 +1,6 @@
 //! Core simulation engine implementation
 
-use bevy_app::App;
+use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
 use world_sim_interface::{
     EngineCommand, EngineEvent, EngineObserver, WorldSnapshot, CommandResult,
@@ -8,6 +8,8 @@ use world_sim_interface::{
     BuildingType, ResourceType, Recipe, RecipeId,
 };
 use crate::components::*;
+use crate::systems;
+use crate::recipes::RecipeRegistry;
 use std::collections::HashMap;
 
 /// Core simulation engine
@@ -23,9 +25,27 @@ impl SimulationEngine {
     pub fn new() -> Self {
         let mut app = App::new();
         
-        // Add minimal plugins and resources
+        // Add resources
         app.init_resource::<WorldState>();
-        app.init_resource::<EventQueue>();
+        app.init_resource::<systems::EventQueue>();
+        app.init_resource::<systems::HarvestRequests>();
+        app.init_resource::<systems::MoveRequests>();
+        app.init_resource::<systems::BuildRequests>();
+        app.init_resource::<systems::RecipeRequests>();
+        app.insert_resource(RecipeRegistry::new());
+        
+        // Add systems
+        app.add_systems(Update, (
+            systems::handle_move_commands,
+            systems::pathfinding_system,
+            systems::movement_system,
+            systems::start_harvest_system,
+            systems::harvest_system,
+            systems::handle_build_commands,
+            systems::building_system,
+            systems::handle_recipe_commands,
+            systems::recipe_system,
+        ));
         
         Self {
             app,
@@ -207,7 +227,13 @@ impl SimulationEngine {
     }
     
     pub fn register_recipe(&mut self, recipe: Recipe) {
-        self.recipes.push(recipe);
+        // Add to internal list
+        self.recipes.push(recipe.clone());
+        
+        // Also add to registry resource
+        if let Some(mut registry) = self.app.world_mut().get_resource_mut::<RecipeRegistry>() {
+            registry.register(recipe);
+        }
     }
     
     pub fn get_recipes(&self) -> Vec<Recipe> {
@@ -347,33 +373,31 @@ impl SimulationEngine {
         }
         
         // Also add to internal event queue
-        if let Some(mut queue) = self.app.world_mut().get_resource_mut::<EventQueue>() {
+        if let Some(mut queue) = self.app.world_mut().get_resource_mut::<systems::EventQueue>() {
             queue.push(event);
         }
     }
     
     // Command handlers
     
-    fn handle_move_command(&mut self, _entity_id: EntityId, _target: Position) -> CommandResult {
+    fn handle_move_command(&mut self, entity_id: EntityId, target: Position) -> CommandResult {
+        if let Some(mut requests) = self.app.world_mut().get_resource_mut::<systems::MoveRequests>() {
+            requests.add(entity_id, target);
+        }
         CommandResult::success()
     }
     
     fn handle_harvest_command(&mut self, worker_id: EntityId, resource_id: EntityId) -> CommandResult {
-        self.emit_event(EngineEvent::HarvestStarted {
-            worker_id,
-            resource_id,
-        });
+        if let Some(mut requests) = self.app.world_mut().get_resource_mut::<systems::HarvestRequests>() {
+            requests.add(worker_id, resource_id);
+        }
         CommandResult::success()
     }
     
     fn handle_build_command(&mut self, builder_id: EntityId, building_type: BuildingType, position: Position) -> CommandResult {
-        // For now, just emit event
-        self.emit_event(EngineEvent::ConstructionStarted {
-            building_type: building_type.clone(),
-            position,
-            builder_id,
-        });
-        
+        if let Some(mut requests) = self.app.world_mut().get_resource_mut::<systems::BuildRequests>() {
+            requests.add(builder_id, building_type, position);
+        }
         CommandResult::success()
     }
     
@@ -426,16 +450,19 @@ impl SimulationEngine {
         CommandResult::success()
     }
     
-    fn handle_start_recipe(&mut self, _building_id: EntityId, recipe_id: RecipeId) -> CommandResult {
-        // Find recipe
-        let recipe = self.recipes.iter()
-            .find(|r| r.id == recipe_id);
-        
-        if recipe.is_none() {
-            return CommandResult::failure("Recipe not found");
+    fn handle_start_recipe(&mut self, building_id: EntityId, recipe_id: RecipeId) -> CommandResult {
+        // Add recipe to registry if needed
+        if let Some(recipe) = self.recipes.iter().find(|r| r.id == recipe_id).cloned() {
+            if let Some(mut registry) = self.app.world_mut().get_resource_mut::<RecipeRegistry>() {
+                registry.register(recipe);
+            }
         }
         
-        // For now, just return success
+        // Queue the recipe request
+        if let Some(mut requests) = self.app.world_mut().get_resource_mut::<systems::RecipeRequests>() {
+            requests.add(building_id, recipe_id);
+        }
+        
         CommandResult::success()
     }
 }
@@ -456,17 +483,6 @@ struct WorldState {
 impl WorldState {
     fn new(config: WorldConfig) -> Self {
         Self { config }
-    }
-}
-
-#[derive(Resource, Default)]
-struct EventQueue {
-    events: Vec<EngineEvent>,
-}
-
-impl EventQueue {
-    fn push(&mut self, event: EngineEvent) {
-        self.events.push(event);
     }
 }
 
