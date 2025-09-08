@@ -1,7 +1,7 @@
 //! Test recipe processing functionality
 //! This test MUST fail first (TDD)
 
-use world_sim_core::{SimulationEngine, RecipeRegistry};
+use world_sim_core::SimulationEngine;
 use world_sim_interface::{
     WorldConfig, EntityType, Position, EngineCommand,
     BuildingType, ResourceType, Recipe, RecipeId

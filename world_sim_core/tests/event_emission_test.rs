@@ -4,7 +4,8 @@
 use world_sim_core::SimulationEngine;
 use world_sim_interface::{
     WorldConfig, EntityType, Position, EngineCommand,
-    EngineEvent, EngineObserver, BuildingType, ResourceType
+    EngineEvent, EngineObserver, BuildingType, ResourceType,
+    WorldSnapshot
 };
 use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;

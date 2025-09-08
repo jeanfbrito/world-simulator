@@ -66,8 +66,8 @@ fn test_engine_determinism() {
     
     // Run same commands on both
     for _ in 0..10 {
-        engine1.tick(0.016);
-        engine2.tick(0.016);
+        engine1.tick();
+        engine2.tick();
     }
     
     // Should produce identical state

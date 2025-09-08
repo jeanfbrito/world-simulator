@@ -6,7 +6,6 @@ use world_sim_interface::{
     WorldConfig, EntityType, Position, EngineCommand,
     BuildingType, ResourceType, WorldSnapshot
 };
-use std::collections::HashMap;
 
 #[test]
 fn test_deterministic_world_generation() {
@@ -28,7 +27,7 @@ fn test_deterministic_world_generation() {
     }
     
     // All should have identical initial state
-    let snapshots: Vec<WorldSnapshot> = engines.iter()
+    let snapshots: Vec<WorldSnapshot> = engines.iter_mut()
         .map(|e| e.snapshot())
         .collect();
     
@@ -307,7 +306,7 @@ fn test_deterministic_system_order() {
     
     // All should have identical state
     let reference = engines[0].snapshot();
-    for engine in &engines[1..] {
+    for engine in &mut engines[1..] {
         let snapshot = engine.snapshot();
         assert_eq!(reference.tick, snapshot.tick);
         assert_eq!(reference.entities.len(), snapshot.entities.len());

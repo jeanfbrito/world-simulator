@@ -1,7 +1,7 @@
 //! Test harvest system functionality
 //! This test MUST fail first (TDD)
 
-use world_sim_core::{SimulationEngine, WorldState};
+use world_sim_core::SimulationEngine;
 use world_sim_interface::{
     WorldConfig, EntityType, Position, EngineCommand, 
     ResourceType, CommandResult

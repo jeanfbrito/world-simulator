@@ -1,7 +1,7 @@
 //! Test building construction functionality
 //! This test MUST fail first (TDD)
 
-use world_sim_core::{SimulationEngine, WorldState};
+use world_sim_core::SimulationEngine;
 use world_sim_interface::{
     WorldConfig, EntityType, Position, EngineCommand,
     BuildingType, ResourceType, CommandResult
@@ -94,8 +94,8 @@ fn test_building_requires_resources() {
     
     let result = engine.execute_command(build_cmd);
     assert!(!result.success, "Should fail to build without resources");
-    assert!(result.message.unwrap().contains("resources") || 
-            result.message.unwrap().contains("insufficient"),
+    let message = result.message.unwrap_or_default();
+    assert!(message.contains("resources") || message.contains("insufficient"),
             "Should indicate resource requirement");
 }
 
