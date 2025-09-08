@@ -31,11 +31,11 @@ Building a headless Rust/Bevy simulation engine with pluggable visualizers. Core
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
 ### Contract Tests
-- [ ] T011 [P] Write failing test for EngineEvent serialization in world_sim_interface/tests/events_test.rs
-- [ ] T012 [P] Write failing test for EngineCommand serialization in world_sim_interface/tests/commands_test.rs
-- [ ] T013 [P] Write failing test for WorldSnapshot structure in world_sim_interface/tests/snapshot_test.rs
-- [ ] T014 [P] Write failing test for SimulationEngine trait in world_sim_core/tests/engine_test.rs
-- [ ] T015 [P] Write failing test for EngineObserver trait in world_sim_interface/tests/observer_test.rs
+- [x] T011 [P] Write failing test for EngineEvent serialization in world_sim_interface/tests/events_test.rs
+- [x] T012 [P] Write failing test for EngineCommand serialization in world_sim_interface/tests/commands_test.rs
+- [x] T013 [P] Write failing test for WorldSnapshot structure in world_sim_interface/tests/snapshot_test.rs
+- [x] T014 [P] Write failing test for SimulationEngine trait in world_sim_core/tests/engine_test.rs
+- [x] T015 [P] Write failing test for EngineObserver trait in world_sim_interface/tests/observer_test.rs
 
 ### Integration Tests
 - [ ] T016 Write failing test for world generation in world_sim_core/tests/world_generation_test.rs
@@ -49,14 +49,14 @@ Building a headless Rust/Bevy simulation engine with pluggable visualizers. Core
 ## Phase 3.3: Core Implementation
 
 ### Interface Types (world_sim_interface)
-- [ ] T023 [P] Implement core types (EntityId, Position, Tick) in world_sim_interface/src/types.rs
-- [ ] T024 [P] Implement EngineEvent enum in world_sim_interface/src/events.rs
-- [ ] T025 [P] Implement EngineCommand enum in world_sim_interface/src/commands.rs
-- [ ] T026 [P] Implement EntityType, ResourceType, BuildingType enums in world_sim_interface/src/entities.rs
-- [ ] T027 [P] Implement WorldSnapshot and related types in world_sim_interface/src/state.rs
-- [ ] T028 [P] Implement EngineObserver trait in world_sim_interface/src/observer.rs
-- [ ] T029 [P] Implement CommandResult type in world_sim_interface/src/results.rs
-- [ ] T030 Create lib.rs re-exporting all public types in world_sim_interface/src/lib.rs
+- [x] T023 [P] Implement core types (EntityId, Position, Tick) in world_sim_interface/src/types.rs
+- [x] T024 [P] Implement EngineEvent enum in world_sim_interface/src/events.rs
+- [x] T025 [P] Implement EngineCommand enum in world_sim_interface/src/commands.rs
+- [x] T026 [P] Implement EntityType, ResourceType, BuildingType enums in world_sim_interface/src/entities.rs
+- [x] T027 [P] Implement WorldSnapshot and related types in world_sim_interface/src/state.rs
+- [x] T028 [P] Implement EngineObserver trait in world_sim_interface/src/observer.rs
+- [x] T029 [P] Implement CommandResult type in world_sim_interface/src/results.rs
+- [x] T030 Create lib.rs re-exporting all public types in world_sim_interface/src/lib.rs
 
 ### ECS Components (world_sim_core)
 - [ ] T031 [P] Implement PositionComponent in world_sim_core/src/components/position.rs
