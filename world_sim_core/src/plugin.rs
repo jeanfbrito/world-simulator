@@ -1,8 +1,9 @@
 //! Bevy plugin for the simulation engine
 
-use bevy_app::{App, Plugin, Update, FixedUpdate};
+use bevy_app::{App, Plugin, Update, FixedUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_dogoap::prelude::*;
+use big_brain::prelude::*;
 use crate::systems;
 use crate::ai;
 use crate::components;
@@ -14,8 +15,9 @@ pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
-        // Add GOAP plugin
-        app.add_plugins(DogoapPlugin);
+        // Add AI plugins
+        app.add_plugins(DogoapPlugin)
+           .add_plugins(BigBrainPlugin::new(PreUpdate));
         
         // Register GOAP components
         register_components!(app, vec![
@@ -89,5 +91,42 @@ impl Plugin for SimulationPlugin {
             // Update needs over time
             systems::update_worker_needs,
         ).chain());
+        
+        // Add Utility AI scorers
+        app.add_systems(
+            BigBrainSet::Scorers, 
+            (
+                ai::scorers::hunger_scorer_system,
+                ai::scorers::critical_hunger_scorer_system,
+                ai::scorers::fatigue_scorer_system,
+                ai::scorers::exhaustion_scorer_system,
+                ai::scorers::threat_scorer_system,
+                ai::scorers::opportunity_scorer_system,
+                ai::scorers::profit_scorer_system,
+                ai::scorers::inventory_full_scorer_system,
+                ai::scorers::resource_scarcity_scorer_system,
+                ai::scorers::social_scorer_system,
+                ai::scorers::morale_scorer_system,
+                ai::scorers::isolation_scorer_system,
+            )
+        );
+        
+        // Add Utility AI actions
+        app.add_systems(
+            BigBrainSet::Actions,
+            (
+                ai::emergency_eat_action_system,
+                ai::emergency_rest_action_system,
+                ai::flee_action_system,
+                ai::grab_resource_action_system,
+                ai::help_ally_action_system,
+            )
+        );
+        
+        // Add AI coordination system
+        app.add_systems(Update, ai::ai_coordination_system);
+        
+        // Debug system (optional)
+        app.add_systems(Update, ai::debug_ai_mode_system);
     }
 }

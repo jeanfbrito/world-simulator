@@ -15,6 +15,9 @@ bevy_app = { workspace = true }
 dogoap = "0.5"
 bevy_dogoap = "0.5"
 
+# Utility AI
+big-brain = "0.21"
+
 # Interface
 world_sim_interface = { path = "../world_sim_interface" }
 
