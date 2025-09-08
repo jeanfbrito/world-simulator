@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Types of entities in the simulation
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 pub enum EntityType {
     // Resource nodes
@@ -16,12 +16,7 @@ pub enum EntityType {
     Worker,
     
     // Buildings
-    House,
-    Stockpile,
-    Granary,
-    Sawmill,
-    Quarry,
-    Farm,
+    Building(BuildingType),
     
     // Items
     ResourceItem(ResourceType),
@@ -34,14 +29,18 @@ pub enum ResourceType {
     Wood,
     Stone,
     Iron,
+    Gold,
+    Water,
     Berries,
     Wheat,
     Food, // Generic food
+    Livestock,
     
     // Processed materials
     Planks,
     Bread,
     Tools,
+    Leather,
 }
 
 /// Types of buildings that can be constructed
@@ -52,9 +51,23 @@ pub enum BuildingType {
     Granary,
     Sawmill,
     Quarry,
+    Mine,
     Farm,
     Bakery,
     Smithy,
+    Barracks,
+    Workshop,
+    Market,
+    Well,
+    Tavern,
+    Temple,
+    Wall,
+    Tower,
+    Gate,
+    Warehouse,
+    Brewery,
+    Butcher,
+    Fishery,
 }
 
 /// Reasons why an entity was destroyed
@@ -104,6 +117,16 @@ pub enum TaskType {
     Farming,
 }
 
+/// Worker states
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WorkerState {
+    Idle,
+    Working,
+    Moving,
+    Sleeping,
+    Eating,
+}
+
 /// Task assignments for workers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TaskAssignment {
@@ -113,4 +136,41 @@ pub enum TaskAssignment {
     Haul { from: super::Position, to: super::Position, resource: ResourceType },
     Farm { field: super::EntityId },
     Idle,
+}
+
+/// Recipe identifier
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct RecipeId(String);
+
+impl RecipeId {
+    pub fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
+    
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for RecipeId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for RecipeId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+/// Recipe definition
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Recipe {
+    pub id: RecipeId,
+    pub name: String,
+    pub inputs: std::collections::HashMap<ResourceType, u32>,
+    pub outputs: std::collections::HashMap<ResourceType, u32>,
+    pub duration_ticks: u64,
+    pub required_building: Option<BuildingType>,
 }

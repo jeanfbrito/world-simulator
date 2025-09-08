@@ -25,6 +25,9 @@ thiserror = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
+# Random generation
+rand = "0.8"
+
 [dev-dependencies]
 proptest = { workspace = true }
 criterion = { workspace = true }

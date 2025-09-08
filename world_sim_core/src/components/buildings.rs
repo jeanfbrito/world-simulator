@@ -3,7 +3,6 @@
 use bevy_ecs::prelude::*;
 use world_sim_interface::{BuildingType, EntityId, RecipeId, ResourceType};
 use std::collections::{HashMap, VecDeque};
-use std::time::Duration;
 
 /// Component for building entities
 #[derive(Component, Debug, Clone)]

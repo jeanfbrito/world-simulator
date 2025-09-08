@@ -15,7 +15,7 @@ pub mod types;
 pub use commands::EngineCommand;
 pub use entities::{
     BuildingType, DestroyReason, EntityType, PopulationChangeReason, ResourceType, Season,
-    TaskAssignment, TaskType, Weather,
+    TaskAssignment, TaskType, Weather, WorkerState, Recipe, RecipeId,
 };
 pub use events::EngineEvent;
 pub use observer::EngineObserver;

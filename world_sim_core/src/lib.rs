@@ -1,14 +1,24 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! World Simulation Core - Headless ECS simulation engine
+//! 
+//! This crate provides a pure simulation engine with ZERO rendering dependencies.
+//! It uses Bevy ECS for entity management and emits events for visualization.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod components;
+pub mod engine;
+pub mod recipes;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// Re-export main types
+pub use engine::SimulationEngine;
+pub use recipes::RecipeRegistry;
+
+// Re-export interface types for convenience
+pub use world_sim_interface::{
+    WorldConfig,
+    EntityType, ResourceType, BuildingType,
+    EngineCommand, EngineEvent, EngineObserver,
+    WorldSnapshot, CommandResult, WorkerState,
+    Recipe, RecipeId,
+};
+
+// Re-export components
+pub use components::*;
