@@ -10,6 +10,7 @@ use world_sim_interface::{
 use crate::components::*;
 use crate::systems;
 use crate::recipes::RecipeRegistry;
+use crate::resources::WorldState;
 use std::collections::HashMap;
 
 /// Core simulation engine
@@ -473,16 +474,4 @@ impl Default for SimulationEngine {
     }
 }
 
-// Helper resources
-
-#[derive(Resource, Default)]
-struct WorldState {
-    config: WorldConfig,
-}
-
-impl WorldState {
-    fn new(config: WorldConfig) -> Self {
-        Self { config }
-    }
-}
 

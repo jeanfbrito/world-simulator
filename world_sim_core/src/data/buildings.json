@@ -1,0 +1,73 @@
+{
+  "buildings": [
+    {
+      "type": "House",
+      "cost": {
+        "Wood": 10,
+        "Stone": 5
+      },
+      "construction_time": 30,
+      "max_health": 100,
+      "population_bonus": 4,
+      "storage_capacity": 0
+    },
+    {
+      "type": "Stockpile",
+      "cost": {
+        "Wood": 5
+      },
+      "construction_time": 15,
+      "max_health": 50,
+      "population_bonus": 0,
+      "storage_capacity": 200
+    },
+    {
+      "type": "Sawmill",
+      "cost": {
+        "Wood": 15,
+        "Stone": 10
+      },
+      "construction_time": 40,
+      "max_health": 150,
+      "population_bonus": 0,
+      "storage_capacity": 100,
+      "production_building": true
+    },
+    {
+      "type": "Farm",
+      "cost": {
+        "Wood": 8,
+        "Tools": 2
+      },
+      "construction_time": 25,
+      "max_health": 75,
+      "population_bonus": 0,
+      "storage_capacity": 150,
+      "production_building": true
+    },
+    {
+      "type": "Workshop",
+      "cost": {
+        "Wood": 12,
+        "Stone": 8
+      },
+      "construction_time": 35,
+      "max_health": 100,
+      "population_bonus": 0,
+      "storage_capacity": 80,
+      "production_building": true
+    },
+    {
+      "type": "Bakery",
+      "cost": {
+        "Wood": 10,
+        "Stone": 6
+      },
+      "construction_time": 30,
+      "max_health": 90,
+      "population_bonus": 0,
+      "storage_capacity": 60,
+      "production_building": true
+    }
+  ]
+}

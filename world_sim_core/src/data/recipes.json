@@ -1,0 +1,66 @@
+{
+  "recipes": [
+    {
+      "id": "wood_to_planks",
+      "name": "Wood to Planks",
+      "inputs": {
+        "Wood": 2
+      },
+      "outputs": {
+        "Planks": 3
+      },
+      "duration_ticks": 10,
+      "required_building": "Sawmill"
+    },
+    {
+      "id": "wheat_to_bread",
+      "name": "Bake Bread",
+      "inputs": {
+        "Wheat": 3
+      },
+      "outputs": {
+        "Food": 5
+      },
+      "duration_ticks": 15,
+      "required_building": "Bakery"
+    },
+    {
+      "id": "make_tools",
+      "name": "Make Tools",
+      "inputs": {
+        "Wood": 1,
+        "Stone": 2
+      },
+      "outputs": {
+        "Tools": 1
+      },
+      "duration_ticks": 20,
+      "required_building": "Workshop"
+    },
+    {
+      "id": "build_house_materials",
+      "name": "House Materials",
+      "inputs": {
+        "Wood": 10,
+        "Stone": 5
+      },
+      "outputs": {
+        "Planks": 10
+      },
+      "duration_ticks": 30,
+      "required_building": "Sawmill"
+    },
+    {
+      "id": "build_stockpile_materials",
+      "name": "Stockpile Materials",
+      "inputs": {
+        "Wood": 5
+      },
+      "outputs": {
+        "Planks": 5
+      },
+      "duration_ticks": 15,
+      "required_building": "Sawmill"
+    }
+  ]
+}

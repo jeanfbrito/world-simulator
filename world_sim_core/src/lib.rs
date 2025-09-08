@@ -6,6 +6,7 @@
 pub mod components;
 pub mod engine;
 pub mod recipes;
+pub mod resources;
 pub mod systems;
 
 // Re-export main types
