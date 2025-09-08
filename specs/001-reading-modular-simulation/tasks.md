@@ -17,16 +17,16 @@ Building a headless Rust/Bevy simulation engine with pluggable visualizers. Core
 
 ## Phase 3.1: Setup & Project Structure
 
-- [ ] T001 Initialize Rust workspace at repository root with Cargo.toml
-- [ ] T002 Create world_sim_core crate with `cargo new world_sim_core --lib`
-- [ ] T003 [P] Create world_sim_interface crate with `cargo new world_sim_interface --lib`
-- [ ] T004 [P] Create world_sim_bevy_viz crate with `cargo new world_sim_bevy_viz --lib`
-- [ ] T005 [P] Create world_sim_terminal crate with `cargo new world_sim_terminal --lib`
-- [ ] T006 Configure workspace dependencies in root Cargo.toml
-- [ ] T007 [P] Setup rustfmt.toml and clippy.toml for linting
-- [ ] T008 [P] Create examples/ directory with placeholder files
-- [ ] T009 Add Bevy 0.14 dependency to world_sim_core (MinimalPlugins only!)
-- [ ] T010 [P] Add serde and serde_json to world_sim_interface
+- [x] T001 Initialize Rust workspace at repository root with Cargo.toml
+- [x] T002 Create world_sim_core crate with `cargo new world_sim_core --lib`
+- [x] T003 [P] Create world_sim_interface crate with `cargo new world_sim_interface --lib`
+- [x] T004 [P] Create world_sim_bevy_viz crate with `cargo new world_sim_bevy_viz --lib`
+- [x] T005 [P] Create world_sim_terminal crate with `cargo new world_sim_terminal --lib`
+- [x] T006 Configure workspace dependencies in root Cargo.toml
+- [x] T007 [P] Setup rustfmt.toml and clippy.toml for linting
+- [x] T008 [P] Create examples/ directory with placeholder files
+- [x] T009 Add Bevy 0.14 dependency to world_sim_core (MinimalPlugins only!)
+- [x] T010 [P] Add serde and serde_json to world_sim_interface
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
