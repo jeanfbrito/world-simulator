@@ -2,7 +2,7 @@
 //! This test MUST fail first (TDD)
 
 use serde_json;
-use world_sim_interface::{EngineEvent, EntityId, Position, EntityType, ResourceType};
+use world_sim_interface::{EngineEvent, EntityId, Position, EntityType, ResourceType, BuildingType};
 
 #[test]
 fn test_entity_spawned_event_serialization() {
@@ -54,6 +54,6 @@ fn test_tick_completed_event() {
         delta_time: 0.016,
     };
     
-    let bytes = bincode::serialize(&event).expect("Should serialize to binary");
-    assert!(bytes.len() > 0);
+    let json = serde_json::to_string(&event).expect("Should serialize to JSON");
+    assert!(json.len() > 0);
 }

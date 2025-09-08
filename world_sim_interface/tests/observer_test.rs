@@ -1,7 +1,7 @@
 //! Test EngineObserver trait
 //! This test MUST fail first (TDD)
 
-use world_sim_interface::{EngineObserver, EngineEvent, WorldSnapshot};
+use world_sim_interface::{EngineObserver, EngineEvent, WorldSnapshot, EntityType, Position, GlobalState, Season, Weather};
 use std::sync::{Arc, Mutex};
 
 struct TestObserver {

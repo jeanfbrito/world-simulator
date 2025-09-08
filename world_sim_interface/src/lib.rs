@@ -1,14 +1,24 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Interface definitions for the world simulation engine
+//! 
+//! This crate provides the shared types and traits used for communication
+//! between the headless simulation engine and various visualizers.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod commands;
+pub mod entities;
+pub mod events;
+pub mod observer;
+pub mod results;
+pub mod state;
+pub mod types;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// Re-export commonly used types at the crate root
+pub use commands::EngineCommand;
+pub use entities::{
+    BuildingType, DestroyReason, EntityType, PopulationChangeReason, ResourceType, Season,
+    TaskAssignment, TaskType, Weather,
+};
+pub use events::EngineEvent;
+pub use observer::EngineObserver;
+pub use results::{CommandResult, WorldConfig};
+pub use state::{EntitySnapshot, GlobalState, SettlementSnapshot, WorldSnapshot};
+pub use types::{EntityId, PlayerId, Position, SettlementId, Tick};

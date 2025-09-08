@@ -2,7 +2,7 @@
 //! This test MUST fail first (TDD)
 
 use serde_json;
-use world_sim_interface::{EngineCommand, EntityId, Position, BuildingType};
+use world_sim_interface::{EngineCommand, EntityId, Position, BuildingType, TaskAssignment};
 
 #[test]
 fn test_harvest_command_serialization() {
