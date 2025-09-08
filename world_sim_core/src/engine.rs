@@ -64,10 +64,12 @@ impl SimulationEngine {
         self.tick_count = 0;
         
         // Initialize world state
-        let world_state = WorldState::new(config.clone());
+        let mut world_state = WorldState::new(config.clone());
+        
+        // Update world state resource
         self.app.world_mut().insert_resource(world_state);
         
-        // Generate terrain and resources
+        // Generate terrain and resources using the old method for now
         self.generate_world(&config);
         
         // Spawn starting workers

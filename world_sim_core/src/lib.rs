@@ -8,6 +8,7 @@ pub mod engine;
 pub mod recipes;
 pub mod resources;
 pub mod systems;
+pub mod world;
 
 // Re-export main types
 pub use engine::SimulationEngine;
