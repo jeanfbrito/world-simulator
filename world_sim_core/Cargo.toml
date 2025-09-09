@@ -53,7 +53,7 @@ futures-lite = "2.3"
 packed_simd_2 = { version = "0.3", optional = true }
 
 # Tilemap rendering with built-in algorithms (pathfinding, WFC)
-bevy_entitiles = { version = "0.14", features = ["algorithm", "ldtk", "multi-threaded"] }
+bevy_entitiles = { version = "0.12", features = ["algorithm", "ldtk", "multi-threaded"] }
 
 # Pathfinding (might remove later if bevy_entitiles pathfinding is sufficient)
 pathfinding = "4.11"

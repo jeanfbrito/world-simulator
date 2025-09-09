@@ -1,7 +1,9 @@
 //! Tilemap layer management for terrain, resources, buildings, and units
 
 use bevy::prelude::*;
-use bevy_entitiles::prelude::*;
+use bevy::math::IVec2;
+use bevy_entitiles::tilemap::tile::{TileTexture, TileBuilder};
+use bevy_entitiles::tilemap::map::TilemapStorage;
 use super::TileType;
 
 /// Different rendering layers in the tilemap
@@ -43,43 +45,45 @@ pub struct TilemapLayer {
 
 /// System to update tile layers based on game state
 pub fn update_tile_layers(
-    changed_tiles: Query<(&TilePos, &TileType, &TilemapLayer), Changed<TileType>>,
+    changed_tiles: Query<(&Transform, &TileType, &TilemapLayer), Changed<TileType>>,
     mut tilemap_query: Query<&mut TilemapStorage>,
     mut commands: Commands,
 ) {
-    for (tile_pos, tile_type, layer) in changed_tiles.iter() {
+    for (transform, tile_type, layer) in changed_tiles.iter() {
+        // Convert transform to tile position
+        let tile_pos = IVec2::new(
+            (transform.translation.x / 32.0) as i32,
+            (transform.translation.y / 32.0) as i32,
+        );
+        
         // Update the appropriate layer based on the tile type
         if let Ok(mut storage) = tilemap_query.get_single_mut() {
-            // Get or create tile entity
-            let tile_entity = storage.get(tile_pos).unwrap_or_else(|| {
-                commands.spawn_empty().id()
-            });
+            // Create tile using TileBuilder
+            let tile = TileBuilder::new()
+                .with_layer(layer.layer_index())
+                .with_texture_index(tile_type.texture_index())
+                .build();
             
-            // Update tile texture based on type
-            commands.entity(tile_entity).insert(TileTexture(tile_type.texture_index()));
-            
-            // Set the tile in storage if it's new
-            if storage.get(tile_pos).is_none() {
-                storage.set(tile_pos, tile_entity);
-            }
+            // Set the tile in storage
+            storage.set(&tile_pos, tile);
         }
     }
 }
 
-/// Bundle for creating a layered tile
+/// Bundle for creating a layered tile entity
 #[derive(Bundle)]
 pub struct LayeredTileBundle {
-    pub position: TilePos,
+    pub transform: Transform,
     pub texture: TileTexture,
     pub layer: TilemapLayer,
     pub tile_type: TileType,
 }
 
 impl LayeredTileBundle {
-    pub fn new(x: u32, y: u32, tile_type: TileType, layer: LayerType) -> Self {
+    pub fn new(x: i32, y: i32, tile_type: TileType, layer: LayerType) -> Self {
         Self {
-            position: TilePos { x, y },
-            texture: TileTexture(tile_type.texture_index()),
+            transform: Transform::from_xyz(x as f32 * 32.0, y as f32 * 32.0, layer.z_order()),
+            texture: TileTexture::new(tile_type.texture_index()),
             layer: TilemapLayer { layer_type: layer },
             tile_type,
         }

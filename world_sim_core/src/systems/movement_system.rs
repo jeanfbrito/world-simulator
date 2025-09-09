@@ -3,6 +3,7 @@
 use bevy_ecs::prelude::*;
 use world_sim_interface::{Position, EntityId};
 use crate::components::*;
+use crate::tilemap::{PathRequestEvent, PathCallback, pathfinding::PathComponent};
 
 /// System for processing movement
 pub fn movement_system(
@@ -29,16 +30,21 @@ pub fn movement_system(
     }
 }
 
-/// System for pathfinding
+/// System for pathfinding using tilemap
 pub fn pathfinding_system(
-    mut query: Query<(&PositionComponent, &mut MovementComponent), Changed<MovementComponent>>,
+    mut query: Query<(Entity, &PositionComponent, &mut MovementComponent), Changed<MovementComponent>>,
+    mut path_events: EventWriter<PathRequestEvent>,
 ) {
-    for (position, mut movement) in query.iter_mut() {
+    for (entity, position, movement) in query.iter() {
         if let Some(target) = movement.target {
             if movement.path.is_empty() {
-                // Calculate simple path (straight line for now)
-                let path = calculate_path(position.position, target);
-                movement.set_path(path);
+                // Request path from tilemap pathfinding system
+                path_events.send(PathRequestEvent {
+                    entity,
+                    start: position.position,
+                    target,
+                    callback: PathCallback::Movement,
+                });
             }
         }
     }

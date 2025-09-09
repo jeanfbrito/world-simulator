@@ -1,12 +1,13 @@
 //! Tilemap rendering and spatial management using bevy_entitiles
 
 use bevy::prelude::*;
-use bevy_entitiles::prelude::*;
+use bevy::math::IVec2;
 use world_sim_interface::Position;
 
 pub mod layers;
 pub mod world_grid;
 pub mod pathfinding;
+pub mod world_generation;
 
 /// Plugin for tilemap functionality
 pub struct TilemapPlugin;
@@ -15,11 +16,12 @@ impl Plugin for TilemapPlugin {
     fn build(&self, app: &mut App) {
         app
             // Add bevy_entitiles plugin
-            .add_plugins(EntiTilesPlugin)
+            .add_plugins(bevy_entitiles::EntiTilesPlugin)
             
             // Resources
             .init_resource::<world_grid::WorldGrid>()
             .init_resource::<pathfinding::PathfindingManager>()
+            .init_resource::<world_generation::WorldGenConfig>()
             
             // Events
             .add_event::<TileUpdateEvent>()
@@ -31,6 +33,7 @@ impl Plugin for TilemapPlugin {
                 world_grid::sync_positions_to_tilemap,
                 pathfinding::process_path_requests,
                 layers::update_tile_layers,
+                world_generation::trigger_world_generation_system,
             ));
     }
 }
@@ -53,6 +56,7 @@ pub struct PathRequestEvent {
 }
 
 /// Callback for completed paths
+#[derive(Clone, Copy)]
 pub enum PathCallback {
     Movement,
     AIPlanning,
@@ -136,19 +140,23 @@ impl TileType {
 fn setup_tilemap(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    asset_manager: Res<crate::asset_manager::AssetPackManager>,
 ) {
-    // Load tileset texture
-    let texture = asset_server.load("textures/tileset.png");
+    use bevy_entitiles::prelude::*;
     
-    // Create tilemap entity
+    // Load tileset texture from active asset pack
+    let texture_path = asset_manager.get_asset_path("textures/tileset.png");
+    let texture = asset_server.load(texture_path);
+    
+    // Create tilemap entity with StandardTilemapBundle
     let tilemap = commands.spawn((
-        TilemapBundle {
+        StandardTilemapBundle {
             tile_render_size: TileRenderSize(Vec2::new(32.0, 32.0)),
             slot_size: TilemapSlotSize(Vec2::new(32.0, 32.0)),
             ty: TilemapType::Square,
             storage: TilemapStorage::new(64, commands.spawn_empty().id()),
             texture: TilemapTexture::Single(texture),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            transform: TilemapTransform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         },
         Name::new("World Tilemap"),
@@ -163,17 +171,14 @@ fn setup_tilemap(
 pub struct TilemapEntity(pub Entity);
 
 /// Convert world position to tile position
-pub fn world_to_tile(position: &Position) -> TilePos {
-    TilePos {
-        x: position.x as u32,
-        y: position.y as u32,
-    }
+pub fn world_to_tile(position: &Position) -> IVec2 {
+    IVec2::new(position.x, position.y)
 }
 
 /// Convert tile position to world position
-pub fn tile_to_world(tile_pos: &TilePos) -> Position {
+pub fn tile_to_world(tile_pos: &IVec2) -> Position {
     Position {
-        x: tile_pos.x as i32,
-        y: tile_pos.y as i32,
+        x: tile_pos.x,
+        y: tile_pos.y,
     }
 }

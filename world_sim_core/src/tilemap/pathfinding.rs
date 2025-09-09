@@ -1,6 +1,8 @@
 //! Pathfinding integration using bevy_entitiles built-in algorithms
 
 use bevy::prelude::*;
+use std::collections::HashMap;
+#[cfg(feature = "algorithm")]
 use bevy_entitiles::algorithm::pathfinding::*;
 use world_sim_interface::Position;
 use crate::components::{PositionComponent, MovementComponent};
