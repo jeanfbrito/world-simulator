@@ -1,7 +1,7 @@
 use colored::*;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashSet};
 use std::time::Instant;
 use bevy::prelude::*;
 
@@ -16,6 +16,8 @@ pub struct DebugSystem {
     show_agents: bool,
     show_stats: bool,
     verbosity: DebugLevel,
+    enabled_categories: Arc<Mutex<HashSet<String>>>,
+    known_categories: Arc<Mutex<HashSet<String>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -50,6 +52,21 @@ pub enum DebugCommand {
 impl DebugSystem {
     pub fn new() -> Self {
         let (tx, rx) = channel();
+        let mut enabled_categories = HashSet::new();
+        // Enable all categories by default
+        enabled_categories.insert("INIT".to_string());
+        enabled_categories.insert("WORLD".to_string());
+        enabled_categories.insert("CHUNK".to_string());
+        enabled_categories.insert("AI".to_string());
+        enabled_categories.insert("METRICS".to_string());
+        enabled_categories.insert("SAVE".to_string());
+        enabled_categories.insert("RESOURCES".to_string());
+        enabled_categories.insert("BUILDINGS".to_string());
+        enabled_categories.insert("CRAFTING".to_string());
+        enabled_categories.insert("SPATIAL".to_string());
+        enabled_categories.insert("DEBUG".to_string());
+        enabled_categories.insert("TIMER".to_string());
+        
         Self {
             log_buffer: Arc::new(Mutex::new(VecDeque::with_capacity(1000))),
             command_tx: tx,
@@ -60,12 +77,20 @@ impl DebugSystem {
             show_agents: true,
             show_stats: true,
             verbosity: DebugLevel::Info,
+            enabled_categories: Arc::new(Mutex::new(enabled_categories.clone())),
+            known_categories: Arc::new(Mutex::new(enabled_categories)),
         }
     }
 
     pub fn log(&self, level: DebugLevel, category: &str, message: &str) {
         if level > self.verbosity {
             return;
+        }
+        
+        // Track this category
+        {
+            let mut known = self.known_categories.lock().unwrap();
+            known.insert(category.to_string());
         }
 
         let timestamp = self.start_time.elapsed().as_secs_f64();
@@ -165,17 +190,48 @@ impl DebugSystem {
     
     pub fn get_recent_logs(&self, count: usize) -> Vec<DebugMessage> {
         let buffer = self.log_buffer.lock().unwrap();
-        buffer.iter()
-            .rev()
-            .take(count)
-            .rev()
+        let enabled = self.enabled_categories.lock().unwrap();
+        
+        let filtered: Vec<_> = buffer.iter()
+            .filter(|msg| enabled.contains(&msg.category))
             .cloned()
-            .collect()
+            .collect();
+        
+        let start = filtered.len().saturating_sub(count);
+        filtered.into_iter().skip(start).collect()
     }
     
     pub fn get_all_logs(&self) -> Vec<DebugMessage> {
         let buffer = self.log_buffer.lock().unwrap();
-        buffer.iter().cloned().collect()
+        let enabled = self.enabled_categories.lock().unwrap();
+        
+        buffer.iter()
+            .filter(|msg| enabled.contains(&msg.category))
+            .cloned()
+            .collect()
+    }
+    
+    pub fn toggle_category(&self, category: &str) {
+        let mut enabled = self.enabled_categories.lock().unwrap();
+        if enabled.contains(category) {
+            enabled.remove(category);
+            self.log(DebugLevel::Info, "DEBUG", &format!("Disabled category: {}", category));
+        } else {
+            enabled.insert(category.to_string());
+            self.log(DebugLevel::Info, "DEBUG", &format!("Enabled category: {}", category));
+        }
+    }
+    
+    pub fn is_category_enabled(&self, category: &str) -> bool {
+        let enabled = self.enabled_categories.lock().unwrap();
+        enabled.contains(category)
+    }
+    
+    pub fn get_known_categories(&self) -> Vec<String> {
+        let known = self.known_categories.lock().unwrap();
+        let mut categories: Vec<String> = known.iter().cloned().collect();
+        categories.sort();
+        categories
     }
 }
 

@@ -381,16 +381,28 @@ fn ui_system(
             
             ui.separator();
             
-            // Log filter buttons
-            ui.horizontal(|ui| {
-                if ui.button("Clear").clicked() {
-                    // Would clear logs
+            // Category filter toggles
+            ui.label("Category Filters:");
+            ui.horizontal_wrapped(|ui| {
+                let categories = debug_system.get_known_categories();
+                for category in categories {
+                    let is_enabled = debug_system.is_category_enabled(&category);
+                    let button_text = if is_enabled {
+                        format!("✓ {}", category)
+                    } else {
+                        format!("  {}", category)
+                    };
+                    
+                    let button = if is_enabled {
+                        ui.small_button(&button_text)
+                    } else {
+                        ui.add(egui::Button::new(&button_text).small().fill(egui::Color32::from_gray(60)))
+                    };
+                    
+                    if button.clicked() {
+                        debug_system.toggle_category(&category);
+                    }
                 }
-                ui.separator();
-                ui.label("Filter:");
-                if ui.selectable_label(false, "All").clicked() {}
-                if ui.selectable_label(false, "Info").clicked() {}
-                if ui.selectable_label(false, "Errors").clicked() {}
             });
             
             ui.separator();
