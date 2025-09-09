@@ -380,18 +380,23 @@ fn broadcast_game_state(
     connections: Res<WebSocketConnections>,
     mut sim_state: ResMut<crate::SimulationState>,
     world_map: Res<crate::WorldMap>,
-    workers: Query<(&crate::Worker, &crate::TileEntity)>,
+    workers: Query<(
+        &crate::components::NameComponent,
+        &crate::components::HealthComponent,
+        &crate::components::EnergyComponent,
+        &crate::TileEntity
+    ), With<crate::components::WorkerTag>>,
 ) {
     let mut entities = Vec::new();
     
-    for (worker, tile) in workers.iter() {
+    for (name, health, energy, tile) in workers.iter() {
         let mut data = HashMap::new();
-        data.insert("name".to_string(), serde_json::json!(worker.name));
-        data.insert("health".to_string(), serde_json::json!(worker.health));
-        data.insert("energy".to_string(), serde_json::json!(worker.energy));
+        data.insert("name".to_string(), serde_json::json!(name.display_name));
+        data.insert("health".to_string(), serde_json::json!(health.current));
+        data.insert("energy".to_string(), serde_json::json!(energy.current));
         
         entities.push(EntityData {
-            id: format!("worker_{}", worker.name),
+            id: format!("worker_{}", name.name),
             entity_type: "worker".to_string(),
             x: tile.x,
             y: tile.y,

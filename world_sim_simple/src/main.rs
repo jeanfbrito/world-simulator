@@ -16,7 +16,10 @@ mod plugins;
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
 use debug_cli::DebugCLI;
-use components::{ComponentsPlugin, PositionComponent, HealthComponent};
+use components::{
+    ComponentsPlugin, PositionComponent, HealthComponent, 
+    NameComponent, EnergyComponent, WorkerTag, WorkerStats
+};
 use plugin::{PluginManager, plugin_init_system};
 use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 
@@ -202,12 +205,7 @@ pub struct TileEntity {
     pub y: usize,
 }
 
-#[derive(Component)]
-pub struct Worker {
-    pub name: String,
-    pub health: f32,
-    pub energy: f32,
-}
+// Worker entity is now composed of multiple components instead of a single struct
 
 fn setup(mut commands: Commands) {
     // Camera
@@ -248,6 +246,7 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             let worker_entity = commands.spawn((
+                // Rendering
                 SpriteBundle {
                     sprite: Sprite {
                         color: Color::srgb(1.0, 0.75, 0.0),
@@ -257,18 +256,20 @@ fn setup(mut commands: Commands) {
                     transform: Transform::from_xyz(world_x, world_y, 1.0),
                     ..default()
                 },
-                Worker {
-                    name: format!("Worker {}", i + 1),
-                    health: 100.0,
-                    energy: 100.0,
-                },
+                // Core components
+                NameComponent::new(format!("Worker {}", i + 1)),
                 PositionComponent::from_tile(x, y),
                 HealthComponent::new(100.0),
+                EnergyComponent::new(100.0),
+                // Worker-specific components
+                WorkerTag,
+                WorkerStats::default(),
+                // Tile tracking
                 TileEntity { x, y },
             )).id();
             
-            // Log worker creation with components
-            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) with Position and Health components", 
+            // Log worker creation with component-based architecture
+            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats", 
                 i + 1, x, y).green());
         }
     }
@@ -355,7 +356,7 @@ fn tile_interaction_system(
 fn simulation_system(
     time: Res<Time>,
     mut sim_state: ResMut<SimulationState>,
-    mut workers: Query<(&mut Transform, &mut TileEntity), With<Worker>>,
+    mut workers: Query<(&mut Transform, &mut TileEntity), With<WorkerTag>>,
     world_map: Res<WorldMap>,
 ) {
     if !sim_state.running {
@@ -393,7 +394,7 @@ fn simulation_system(
 }
 
 fn render_map_system(
-    mut tiles: Query<(&mut Sprite, &TileEntity), Without<Worker>>,
+    mut tiles: Query<(&mut Sprite, &TileEntity), Without<WorkerTag>>,
     world_map: Res<WorldMap>,
 ) {
     for (mut sprite, tile_entity) in tiles.iter_mut() {
