@@ -13,6 +13,7 @@ mod components;
 mod plugin;
 mod plugins;
 mod tilemap;
+mod resources;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
@@ -21,9 +22,11 @@ use components::{
     ComponentsPlugin, PositionComponent, HealthComponent, 
     NameComponent, EnergyComponent, WorkerTag, WorkerStats
 };
+use resources::create_starter_inventory;
 use plugin::{PluginManager, plugin_init_system};
 use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 use tilemap::TilemapPlugin;
+use resources::ResourcesPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -51,6 +54,7 @@ fn main() {
         .add_plugins(WorldPlugin)
         .add_plugins(SimPlugin)
         .add_plugins(TilemapPlugin)
+        .add_plugins(ResourcesPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
@@ -267,6 +271,8 @@ fn setup(mut commands: Commands) {
                 // Worker-specific components
                 WorkerTag,
                 WorkerStats::default(),
+                // Inventory
+                create_starter_inventory(),
                 // Tile tracking
                 TileEntity { x, y },
             )).id();
