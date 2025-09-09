@@ -1,6 +1,8 @@
 //! Parallel AI processing using all available CPU cores
 
 use bevy_ecs::prelude::*;
+use world_sim_interface::Position;
+use bevy::prelude::Time;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, TaskPool};
 use std::sync::{Arc, Mutex};
 use rayon::prelude::*;

@@ -1,6 +1,9 @@
 //! Social alert propagation - dangers and opportunities spread through groups
 
 use bevy_ecs::prelude::*;
+use std::collections::HashMap;
+use world_sim_interface::Position;
+use bevy::prelude::Time;
 use crate::components::*;
 use std::collections::HashSet;
 
@@ -101,8 +104,8 @@ pub fn propagate_alerts_system(
                             if final_intensity > existing.intensity {
                                 existing.alert_type = alert.alert_type;
                                 existing.source_position = Position { 
-                                    x: emitter_pos.x, 
-                                    y: emitter_pos.y 
+                                    x: emitter_pos.x(), 
+                                    y: emitter_pos.y() 
                                 };
                                 existing.intensity = final_intensity;
                                 existing.received_at = current_time;
@@ -111,8 +114,8 @@ pub fn propagate_alerts_system(
                             commands.entity(entity).insert(ReceivedAlert {
                                 alert_type: alert.alert_type,
                                 source_position: Position { 
-                                    x: emitter_pos.x, 
-                                    y: emitter_pos.y 
+                                    x: emitter_pos.x(), 
+                                    y: emitter_pos.y() 
                                 },
                                 received_at: current_time,
                                 intensity: final_intensity,

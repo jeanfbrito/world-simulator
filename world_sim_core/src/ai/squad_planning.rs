@@ -1,6 +1,7 @@
 //! Squad-based planning for shared goals and coordinated behavior
 
 use bevy_ecs::prelude::*;
+use world_sim_interface::Position;
 use bevy_dogoap::prelude::*;
 use std::collections::HashMap;
 use crate::components::*;
@@ -221,8 +222,8 @@ pub fn squad_movement_system(
                         let offset = calculate_formation_offset(&squad.formation, i, squad.members.len());
                         
                         let target = Position {
-                            x: leader_pos.x + offset.0,
-                            y: leader_pos.y + offset.1,
+                            x: leader_pos.x() + offset.0,
+                            y: leader_pos.y() + offset.1,
                         };
                         
                         // Move toward formation position

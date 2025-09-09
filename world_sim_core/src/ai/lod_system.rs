@@ -1,6 +1,7 @@
 //! Level of Detail (LOD) AI system - reduces complexity based on importance/distance
 
 use bevy_ecs::prelude::*;
+use bevy::prelude::Time;
 use crate::components::*;
 
 /// AI complexity level based on importance

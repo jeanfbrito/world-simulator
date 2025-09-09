@@ -1,9 +1,9 @@
 //! Material definition loader from Lua scripts
 //! Inspired by Dwarf Fortress material system
 
+use bevy::prelude::AssetServer;
+use super::types::{LuaScript, ScriptCollection};
 use bevy::prelude::*;
-use bevy_mod_scripting::prelude::*;
-use bevy_mod_scripting_lua::prelude::*;
 use std::collections::HashMap;
 
 /// Component to mark entities with material scripts

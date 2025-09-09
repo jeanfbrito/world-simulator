@@ -6,7 +6,12 @@ use super::{
     ai_scripts::ReloadAIScriptsCommand,
     item_loader::ReloadItemScriptsCommand,
     building_loader::ReloadBuildingScriptsCommand,
+    material_loader::ReloadMaterialScriptsCommand,
 };
+
+/// Event to reload all scripts at once
+#[derive(Event)]
+pub struct ReloadAllScriptsCommand;
 
 /// Commands for script management
 pub struct ScriptCommands;
@@ -46,14 +51,18 @@ impl ScriptCommands {
     }
 }
 
-/// System to handle script reload via keyboard (debug builds only)
+/// System to handle script reload via keyboard (debug builds only) 
+/// Currently disabled for headless operation
 #[cfg(debug_assertions)]
 pub fn debug_script_reload_system(
-    keyboard: Res<bevy_input::ButtonInput<bevy_input::keyboard::KeyCode>>,
-    mut recipe_reload: EventWriter<ReloadRecipeScriptsCommand>,
-    mut ai_reload: EventWriter<ReloadAIScriptsCommand>,
+    _recipe_reload: EventWriter<ReloadRecipeScriptsCommand>,
+    _ai_reload: EventWriter<ReloadAIScriptsCommand>,
 ) {
+    // Keyboard input disabled for headless operation
+    // Will be re-enabled when we add input support
+    /*
     use bevy_input::keyboard::KeyCode;
+    let keyboard = ...;
     
     // Ctrl+R to reload recipes
     if keyboard.pressed(KeyCode::ControlLeft) && keyboard.just_pressed(KeyCode::KeyR) {
@@ -75,6 +84,7 @@ pub fn debug_script_reload_system(
         ai_reload.send(ReloadAIScriptsCommand);
         tracing::info!("Reloading all scripts (Ctrl+Shift+R)");
     }
+    */
 }
 
 /// Component to track script performance

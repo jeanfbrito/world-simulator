@@ -1,8 +1,8 @@
 //! Lua API bindings for exposing game functionality to scripts
 
 use bevy_ecs::prelude::*;
-use bevy_mod_scripting::prelude::*;
-use bevy_mod_scripting_lua::prelude::*;
+use bevy::prelude::AssetServer;
+use super::types::{LuaScript, ScriptCollection};
 use bevy_reflect::Reflect;
 use crate::recipes::RecipeRegistry;
 use crate::components::*;

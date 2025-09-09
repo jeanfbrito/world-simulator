@@ -1,5 +1,6 @@
 //! Scripting infrastructure for dynamic content
 
+pub mod types;
 pub mod lua_api;
 pub mod recipe_loader;
 pub mod ai_scripts;
@@ -8,7 +9,7 @@ pub mod item_loader;
 pub mod building_loader;
 pub mod material_loader;
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, Update, Startup};
 use bevy_ecs::prelude::*;
 use bevy_mod_scripting::prelude::*;
 use bevy_mod_scripting_lua::prelude::*;
@@ -18,9 +19,9 @@ pub struct ScriptingPlugin;
 
 impl Plugin for ScriptingPlugin {
     fn build(&self, app: &mut App) {
-        // Add the main scripting plugin with Lua support
-        app.add_plugins(ScriptingPlugins)
-           .add_plugins(LuaScriptingPlugin);
+        // Scripting temporarily disabled - will re-enable when properly configured
+        // app.add_plugins(bevy_mod_scripting::ScriptingPlugin)
+        //    .add_plugins(bevy_mod_scripting_lua::LuaScriptingPlugin);
         
         // Register our custom Lua API
         app.add_systems(Startup, lua_api::register_lua_api);

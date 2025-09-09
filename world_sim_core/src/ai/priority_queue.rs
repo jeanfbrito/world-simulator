@@ -1,6 +1,7 @@
 //! Priority-based AI processing queue for performance optimization
 
 use bevy_ecs::prelude::*;
+use bevy::prelude::Time;
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
 

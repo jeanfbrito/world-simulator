@@ -49,4 +49,13 @@ impl PositionComponent {
             self.position.y += (dy as f32 * ratio) as i32;
         }
     }
+    
+    // Convenience getters for direct access
+    pub fn x(&self) -> i32 {
+        self.position.x
+    }
+    
+    pub fn y(&self) -> i32 {
+        self.position.y
+    }
 }

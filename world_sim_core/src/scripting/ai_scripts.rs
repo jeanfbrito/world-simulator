@@ -1,8 +1,8 @@
 //! AI behavior scripts for dynamic personality and decision making
 
 use bevy_ecs::prelude::*;
-use bevy_mod_scripting::prelude::*;
-use bevy_mod_scripting_lua::prelude::*;
+use bevy::prelude::AssetServer;
+use super::types::{LuaScript, ScriptCollection};
 use crate::components::WorkerComponent;
 use crate::ai::AICoordinator;
 use super::{AIScriptEvent, AIEventType, ScriptEventData};

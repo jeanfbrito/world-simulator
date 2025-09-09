@@ -1,6 +1,7 @@
 //! Worker AI using GOAP for intelligent behavior
 
 use bevy_ecs::prelude::*;
+use bevy::prelude::Name;
 use bevy_dogoap::prelude::*;
 use world_sim_interface::Position;
 use crate::components::*;

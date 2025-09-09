@@ -1,6 +1,7 @@
 //! Utility AI actions for immediate reactive behaviors
 
 use bevy_ecs::prelude::*;
+use bevy::prelude::Time;
 use big_brain::prelude::*;
 use crate::components::*;
 use world_sim_interface::{EngineEvent, EntityId};
@@ -8,39 +9,39 @@ use world_sim_interface::{EngineEvent, EntityId};
 // Emergency survival actions
 
 /// Emergency eating action when critically hungry
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct EmergencyEatAction;
 
 /// Emergency rest action when exhausted
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct EmergencyRestAction;
 
 /// Emergency sleep action when completely exhausted
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct EmergencySleepAction;
 
 // Defensive actions
 
 /// Flee from immediate danger
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct FleeAction;
 
 /// Defensive stance against threats
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct DefensiveAction;
 
 // Opportunistic actions
 
 /// Grab nearby valuable resource
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct GrabResourceAction;
 
 /// Trade resources for profit
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct TradeAction;
 
 /// Help a nearby ally in need
-#[derive(Component, ActionBuilder, Clone)]
+#[derive(Debug, Component, ActionBuilder, Clone)]
 pub struct HelpAllyAction;
 
 /// System for emergency eating
@@ -159,8 +160,8 @@ pub fn flee_action_system(
                         
                         // Move away quickly
                         let speed = movement.speed * 1.5 * time.delta_secs();
-                        pos.x += (flee_direction.0 * speed) as i32;
-                        pos.y += (flee_direction.1 * speed) as i32;
+                        pos.position.x += (flee_direction.0 * speed) as i32;
+                        pos.position.y += (flee_direction.1 * speed) as i32;
                     } else {
                         // No threats nearby, success
                         *state = ActionState::Success;
