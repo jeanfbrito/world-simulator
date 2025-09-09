@@ -14,6 +14,7 @@ mod plugin;
 mod plugins;
 mod tilemap;
 mod resources;
+mod buildings;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
@@ -27,6 +28,7 @@ use plugin::{PluginManager, plugin_init_system};
 use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 use tilemap::TilemapPlugin;
 use resources::ResourcesPlugin;
+use buildings::BuildingsPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -55,6 +57,7 @@ fn main() {
         .add_plugins(SimPlugin)
         .add_plugins(TilemapPlugin)
         .add_plugins(ResourcesPlugin)
+        .add_plugins(BuildingsPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
