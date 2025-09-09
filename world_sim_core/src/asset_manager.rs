@@ -91,8 +91,8 @@ pub struct AssetPackManager {
 impl Default for AssetPackManager {
     fn default() -> Self {
         Self {
-            active_pack: "dwarf_fortress".to_string(),
-            pack_path: PathBuf::from("assets/packs/dwarf_fortress"),
+            active_pack: "stronghold".to_string(),
+            pack_path: PathBuf::from("assets/packs/stronghold"),
             common_path: PathBuf::from("assets/common"),
             config: None,
             available_packs: HashMap::new(),
@@ -106,9 +106,9 @@ impl AssetPackManager {
         let mut manager = Self::default();
         manager.scan_available_packs();
         
-        // Load default pack from environment or use dwarf_fortress
+        // Load default pack from environment or use stronghold
         let default_pack = std::env::var("WORLD_SIM_PACK")
-            .unwrap_or_else(|_| "dwarf_fortress".to_string());
+            .unwrap_or_else(|_| "stronghold".to_string());
             
         if let Err(e) = manager.load_pack(&default_pack) {
             tracing::error!("Failed to load default pack '{}': {}", default_pack, e);
