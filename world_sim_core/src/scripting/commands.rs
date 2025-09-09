@@ -1,7 +1,12 @@
 //! Commands for managing scripts at runtime
 
 use bevy_ecs::prelude::*;
-use super::{recipe_loader::ReloadRecipeScriptsCommand, ai_scripts::ReloadAIScriptsCommand};
+use super::{
+    recipe_loader::ReloadRecipeScriptsCommand,
+    ai_scripts::ReloadAIScriptsCommand,
+    item_loader::ReloadItemScriptsCommand,
+    building_loader::ReloadBuildingScriptsCommand,
+};
 
 /// Commands for script management
 pub struct ScriptCommands;
@@ -19,10 +24,24 @@ impl ScriptCommands {
         tracing::info!("Triggered AI scripts reload");
     }
     
+    /// Reload all item scripts
+    pub fn reload_items(world: &mut World) {
+        world.send_event(ReloadItemScriptsCommand);
+        tracing::info!("Triggered item scripts reload");
+    }
+    
+    /// Reload all building scripts
+    pub fn reload_buildings(world: &mut World) {
+        world.send_event(ReloadBuildingScriptsCommand);
+        tracing::info!("Triggered building scripts reload");
+    }
+    
     /// Reload all scripts
     pub fn reload_all(world: &mut World) {
         Self::reload_recipes(world);
         Self::reload_ai_scripts(world);
+        Self::reload_items(world);
+        Self::reload_buildings(world);
         tracing::info!("Triggered full scripts reload");
     }
 }

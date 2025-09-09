@@ -4,6 +4,8 @@ pub mod lua_api;
 pub mod recipe_loader;
 pub mod ai_scripts;
 pub mod commands;
+pub mod item_loader;
+pub mod building_loader;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
@@ -24,21 +26,38 @@ impl Plugin for ScriptingPlugin {
         
         // Add reload command events
         app.add_event::<recipe_loader::ReloadRecipeScriptsCommand>()
-           .add_event::<ai_scripts::ReloadAIScriptsCommand>();
+           .add_event::<ai_scripts::ReloadAIScriptsCommand>()
+           .add_event::<item_loader::ReloadItemScriptsCommand>()
+           .add_event::<building_loader::ReloadBuildingScriptsCommand>();
+        
+        // Initialize registries
+        app.init_resource::<item_loader::ItemRegistry>()
+           .init_resource::<building_loader::BuildingRegistry>();
         
         // Add script loading systems (triggered by commands)
         app.add_systems(Update, (
             recipe_loader::load_recipe_scripts,
             ai_scripts::load_ai_scripts,
+            item_loader::load_item_scripts,
+            building_loader::load_building_scripts,
         ));
         
         // Add script processing systems
         app.add_systems(Update, (
             recipe_loader::process_recipe_scripts,
             ai_scripts::process_ai_scripts,
+            item_loader::process_item_scripts,
+            building_loader::process_building_scripts,
             lua_api::apply_lua_recipe_modifiers,
             lua_api::apply_lua_worker_modifiers,
             lua_api::apply_lua_ai_modifiers,
+        ));
+        
+        // Add component update systems
+        app.add_systems(Update, (
+            item_loader::update_item_decay,
+            building_loader::update_building_maintenance,
+            building_loader::construction_system,
         ));
         
         // Register script events
