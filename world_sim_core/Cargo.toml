@@ -39,9 +39,9 @@ tracing = { workspace = true }
 # Random generation
 rand = "0.8"
 
-# Scripting support
-bevy_mod_scripting = { version = "0.6", default-features = false }
-bevy_mod_scripting_lua = { version = "0.6", default-features = false, features = ["lua54"] }
+# Scripting support (0.7 for Bevy 0.14 compatibility)
+bevy_mod_scripting = { version = "0.7", default-features = false }
+bevy_mod_scripting_lua = { version = "0.7", default-features = false, features = ["lua54"] }
 
 # Parallel processing
 rayon = "1.10"
