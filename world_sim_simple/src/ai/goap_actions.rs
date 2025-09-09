@@ -64,7 +64,7 @@ impl GoapAction {
 }
 
 /// Represents the current world state for GOAP planning
-#[derive(Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct WorldState {
     pub states: HashMap<String, StateValue>,
 }
@@ -143,6 +143,7 @@ impl WorldState {
 }
 
 /// Collection of all available GOAP actions
+#[derive(Resource)]
 pub struct ActionSet {
     pub actions: Vec<GoapAction>,
 }

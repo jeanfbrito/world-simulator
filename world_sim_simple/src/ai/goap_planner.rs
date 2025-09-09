@@ -142,7 +142,7 @@ impl GoapPlanner {
         }
         
         debug.log(
-            DebugLevel::Warning,
+            DebugLevel::Info,
             "GOAP",
             &format!("No plan found after {} iterations", iterations)
         );
@@ -294,7 +294,7 @@ pub fn goap_execution_system(
                 plan.advance();
             } else {
                 debug.log(
-                    DebugLevel::Warning,
+                    DebugLevel::Info,
                     "GOAP",
                     &format!("Action {} no longer valid, replanning needed", action.name)
                 );

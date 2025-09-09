@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::components::*;
 use crate::resources::{Inventory, ItemType};
-use crate::buildings::BuildingType;
+use crate::buildings::{BuildingComponent, BuildingType};
 use crate::debug::DebugSystem;
 
 /// System to synchronize worker states with GOAP states
@@ -23,7 +23,7 @@ pub fn sync_goap_states_system(
         Option<&mut InventoryFull>,
         Option<&mut InventoryEmpty>,
     ), With<WorkerTag>>,
-    buildings: Query<(&BuildingType, &PositionComponent)>,
+    buildings: Query<(&BuildingComponent, &PositionComponent)>,
     debug_system: Res<DebugSystem>,
     mut settlement_state: ResMut<SettlementState>,
 ) {
@@ -35,7 +35,7 @@ pub fn sync_goap_states_system(
     let mut building_count = 0i32;
     
     // Count buildings
-    for (building_type, _) in buildings.iter() {
+    for (building, _) in buildings.iter() {
         building_count += 1;
         // Note: We'd need to count storage resources separately
         // For now just counting building types
@@ -151,10 +151,10 @@ pub fn sync_goap_states_system(
         let mut at_home = false;
         let mut at_crafting = false;
         
-        for (building_type, bpos) in buildings.iter() {
+        for (building, bpos) in buildings.iter() {
             let dist = ((pos.x - bpos.x).powi(2) + (pos.y - bpos.y).powi(2)).sqrt();
             if dist <= near_distance {
-                match building_type {
+                match building.building_type {
                     BuildingType::Storage => at_storage = true,
                     BuildingType::House => at_home = true,
                     BuildingType::Workshop => at_crafting = true,
@@ -189,10 +189,10 @@ pub fn sync_goap_states_system(
     settlement_state.building_count = building_count;
     
     // Check building availability
-    let has_storage = buildings.iter().any(|(b, _)| *b == BuildingType::Storage);
-    let has_house = buildings.iter().any(|(b, _)| *b == BuildingType::House);
-    let has_workshop = buildings.iter().any(|(b, _)| *b == BuildingType::Workshop);
-    let has_farm = buildings.iter().any(|(b, _)| *b == BuildingType::Farm);
+    let has_storage = buildings.iter().any(|(b, _)| b.building_type == BuildingType::Storage);
+    let has_house = buildings.iter().any(|(b, _)| b.building_type == BuildingType::House);
+    let has_workshop = buildings.iter().any(|(b, _)| b.building_type == BuildingType::Workshop);
+    let has_farm = buildings.iter().any(|(b, _)| b.building_type == BuildingType::Farm);
     
     // Update all workers with building availability
     for (entity, _, _, _, _, _, _, _, _, _, _, _, _, _) in workers.iter_mut() {
