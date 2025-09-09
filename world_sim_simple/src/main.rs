@@ -18,6 +18,7 @@ mod buildings;
 mod crafting;
 mod ai;
 mod save_load;
+mod performance;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
@@ -35,6 +36,7 @@ use buildings::BuildingsPlugin;
 use crafting::CraftingPlugin;
 use ai::{AIPlugin, WorkerAI};
 use save_load::SaveLoadPlugin;
+use performance::PerformancePlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -67,14 +69,19 @@ fn main() {
         .add_plugins(CraftingPlugin)
         .add_plugins(AIPlugin)
         .add_plugins(SaveLoadPlugin)
+        .add_plugins(PerformancePlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
         .add_systems(Startup, setup)
         .add_systems(PostStartup, (setup_debug_cli, plugin_init_system))
         .add_systems(Update, (
+            // UI systems (sequential, can't parallelize with rendering)
             ui_system,
             tile_interaction_system,
+        ).chain())
+        .add_systems(Update, (
+            // Simulation systems (can run in parallel)
             simulation_system,
             render_map_system,
         ))

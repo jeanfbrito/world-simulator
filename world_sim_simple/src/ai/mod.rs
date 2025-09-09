@@ -16,10 +16,14 @@ impl Plugin for AIPlugin {
         app.init_resource::<TaskSystem>()
             .add_systems(Startup, ai_init_system)
             .add_systems(Update, (
+                // Task assignment must run first
                 task_assignment_system,
+            ))
+            .add_systems(Update, (
+                // These can run in parallel as they work on different components
                 worker_ai_update_system,
                 pathfinding_update_system,
-            ).chain());
+            ));
     }
 }
 
