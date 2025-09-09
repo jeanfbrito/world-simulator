@@ -30,6 +30,7 @@ colored = "2.0"
 env_logger = "0.11"
 log = "0.4"
 
-# GOAP AI for intelligent agent behavior (temporarily disabled due to build issues)
-# dogoap = "0.5"
-# bevy_dogoap = "0.5"
+# AI libraries for intelligent agent behavior
+dogoap = "0.5"
+bevy_dogoap = "0.5"
+big-brain = "0.21"  # Utility AI for reactive behaviors

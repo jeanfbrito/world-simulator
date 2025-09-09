@@ -6,6 +6,10 @@ pub mod goap_actions;
 pub mod goap_planner;
 mod goap_bridge;
 mod task_executor;
+// New AI modules (temporarily disabled for fixing)
+// mod shared_state;
+// mod bevy_dogoap_impl;
+// mod big_brain_impl;
 
 pub use behaviors::{AIBehavior, BehaviorState, WorkerAI};
 pub use task_system::{TaskSystem, Task, TaskType, TaskPriority, TaskStatus};
@@ -15,6 +19,10 @@ pub use goap_actions::{GoapAction, WorldState, StateValue, ActionSet, ActionPlan
 pub use goap_planner::{GoapPlanner, goap_planning_system, goap_execution_system};
 pub use goap_bridge::{goap_to_task_bridge_system, update_needs_system};
 pub use task_executor::{task_execution_system, TreeTag, RockTag, BerryBushTag};
+// New AI exports (temporarily disabled)
+// pub use shared_state::{WorkerStats, AIMode, GoalPriorities};
+// pub use bevy_dogoap_impl::dogoap_planning_system;
+// pub use big_brain_impl::BigBrainAIPlugin;
 
 use bevy::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};
@@ -29,6 +37,8 @@ pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
+        // Add big-brain plugin (temporarily disabled)
+        // app.add_plugins(BigBrainAIPlugin);
         app.init_resource::<TaskSystem>()
             .insert_resource(crate::components::SettlementState::default())
             .insert_resource(ActionSet::default())
@@ -43,10 +53,10 @@ impl Plugin for AIPlugin {
                 pathfinding_update_system,
                 sync_goap_states_system,    // Sync GOAP states with worker conditions
                 update_needs_system,        // Update hunger/energy over time
-                goap_planning_system,       // Create GOAP plans
+                goap_planning_system,       // Create GOAP plans (custom implementation)
                 goap_execution_system,      // Execute GOAP plans
                 goap_to_task_bridge_system, // Bridge GOAP to tasks
-                task_execution_system,      // Execute tasks with actual movement
+                task_execution_system       // Execute tasks with actual movement
             ).run_if(simulation_running));
     }
 }
