@@ -6,12 +6,14 @@ pub mod health;
 pub mod name;
 pub mod energy;
 pub mod worker;
+pub mod goap_states;
 
 pub use position::PositionComponent;
 pub use health::HealthComponent;
 pub use name::NameComponent;
 pub use energy::EnergyComponent;
 pub use worker::{WorkerTag, WorkerStats};
+pub use goap_states::*;
 
 /// Plugin to register all components
 pub struct ComponentsPlugin;
@@ -26,6 +28,9 @@ impl Plugin for ComponentsPlugin {
            .register_type::<EnergyComponent>()
            .register_type::<WorkerTag>()
            .register_type::<WorkerStats>();
+        
+        // Register GOAP states
+        register_goap_states(app);
            
         println!("{}", "[COMPONENTS] ✓ All components registered".green());
     }

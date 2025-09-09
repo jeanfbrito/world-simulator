@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
+// use bevy_dogoap::prelude::*; // Temporarily disabled for testing
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use rand::Rng;
@@ -57,6 +58,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin)
+        // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         .add_plugins(WebSocketPlugin)
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
