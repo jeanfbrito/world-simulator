@@ -215,6 +215,114 @@ RUST_LOG=debug cargo run  # Run with debug
 # Only then proceed to next step
 ```
 
+## 11. Rust/Bevy Compilation Best Practices
+
+### Understanding Compilation Times
+
+**IMPORTANT**: Long compilation times (5-15 minutes) are NORMAL for Rust + Bevy projects:
+- **First build after `cargo clean`**: Downloads and compiles 200+ dependencies
+- **Release builds**: Take 2-3x longer due to optimizations
+- **Bevy specifically**: Heavy use of generics and compile-time type checking
+- **Incremental builds**: Much faster (10-30 seconds) after initial build
+
+### Build Strategies
+
+1. **Use background builds** - Continue working while compiling:
+   ```bash
+   cargo build -p world_sim_simple &  # Run in background
+   # Continue editing other files
+   ```
+
+2. **Check syntax quickly**:
+   ```bash
+   cargo check  # Faster than full build, catches most errors
+   ```
+
+3. **Build specific package**:
+   ```bash
+   cargo build -p world_sim_simple  # Don't rebuild entire workspace
+   ```
+
+4. **Monitor build progress**:
+   ```bash
+   # Check if cargo is still working (not stuck)
+   ps aux | grep cargo
+   # Watch for "Compiling" messages
+   ```
+
+### Common Build Issues and Solutions
+
+- **"Build seems stuck"** - It's probably not! Bevy compilation is just slow
+- **Out of memory** - Close other applications, use `--jobs 2` to limit parallelism
+- **Clean build needed** - Only when dependency versions conflict
+- **Release vs Debug** - Use debug for development (faster compilation)
+
+## 12. GOAP Implementation Guidelines
+
+### Building GOAP Without External Dependencies
+
+When implementing GOAP (Goal-Oriented Action Planning), you can build it from scratch:
+
+1. **State Components** - Use Bevy's Component system:
+   ```rust
+   #[derive(Component, Clone, Debug, Default, Reflect)]
+   pub struct IsHungry(pub f64);
+   ```
+
+2. **Action System** - Simple structs with preconditions/effects:
+   ```rust
+   pub struct GoapAction {
+       pub name: String,
+       pub cost: f32,
+       pub preconditions: HashMap<String, StateValue>,
+       pub effects: HashMap<String, StateValue>,
+   }
+   ```
+
+3. **Planner** - A* search algorithm works well:
+   - Use BinaryHeap for open set
+   - Track visited states to avoid cycles
+   - Limit search depth to prevent infinite loops
+
+4. **Integration Tips**:
+   - Add `#[derive(Resource)]` for shared action sets
+   - Add `#[derive(Component)]` for per-entity states
+   - Use `#[derive(Reflect)]` for debug inspection
+
+### Common GOAP Pitfalls to Avoid
+
+- **Missing derives** - Always add Component/Resource/Reflect as needed
+- **Wrong component types** - Check actual struct names (BuildingComponent vs Building)
+- **Inventory assumptions** - Modern inventories are slot-based, not field-based
+- **Debug levels** - Use DebugLevel::Info (Warning may not exist)
+
+## 13. Debugging Complex Systems
+
+### When Systems Don't Compile
+
+1. **Read error messages carefully** - Rust errors are very descriptive
+2. **Check imports** - Ensure all types are properly imported
+3. **Verify component registration** - Components need proper derives
+4. **Match existing patterns** - Look at similar working code
+
+### Incremental Development Strategy
+
+When adding complex features like GOAP:
+
+1. **Phase 1**: Add basic components and state tracking
+2. **Phase 2**: Implement actions and planning logic
+3. **Phase 3**: Connect to existing systems
+4. **Phase 4**: Test and optimize
+
+Each phase should compile and run independently!
+
+### Entity Component System (ECS) Best Practices
+
+- **Components are data only** - No logic in components
+- **Systems contain logic** - Keep systems focused and small
+- **Resources are shared** - Use for global state/configuration
+- **Queries must match exactly** - Component types must be registered
+
 ## Summary
 
-**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements.
+**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems.
