@@ -10,6 +10,8 @@ repository.workspace = true
 # Bevy ECS - NO DefaultPlugins!
 bevy_ecs = { workspace = true }
 bevy_app = { workspace = true }
+bevy_reflect = "0.14"
+bevy_time = "0.14"
 
 # GOAP AI
 dogoap = "0.5"

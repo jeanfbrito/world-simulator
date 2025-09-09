@@ -2,6 +2,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_dogoap::prelude::*;
+use world_sim_interface::Position;
 use crate::components::*;
 
 /// Create a GOAP planner for a basic worker

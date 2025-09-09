@@ -1,6 +1,7 @@
 //! GOAP action components for worker behaviors
 
 use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
 use bevy_dogoap::prelude::*;
 
 // Basic survival actions

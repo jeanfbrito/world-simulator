@@ -1,6 +1,8 @@
 //! AI performance benchmarking and metrics
 
 use bevy_ecs::prelude::*;
+use bevy_app::prelude::*;
+use bevy_time::Time;
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
@@ -184,50 +186,64 @@ pub fn display_metrics_system(
 }
 
 /// Benchmark spawn system for stress testing
+/// This should be triggered by external events/commands rather than keyboard input
 pub fn spawn_benchmark_entities(
     mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut events: EventReader<BenchmarkSpawnEvent>,
     entities: Query<Entity, With<crate::components::WorkerComponent>>,
 ) {
-    // Press B to spawn 100 workers
-    if keyboard.just_pressed(KeyCode::KeyB) {
-        println!("Spawning 100 benchmark workers...");
-        
-        for i in 0..100 {
-            let x = (i % 10) * 10;
-            let y = (i / 10) * 10;
-            
-            super::spawn_hybrid_worker(
-                &mut commands,
-                crate::Position { x, y },
-                format!("BenchWorker_{}", i),
-            );
+    for event in events.read() {
+        match event.spawn_type {
+            BenchmarkSpawnType::Small => {
+                println!("Spawning 100 benchmark workers...");
+                
+                for i in 0..100 {
+                    let x = (i % 10) * 10;
+                    let y = (i / 10) * 10;
+                    
+                    super::spawn_hybrid_worker(
+                        &mut commands,
+                        world_sim_interface::Position { x, y },
+                        format!("BenchWorker_{}", i),
+                    );
+                }
+                
+                println!("Total workers: {}", entities.iter().count() + 100);
+            }
+            BenchmarkSpawnType::Large => {
+                println!("STRESS TEST: Spawning 1000 workers!");
+                
+                for i in 0..1000 {
+                    let x = (i % 32) * 10;
+                    let y = (i / 32) * 10;
+                    
+                    // Use simpler AI for mass spawning
+                    commands.spawn((
+                        crate::components::WorkerComponent::new(format!("MassWorker_{}", i)),
+                        crate::components::PositionComponent::new(x, y),
+                        super::lod_system::LODComponent {
+                            complexity: super::lod_system::AIComplexity::Simple,
+                            ..Default::default()
+                        },
+                    ));
+                }
+                
+                println!("Total workers: {}", entities.iter().count() + 1000);
+            }
         }
-        
-        println!("Total workers: {}", entities.iter().count() + 100);
     }
-    
-    // Press N to spawn 1000 workers
-    if keyboard.just_pressed(KeyCode::KeyN) {
-        println!("STRESS TEST: Spawning 1000 workers!");
-        
-        for i in 0..1000 {
-            let x = (i % 32) * 10;
-            let y = (i / 32) * 10;
-            
-            // Use simpler AI for mass spawning
-            commands.spawn((
-                crate::components::WorkerComponent::new(format!("MassWorker_{}", i)),
-                crate::components::PositionComponent::new(x, y),
-                super::lod_system::LODComponent {
-                    complexity: super::lod_system::AIComplexity::Simple,
-                    ..default()
-                },
-            ));
-        }
-        
-        println!("Total workers: {}", entities.iter().count() + 1000);
-    }
+}
+
+/// Event for triggering benchmark spawns
+#[derive(Event)]
+pub struct BenchmarkSpawnEvent {
+    pub spawn_type: BenchmarkSpawnType,
+}
+
+/// Types of benchmark spawns
+pub enum BenchmarkSpawnType {
+    Small,  // 100 workers
+    Large,  // 1000 workers
 }
 
 /// Performance comparison system
@@ -277,5 +293,6 @@ impl PerformanceComparison {
 #[derive(Component)]
 pub struct BenchmarkEntity;
 
-use bevy_input::keyboard::KeyCode;
-use bevy_input::ButtonInput;
+// Keyboard input handling removed - should be in UI layer
+// use bevy_input::keyboard::KeyCode;
+// use bevy_input::ButtonInput;

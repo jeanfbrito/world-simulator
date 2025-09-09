@@ -1,6 +1,7 @@
 //! GOAP state components for AI decision making
 
 use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
 use bevy_dogoap::prelude::*;
 use world_sim_interface::ResourceType;
 
@@ -37,13 +38,13 @@ pub struct IsIdle(pub bool);
 // Resource states
 
 /// Tracks if worker has specific resource type and amount
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct HasWood(pub u32);
 
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct HasFood(pub u32);
 
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct HasStone(pub u32);
 
 /// Whether inventory is full
@@ -69,19 +70,19 @@ pub struct FarmAvailable(pub bool);
 // Settlement states
 
 /// Number of workers in settlement
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct PopulationCount(pub i32);
 
 /// Total food available in settlement storage
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct SettlementFood(pub u32);
 
 /// Total wood available in settlement storage
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct SettlementWood(pub u32);
 
 /// Total stone available in settlement storage  
-#[derive(Component, Clone, DatumComponent)]
+#[derive(Component, Clone)]
 pub struct SettlementStone(pub u32);
 
 // Task completion states

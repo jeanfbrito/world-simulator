@@ -2,7 +2,11 @@
 
 use bevy_ecs::prelude::*;
 use big_brain::prelude::*;
+use world_sim_interface::Position;
 use crate::components::*;
+use super::scorers::*;
+use super::utility_actions::*;
+use super::coordinator::AICoordinator;
 
 /// Thinker configuration for basic worker utility AI
 pub fn create_worker_thinker() -> ThinkerBuilder {
@@ -18,11 +22,11 @@ pub fn create_worker_thinker() -> ThinkerBuilder {
             EmergencyRestAction,
         )
         .when(
-            ThreatScorer,
+            ThreatScorer { threat_range: 10.0 },
             FleeAction,
         )
         .when(
-            OpportunityScorer,
+            OpportunityScorer { opportunity_range: 15.0 },
             GrabResourceAction,
         )
 }
@@ -49,7 +53,7 @@ pub fn create_advanced_worker_thinker() -> ThinkerBuilder {
             TradeAction,
         )
         .when(
-            SocialScorer,
+            SocialScorer { help_range: 20.0 },
             HelpAllyAction,
         )
 }
@@ -57,7 +61,7 @@ pub fn create_advanced_worker_thinker() -> ThinkerBuilder {
 /// Spawn a worker with hybrid AI (both GOAP and Utility)
 pub fn spawn_hybrid_worker(
     commands: &mut Commands,
-    position: crate::Position,
+    position: Position,
     name: String,
 ) -> Entity {
     // First create the GOAP planner
@@ -83,7 +87,7 @@ pub fn spawn_hybrid_worker(
         // Coordinator to manage both systems
         AICoordinator::new(),
         
-        // Entity name
-        Name::new(name),
+        // Worker component with name
+        // Name component removed - name is stored in WorkerComponent
     )).id()
 }

@@ -151,8 +151,16 @@ pub fn react_to_alerts_system(
         }
         
         match alert.alert_type {
-            AlertType::Danger(level) | AlertType::EnemySpotted if level > 0.5 => {
+            AlertType::Danger(level) if level > 0.5 => {
                 // High danger - immediate utility takeover
+                coordinator.switch_to_utility();
+                
+                if let Some(mut p) = priority {
+                    p.current_priority = super::priority_queue::AIPriority::Critical;
+                }
+            }
+            AlertType::EnemySpotted => {
+                // Enemy spotted - immediate utility takeover
                 coordinator.switch_to_utility();
                 
                 if let Some(mut p) = priority {
