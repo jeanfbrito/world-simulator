@@ -1,8 +1,10 @@
 mod chunk;
 mod terrain;
+mod biome;
 
 pub use chunk::{Chunk, ChunkCoordinate, CHUNK_SIZE};
 pub use terrain::{TerrainType, TerrainProperties};
+pub use biome::{BiomeType, BiomeGenerator};
 
 use bevy::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};

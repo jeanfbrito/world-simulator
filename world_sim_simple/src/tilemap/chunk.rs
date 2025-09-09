@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use super::terrain::{TerrainType, TerrainProperties};
+use super::biome::{BiomeType, BiomeGenerator};
 
 pub const CHUNK_SIZE: usize = 16;
 
@@ -39,14 +40,20 @@ impl ChunkCoordinate {
 pub struct Chunk {
     pub coordinate: ChunkCoordinate,
     pub tiles: [[TerrainType; CHUNK_SIZE]; CHUNK_SIZE],
+    pub biome: BiomeType,
     pub is_dirty: bool,
 }
 
 impl Chunk {
     pub fn new(coordinate: ChunkCoordinate) -> Self {
+        // Generate biome for this chunk
+        let biome_gen = BiomeGenerator::new(12345); // Use a fixed seed for now
+        let biome = biome_gen.generate_biome(coordinate.x, coordinate.y);
+        
         let mut chunk = Self {
             coordinate,
             tiles: [[TerrainType::Grass; CHUNK_SIZE]; CHUNK_SIZE],
+            biome,
             is_dirty: true,
         };
         chunk.generate_terrain();
@@ -62,25 +69,17 @@ impl Chunk {
                 let world_x = self.coordinate.x * CHUNK_SIZE as i32 + x as i32;
                 let world_y = self.coordinate.y * CHUNK_SIZE as i32 + y as i32;
                 
-                // Generate terrain properties based on position
-                let elevation_noise = (world_x as f32 * 0.05).sin() * (world_y as f32 * 0.05).cos();
-                let moisture_noise = (world_x as f32 * 0.07).cos() * (world_y as f32 * 0.07).sin();
-                let temp_noise = (world_x as f32 * 0.03).sin() + (world_y as f32 * 0.03).cos();
+                // Add local variation within the chunk
+                let local_noise = ((world_x as f32 * 0.1).sin() + (world_y as f32 * 0.1).cos()) * 0.1;
+                let random_factor = rng.gen::<f32>() + local_noise;
                 
-                let elevation = ((elevation_noise + 1.0) / 2.0).clamp(0.0, 1.0);
-                let moisture = ((moisture_noise + 1.0) / 2.0).clamp(0.0, 1.0);
-                let temperature = ((temp_noise + 1.0) / 2.0).clamp(0.0, 1.0);
-                
-                // Add some randomness
-                let elevation = (elevation + rng.gen::<f32>() * 0.1).clamp(0.0, 1.0);
-                let moisture = (moisture + rng.gen::<f32>() * 0.1).clamp(0.0, 1.0);
-                
-                self.tiles[y][x] = TerrainProperties::determine_terrain(elevation, moisture, temperature);
+                // Select terrain based on biome
+                self.tiles[y][x] = self.biome.select_terrain(random_factor.clamp(0.0, 1.0));
             }
         }
         
-        info!("[CHUNK] Generated chunk ({}, {}) with {} tiles", 
-            self.coordinate.x, self.coordinate.y, CHUNK_SIZE * CHUNK_SIZE);
+        info!("[CHUNK] Generated {:?} chunk ({}, {}) with {} tiles", 
+            self.biome, self.coordinate.x, self.coordinate.y, CHUNK_SIZE * CHUNK_SIZE);
     }
 
     pub fn get_tile(&self, local_x: usize, local_y: usize) -> Option<TerrainType> {
