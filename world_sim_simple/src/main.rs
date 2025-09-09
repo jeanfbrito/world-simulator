@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use rand::Rng;
 
-const MAP_SIZE: usize = 64;
+mod websocket;
+use websocket::WebSocketPlugin;
+
+pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
 
 fn main() {
@@ -18,6 +21,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin)
+        .add_plugins(WebSocketPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
@@ -32,7 +36,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-enum TileType {
+pub enum TileType {
     Grass,
     Stone,
     Sand,
@@ -84,8 +88,8 @@ impl TileType {
 }
 
 #[derive(Resource)]
-struct WorldMap {
-    tiles: Vec<Vec<TileType>>,
+pub struct WorldMap {
+    pub tiles: Vec<Vec<TileType>>,
     entities: HashMap<(usize, usize), Vec<Entity>>,
 }
 
@@ -128,12 +132,39 @@ impl Default for WorldMap {
     }
 }
 
-#[derive(Resource, Default)]
-struct SimulationState {
-    running: bool,
-    tick: u32,
-    speed: f32,
+#[derive(Resource)]
+pub struct SimulationState {
+    pub running: bool,
+    pub tick: u32,
+    pub speed: f32,
     accumulated_time: f32,
+    changed: bool,
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self {
+            running: false,
+            tick: 0,
+            speed: 1.0,
+            accumulated_time: 0.0,
+            changed: false,
+        }
+    }
+}
+
+impl SimulationState {
+    pub fn set_changed(&mut self) {
+        self.changed = true;
+    }
+    
+    pub fn is_changed(&self) -> bool {
+        self.changed
+    }
+    
+    pub fn clear_changed(&mut self) {
+        self.changed = false;
+    }
 }
 
 #[derive(Resource, Default)]
@@ -142,16 +173,16 @@ struct SelectedTile {
 }
 
 #[derive(Component)]
-struct TileEntity {
-    x: usize,
-    y: usize,
+pub struct TileEntity {
+    pub x: usize,
+    pub y: usize,
 }
 
 #[derive(Component)]
-struct Worker {
-    name: String,
-    health: f32,
-    energy: f32,
+pub struct Worker {
+    pub name: String,
+    pub health: f32,
+    pub energy: f32,
 }
 
 fn setup(mut commands: Commands) {

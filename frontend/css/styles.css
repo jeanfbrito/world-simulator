@@ -330,7 +330,12 @@ button.primary {
 
 @media (max-width: 1200px) {
     .sidebar-right {
-        display: none;
+        width: 200px;
+        font-size: 0.9rem;
+    }
+    
+    .sidebar-right h2 {
+        font-size: 1rem;
     }
 }
 

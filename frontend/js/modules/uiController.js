@@ -41,14 +41,19 @@ export class UIController {
         const speedSlider = document.getElementById('speed-slider');
         
         playPauseBtn?.addEventListener('click', () => {
-            if (this.isPlaying) {
-                this.gameController.pause();
-                playPauseBtn.textContent = '▶️ Play';
-                this.isPlaying = false;
+            // Use WebSocket if connected, otherwise local control
+            if (window.wsClient && window.wsClient.isConnected) {
+                window.wsClient.playPause();
             } else {
-                this.gameController.play();
-                playPauseBtn.textContent = '⏸️ Pause';
-                this.isPlaying = true;
+                if (this.isPlaying) {
+                    this.gameController.pause();
+                    playPauseBtn.textContent = '▶️ Play';
+                    this.isPlaying = false;
+                } else {
+                    this.gameController.play();
+                    playPauseBtn.textContent = '⏸️ Pause';
+                    this.isPlaying = true;
+                }
             }
         });
         
@@ -80,9 +85,11 @@ export class UIController {
         
         // Listen for tile hover
         window.eventBus.on('tile:hover', (data) => {
-            if (!this.gameController.worldMap.selectedTile) {
-                this.updateTileInfo(data);
-            }
+            // Only update on hover if no tile is selected
+            // Disabled for now to prevent random updates
+            // if (!this.gameController.worldMap.selectedTile) {
+            //     this.updateTileInfo(data);
+            // }
         });
         
         // Listen for game events
