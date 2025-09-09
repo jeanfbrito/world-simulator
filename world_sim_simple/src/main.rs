@@ -10,11 +10,15 @@ mod simulation;
 mod debug;
 mod debug_cli;
 mod components;
+mod plugin;
+mod plugins;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
 use debug_cli::DebugCLI;
 use components::{ComponentsPlugin, PositionComponent, HealthComponent};
+use plugin::{PluginManager, plugin_init_system};
+use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -38,11 +42,14 @@ fn main() {
         .add_plugins(WebSocketPlugin)
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
+        .init_resource::<PluginManager>()
+        .add_plugins(WorldPlugin)
+        .add_plugins(SimPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
         .add_systems(Startup, setup)
-        .add_systems(PostStartup, setup_debug_cli)
+        .add_systems(PostStartup, (setup_debug_cli, plugin_init_system))
         .add_systems(Update, (
             ui_system,
             tile_interaction_system,
