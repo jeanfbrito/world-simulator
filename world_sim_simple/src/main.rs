@@ -16,6 +16,8 @@ mod tilemap;
 mod resources;
 mod buildings;
 mod crafting;
+mod ai;
+mod save_load;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
@@ -31,6 +33,8 @@ use tilemap::TilemapPlugin;
 use resources::ResourcesPlugin;
 use buildings::BuildingsPlugin;
 use crafting::CraftingPlugin;
+use ai::{AIPlugin, WorkerAI};
+use save_load::SaveLoadPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -61,6 +65,8 @@ fn main() {
         .add_plugins(ResourcesPlugin)
         .add_plugins(BuildingsPlugin)
         .add_plugins(CraftingPlugin)
+        .add_plugins(AIPlugin)
+        .add_plugins(SaveLoadPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
@@ -277,6 +283,8 @@ fn setup(mut commands: Commands) {
                 // Worker-specific components
                 WorkerTag,
                 WorkerStats::default(),
+                // AI
+                WorkerAI::new(),
                 // Inventory
                 create_starter_inventory(),
                 // Tile tracking
