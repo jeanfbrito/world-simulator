@@ -3,7 +3,7 @@ mod item_system;
 mod inventory;
 
 pub use resource_types::{ResourceType, ResourceCategory, ResourceProperties};
-pub use item_system::{Item, ItemStack, ItemType, ItemRarity};
+pub use item_system::{Item, ItemStack, ItemType, ItemRarity, ToolType, WeaponType, ArmorType};
 pub use inventory::{Inventory, InventorySlot, create_starter_inventory};
 
 use bevy::prelude::*;
