@@ -102,9 +102,9 @@ impl GoapPlanner {
             // Check if we've reached the goal
             if self.is_goal_satisfied(&current_node.state, goal_state) {
                 debug.log(
-                    DebugLevel::Info,
-                    "GOAP",
-                    &format!("Plan found after {} iterations", iterations)
+                    DebugLevel::Debug,
+                    "GOAP_PLANNER",
+                    &format!("✓ Solution found after {} iterations (depth: {:.0})", iterations, current_node.g_cost)
                 );
                 return Some(self.reconstruct_plan(current_node));
             }
@@ -229,7 +229,7 @@ impl GoapPlanner {
 /// System to create plans for agents that need them
 pub fn goap_planning_system(
     mut commands: Commands,
-    mut agents: Query<(Entity, &WorldState, Option<&ActionPlan>), Without<ActionPlan>>,
+    mut agents: Query<(Entity, &WorldState, Option<&ActionPlan>), With<crate::components::WorkerTag>>,
     action_set: Res<ActionSet>,
     debug: Res<DebugSystem>,
 ) {
@@ -241,25 +241,104 @@ pub fn goap_planning_system(
             continue;
         }
         
-        // Define a simple goal: collect wood and store it
+        debug.log(
+            DebugLevel::Info,
+            "GOAP_PLANNING",
+            &format!("Creating plan for entity {:?}", entity)
+        );
+        
+        // Create dynamic goals based on current needs
         let mut goal = WorldState::new();
-        goal.set("has_wood", StateValue::Int(0)); // Want to have stored wood (empty inventory)
-        goal.set("at_storage", StateValue::Bool(true)); // Want to be at storage
+        
+        // Check if worker has a house (priority 1 - basic shelter)
+        // Don't set has_house as immediate goal - let it emerge from resource gathering
+        // This is handled later in the resource gathering section
+        
+        // Check if hungry (priority 2)
+        if goal.states.is_empty() {
+            if let Some(StateValue::Float(hunger)) = current_state.get("is_hungry") {
+                if *hunger > 0.5 {
+                    goal.set("is_hungry", StateValue::Float(0.0)); // Want to not be hungry
+                    debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Satisfy hunger");
+                }
+            }
+        }
+        
+        // Check if exhausted (priority 3)
+        if goal.states.is_empty() {
+            if let Some(StateValue::Float(energy)) = current_state.get("has_energy") {
+                if *energy < 0.3 {
+                    goal.set("has_energy", StateValue::Float(1.0)); // Want full energy
+                    debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Rest to recover energy");
+                }
+            }
+        }
+        
+        // If no urgent needs, work on gathering resources for building a house
+        if goal.states.is_empty() {
+            // If we don't have a house yet, gather resources to build one
+            if let Some(StateValue::Bool(has_house)) = current_state.get("has_house") {
+                if !has_house {
+                    // Check current resources and set goals for what we're missing
+                    let current_wood = current_state.get("has_wood")
+                        .and_then(|v| if let StateValue::Int(n) = v { Some(*n) } else { None })
+                        .unwrap_or(0);
+                    let current_stone = current_state.get("has_stone")
+                        .and_then(|v| if let StateValue::Int(n) = v { Some(*n) } else { None })
+                        .unwrap_or(0);
+                    
+                    // We need 15 wood and 10 stone for a house
+                    if current_wood < 15 {
+                        goal.set("has_wood", StateValue::Int(15)); // Want enough wood for house
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Gather wood ({}/15)", current_wood));
+                    } else if current_stone < 10 {
+                        goal.set("has_stone", StateValue::Int(10)); // Want enough stone for house  
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Gather stone ({}/10)", current_stone));
+                    } else {
+                        // We have all resources, now build the house
+                        goal.set("has_house", StateValue::Bool(true));
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Build house (have all resources)");
+                    }
+                }
+            }
+        }
+        
+        // Default idle goal - just rest
+        if goal.states.is_empty() {
+            goal.set("has_energy", StateValue::Float(1.0)); // Want full energy
+            debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Rest and maintain energy");
+        }
+        
+        // Log current state for debugging
+        debug.log(
+            DebugLevel::Info,
+            "GOAP_DECISION",
+            &format!("Agent analyzing state - Hungry: {:?}, Energy: {:?}, Has Wood: {:?}",
+                current_state.get("is_hungry"),
+                current_state.get("has_energy"),
+                current_state.get("has_wood")
+            )
+        );
         
         // Create a plan
         if let Some(plan) = planner.plan(current_state, &goal, &action_set, &debug) {
+            let action_names: Vec<String> = plan.actions.iter().map(|a| a.name.clone()).collect();
+            let total_cost: f32 = plan.actions.iter().map(|a| a.cost).sum();
             debug.log(
                 DebugLevel::Info,
-                "GOAP",
-                &format!("Created plan with {} actions", plan.actions.len())
+                "GOAP_PLAN",
+                &format!("✓ Decision made: {} (Total cost: {:.1})",
+                    action_names.join(" → "),
+                    total_cost
+                )
             );
             
-            // Log the plan
+            // Log the plan details
             for (i, action) in plan.actions.iter().enumerate() {
                 debug.log(
                     DebugLevel::Debug,
-                    "GOAP",
-                    &format!("  {}. {}", i + 1, action.name)
+                    "GOAP_PLAN",
+                    &format!("  Step {}. {} (cost: {:.1})", i + 1, action.name, action.cost)
                 );
             }
             

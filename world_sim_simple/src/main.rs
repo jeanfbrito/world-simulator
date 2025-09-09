@@ -33,9 +33,9 @@ use plugin::{PluginManager, plugin_init_system};
 use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 use tilemap::TilemapPlugin;
 use resources::ResourcesPlugin;
-use buildings::BuildingsPlugin;
+use buildings::{BuildingsPlugin, BuildingComponent, BuildingType};
 use crafting::CraftingPlugin;
-use ai::{AIPlugin, WorkerAI};
+use ai::{AIPlugin, WorkerAI, goap_actions::{WorldState, StateValue}};
 use save_load::SaveLoadPlugin;
 use performance::PerformancePlugin;
 
@@ -199,7 +199,7 @@ pub struct SimulationState {
 impl Default for SimulationState {
     fn default() -> Self {
         Self {
-            running: false,
+            running: true,  // Start simulation running automatically
             tick: 0,
             speed: 1.0,
             accumulated_time: 0.0,
@@ -294,15 +294,226 @@ fn setup(mut commands: Commands) {
                 WorkerStats::default(),
                 // AI
                 WorkerAI::new(),
+                WorldState::new(),  // GOAP world state
                 // Inventory
                 create_starter_inventory(),
                 // Tile tracking
                 TileEntity { x, y },
-            )).id();
+            ))
+            .insert((
+                // GOAP states (initial values)
+                components::IsHungry(0.0),
+                components::HasEnergy(1.0),
+                components::IsWorking(false),
+                components::IsIdle(true),
+                components::HasWood(0),  // No initial wood, must gather
+                components::HasHouse(false),  // Worker starts without a house
+                components::HasFood(5),  // Start with some food to survive initially
+                components::HasStone(0),  // No initial stone, must gather
+                components::InventoryFull(false),
+                components::InventoryEmpty(false),  // Not empty since has food
+            ))
+            .insert((
+                // Location states
+                components::AtResource(false),
+                components::AtStorage(false),
+                components::AtHome(false),
+                components::AtCraftingStation(false),
+                // Building ownership and availability
+                components::HasHouse(false),  // Workers start without a house
+                components::StorageAvailable(true),  // We spawned stockpile
+                components::HouseAvailable(false),
+                components::WorkshopAvailable(false),
+                components::FarmAvailable(false),
+            ))
+            .insert({
+                let mut ws = WorldState::new();
+                // Initialize with current component values
+                ws.set("is_hungry", StateValue::Float(0.0));
+                ws.set("has_energy", StateValue::Float(1.0));
+                ws.set("has_wood", StateValue::Int(10));  // From inventory
+                ws.set("has_food", StateValue::Int(20));  // Berries from inventory  
+                ws.set("has_stone", StateValue::Int(5));  // From inventory
+                ws.set("has_house", StateValue::Bool(false));
+                ws.set("at_storage", StateValue::Bool(false));
+                ws.set("inventory_full", StateValue::Bool(false));
+                ws
+            })  // Add GOAP world state for planning with initial values
+            .id();
             
             // Log worker creation with component-based architecture
-            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats", 
+            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats, GOAP States", 
                 i + 1, x, y).green());
+        }
+    }
+    
+    // Spawn stockpile (for wood/stone storage) at center of map
+    {
+        let x = 32;
+        let y = 32;
+        let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+        let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+        
+        commands.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.5, 0.3, 0.1), // Brown for stockpile
+                    custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(world_x, world_y, 0.5),
+                ..default()
+            },
+            BuildingComponent::new(BuildingType::Stockpile, (x as i32, y as i32)),
+            NameComponent::new("Central Stockpile".to_string()),
+            PositionComponent::from_tile(x, y),
+            TileEntity { x, y },
+        ));
+        
+        // Mark it as complete (pre-built)
+        commands.spawn((
+            BuildingComponent {
+                building_type: BuildingType::Stockpile,
+                health: 200.0,
+                max_health: 200.0,
+                construction_progress: 1.0,
+                is_active: true,
+                position: (x as i32, y as i32),
+            },
+        ));
+        
+        println!("{}", format!("[SPAWN] Stockpile at ({}, {})", x, y).cyan());
+    }
+    
+    // Spawn granary (for food storage) near stockpile
+    {
+        let x = 35;
+        let y = 32;
+        let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+        let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+        
+        commands.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.7, 0.6, 0.2), // Yellow-brown for granary
+                    custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(world_x, world_y, 0.5),
+                ..default()
+            },
+            BuildingComponent::new(BuildingType::Granary, (x as i32, y as i32)),
+            NameComponent::new("Central Granary".to_string()),
+            PositionComponent::from_tile(x, y),
+            TileEntity { x, y },
+        ));
+        
+        // Mark it as complete (pre-built)
+        commands.spawn((
+            BuildingComponent {
+                building_type: BuildingType::Granary,
+                health: 200.0,
+                max_health: 200.0,
+                construction_progress: 1.0,
+                is_active: true,
+                position: (x as i32, y as i32),
+            },
+        ));
+        
+        println!("{}", format!("[SPAWN] Granary at ({}, {})", x, y).cyan());
+    }
+    
+    // Spawn trees as entities (for wood harvesting)
+    for _ in 0..15 {
+        let x = rng.gen_range(10..54);
+        let y = rng.gen_range(10..54);
+        
+        if world_map.tiles[y][x] == TileType::Grass {
+            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.18, 0.31, 0.09),  // Dark green for trees
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.8, TILE_SIZE * 0.8)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
+                    ..default()
+                },
+                NameComponent::new("Tree".to_string()),
+                PositionComponent::from_tile(x, y),
+                TileEntity { x, y },
+                ai::TreeTag,  // Marker for AI to find trees
+            ));
+            
+            println!("{}", format!("[SPAWN] Tree at ({}, {})", x, y).green());
+        }
+    }
+    
+    // Spawn rocks as entities (for stone harvesting)
+    for _ in 0..12 {
+        let x = rng.gen_range(10..54);
+        let y = rng.gen_range(10..54);
+        
+        if world_map.tiles[y][x] == TileType::Grass {
+            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.4, 0.4, 0.4),  // Gray for rocks
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.7, TILE_SIZE * 0.7)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
+                    ..default()
+                },
+                NameComponent::new("Rock".to_string()),
+                PositionComponent::from_tile(x, y),
+                TileEntity { x, y },
+                ai::RockTag,  // Marker for AI to find rocks
+            ));
+            
+            println!("{}", format!("[SPAWN] Rock at ({}, {})", x, y).bright_black());
+        }
+    }
+    
+    // Add some berry bushes as resources
+    for _ in 0..10 {
+        let x = rng.gen_range(15..49);
+        let y = rng.gen_range(15..49);
+        
+        if world_map.tiles[y][x] == TileType::Grass {
+            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+            
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.8, 0.1, 0.4),
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.5, TILE_SIZE * 0.5)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
+                    ..default()
+                },
+                NameComponent::new("Berry Bush".to_string()),
+                PositionComponent::from_tile(x, y),
+                components::ResourceNode {
+                    resource_type: resources::ResourceType::Berries,
+                    amount: 10,
+                    max_amount: 10,
+                    respawn_time: 30.0,
+                    time_since_depletion: 0.0,
+                },
+                TileEntity { x, y },
+                ai::BerryBushTag,  // Add marker for AI to find berries
+            ));
+            
+            println!("{}", format!("[SPAWN] Berry Bush at ({}, {})", x, y).magenta());
         }
     }
 }
@@ -314,6 +525,8 @@ fn ui_system(
     world_map: Res<WorldMap>,
     debug_system: Res<DebugSystem>,
     performance_metrics: Res<performance::PerformanceMetrics>,
+    settlement_state: Res<components::SettlementState>,
+    workers: Query<(&NameComponent, &components::IsHungry, &components::HasEnergy, &components::HasWood, &components::HasFood, &components::HasHouse), With<WorkerTag>>,
 ) {
     egui::SidePanel::left("controls").show(contexts.ctx_mut(), |ui| {
         ui.heading("World Simulator");
@@ -345,6 +558,37 @@ fn ui_system(
             ui.label(format!("Walkable: {}", world_map.tiles[y][x].is_walkable()));
         } else {
             ui.label("No tile selected");
+        }
+        
+        ui.separator();
+        ui.heading("Settlement Resources");
+        ui.label(format!("🪵 Wood: {}", settlement_state.wood_supply));
+        ui.label(format!("🪨 Stone: {}", settlement_state.stone_supply));
+        ui.label(format!("🍎 Food: {}", settlement_state.food_supply));
+        ui.label(format!("🏠 Buildings: {}", settlement_state.building_count));
+        
+        ui.separator();
+        ui.heading("Workers Status");
+        
+        for (name, hunger, energy, wood, food, has_house) in workers.iter() {
+            ui.collapsing(&name.display_name, |ui| {
+                ui.horizontal(|ui| {
+                    let hunger_color = if hunger.0 > 0.7 { egui::Color32::RED } 
+                                     else if hunger.0 > 0.4 { egui::Color32::YELLOW } 
+                                     else { egui::Color32::GREEN };
+                    ui.colored_label(hunger_color, format!("Hunger: {:.0}%", hunger.0 * 100.0));
+                });
+                
+                ui.horizontal(|ui| {
+                    let energy_color = if energy.0 < 0.3 { egui::Color32::RED }
+                                     else if energy.0 < 0.6 { egui::Color32::YELLOW }
+                                     else { egui::Color32::GREEN };
+                    ui.colored_label(energy_color, format!("Energy: {:.0}%", energy.0 * 100.0));
+                });
+                
+                ui.label(format!("Inventory: 🪵{} 🍎{}", wood.0, food.0));
+                ui.label(format!("House: {}", if has_house.0 { "✅" } else { "❌" }));
+            });
         }
         
         ui.separator();
@@ -480,27 +724,8 @@ fn simulation_system(
         sim_state.accumulated_time = 0.0;
         sim_state.tick += 1;
         
-        // Simple random movement for workers
-        let mut rng = rand::thread_rng();
-        for (mut transform, mut tile_entity) in workers.iter_mut() {
-            if rng.gen_bool(0.3) {
-                let dx = rng.gen_range(-1..=1);
-                let dy = rng.gen_range(-1..=1);
-                
-                let new_x = (tile_entity.x as i32 + dx).max(0).min(MAP_SIZE as i32 - 1) as usize;
-                let new_y = (tile_entity.y as i32 + dy).max(0).min(MAP_SIZE as i32 - 1) as usize;
-                
-                if world_map.tiles[new_y][new_x].is_walkable() {
-                    tile_entity.x = new_x;
-                    tile_entity.y = new_y;
-                    
-                    let world_x = (new_x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-                    let world_y = (new_y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-                    transform.translation.x = world_x;
-                    transform.translation.y = world_y;
-                }
-            }
-        }
+        // Movement is now handled by the AI task execution system
+        // Workers will move according to their GOAP plans
     }
 }
 

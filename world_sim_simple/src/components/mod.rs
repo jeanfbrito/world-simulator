@@ -7,6 +7,7 @@ pub mod name;
 pub mod energy;
 pub mod worker;
 pub mod goap_states;
+pub mod resource;
 
 pub use position::PositionComponent;
 pub use health::HealthComponent;
@@ -14,6 +15,7 @@ pub use name::NameComponent;
 pub use energy::EnergyComponent;
 pub use worker::{WorkerTag, WorkerStats};
 pub use goap_states::*;
+pub use resource::ResourceNode;
 
 /// Plugin to register all components
 pub struct ComponentsPlugin;

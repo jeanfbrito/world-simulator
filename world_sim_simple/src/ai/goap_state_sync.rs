@@ -3,6 +3,7 @@ use crate::components::*;
 use crate::resources::{Inventory, ItemType};
 use crate::buildings::{BuildingComponent, BuildingType};
 use crate::debug::DebugSystem;
+use crate::ai::goap_actions::{WorldState, StateValue};
 
 /// System to synchronize worker states with GOAP states
 pub fn sync_goap_states_system(
@@ -22,7 +23,9 @@ pub fn sync_goap_states_system(
         Option<&mut HasStone>,
         Option<&mut InventoryFull>,
         Option<&mut InventoryEmpty>,
+        Option<&mut HasHouse>,
     ), With<WorkerTag>>,
+    mut world_states: Query<&mut WorldState>,
     buildings: Query<(&BuildingComponent, &PositionComponent)>,
     debug_system: Res<DebugSystem>,
     mut settlement_state: ResMut<SettlementState>,
@@ -45,25 +48,32 @@ pub fn sync_goap_states_system(
     for (entity, pos, energy, stats, inventory, 
          mut is_hungry, mut has_energy, mut is_working, mut is_idle,
          mut has_wood, mut has_food, mut has_stone,
-         mut inventory_full, mut inventory_empty) in workers.iter_mut() {
+         mut inventory_full, mut inventory_empty, mut has_house) in workers.iter_mut() {
         
         population += 1;
         
-        // Calculate hunger based on energy (simplified for now)
-        let hunger_level = 1.0 - (energy.current as f64 / 100.0);
-        
-        // Update or insert basic states
-        if let Some(mut hungry) = is_hungry {
-            hungry.update(hunger_level);
-        } else {
-            commands.entity(entity).insert(IsHungry(hunger_level));
+        // Don't overwrite GOAP states - they're managed by update_needs_system
+        // Just ensure they exist with initial values if missing
+        if is_hungry.is_none() {
+            commands.entity(entity).insert(IsHungry(0.0));
         }
         
-        if let Some(mut energy_state) = has_energy {
-            energy_state.update(energy.current as f64 / 100.0);
-        } else {
-            commands.entity(entity).insert(HasEnergy(energy.current as f64 / 100.0));
+        if has_energy.is_none() {
+            commands.entity(entity).insert(HasEnergy(1.0));
         }
+        
+        // Read current hunger/energy for logging
+        let hunger_level = if let Some(ref hungry) = is_hungry { 
+            hungry.0 
+        } else { 
+            0.0 
+        };
+        
+        let energy_level = if let Some(ref energy_state) = has_energy { 
+            energy_state.0 
+        } else { 
+            1.0 
+        };
         
         // Update work states (simplified - check if has energy)
         let working = energy.current > 30.0;
@@ -80,10 +90,14 @@ pub fn sync_goap_states_system(
         }
         
         // Update inventory states (count items by type)
+        let mut wood_count = 0u32;
+        let mut food_count = 0u32;
+        let mut stone_count = 0u32;
+        let mut is_full = false;
+        let mut is_empty = true;
+        
         if let Some(inv) = inventory {
-            let mut wood_count = 0u32;
-            let mut food_count = 0u32;
-            let mut stone_count = 0u32;
+            // If worker has inventory system, count items from inventory
             let mut total_items = 0u32;
             
             for slot in &inv.slots {
@@ -94,8 +108,8 @@ pub fn sync_goap_states_system(
                             // Count resources based on name (simplified)
                             if stack.item.name.contains("Wood") {
                                 wood_count += stack.count;
-                            } else if stack.item.name.contains("Food") {
-                                food_count += stack.count;
+                            } else if stack.item.name.contains("Food") || stack.item.name.contains("Berries") {
+                                food_count += stack.count;  // Berries count as food
                             } else if stack.item.name.contains("Stone") {
                                 stone_count += stack.count;
                             }
@@ -105,6 +119,7 @@ pub fn sync_goap_states_system(
                 }
             }
             
+            // Update component states with inventory counts
             if let Some(mut wood_state) = has_wood {
                 wood_state.0 = wood_count;
             } else {
@@ -123,26 +138,49 @@ pub fn sync_goap_states_system(
                 commands.entity(entity).insert(HasStone(stone_count));
             }
             
-            let is_full = inv.slots.iter().all(|s| !s.is_empty());
-            let is_empty = total_items == 0;
+            is_full = inv.slots.iter().all(|s| !s.is_empty());
+            is_empty = total_items == 0;
+        } else {
+            // No inventory system - use the simple component values directly
+            // Don't overwrite existing values, they're managed by task_executor
+            wood_count = has_wood.as_ref().map_or(0, |w| w.0);
+            food_count = has_food.as_ref().map_or(0, |f| f.0);
+            stone_count = has_stone.as_ref().map_or(0, |s| s.0);
             
-            if let Some(mut full_state) = inventory_full {
-                full_state.0 = is_full;
-            } else {
-                commands.entity(entity).insert(InventoryFull(is_full));
+            // Ensure components exist with current values
+            if has_wood.is_none() {
+                commands.entity(entity).insert(HasWood(wood_count));
+            }
+            if has_food.is_none() {
+                commands.entity(entity).insert(HasFood(food_count));
+            }
+            if has_stone.is_none() {
+                commands.entity(entity).insert(HasStone(stone_count));
             }
             
-            if let Some(mut empty_state) = inventory_empty {
-                empty_state.0 = is_empty;
-            } else {
-                commands.entity(entity).insert(InventoryEmpty(is_empty));
-            }
-            
-            // Add to total resources
-            total_food += food_count;
-            total_wood += wood_count;
-            total_stone += stone_count;
+            // Simple heuristic for full/empty
+            let total = wood_count + food_count + stone_count;
+            is_full = total >= 30;  // Arbitrary max capacity
+            is_empty = total == 0;
         }
+        
+        // Update inventory full/empty states
+        if let Some(mut full_state) = inventory_full {
+            full_state.0 = is_full;
+        } else {
+            commands.entity(entity).insert(InventoryFull(is_full));
+        }
+        
+        if let Some(mut empty_state) = inventory_empty {
+            empty_state.0 = is_empty;
+        } else {
+            commands.entity(entity).insert(InventoryEmpty(is_empty));
+        }
+        
+        // Add to total resources
+        total_food += food_count;
+        total_wood += wood_count;
+        total_stone += stone_count;
         
         // Check location states
         let near_distance = 2.0;
@@ -170,13 +208,45 @@ pub fn sync_goap_states_system(
             .insert(AtHome(at_home))
             .insert(AtCraftingStation(at_crafting));
         
+        // Update WorldState component with current states
+        if let Ok(mut ws) = world_states.get_mut(entity) {
+            ws.set("is_hungry", StateValue::Float(hunger_level));
+            ws.set("has_energy", StateValue::Float(energy_level));
+            ws.set("is_working", StateValue::Bool(working));
+            ws.set("has_wood", StateValue::Int(wood_count));
+            ws.set("has_food", StateValue::Int(food_count));
+            ws.set("has_stone", StateValue::Int(stone_count));
+            ws.set("at_resource", StateValue::Bool(at_resource));
+            ws.set("at_storage", StateValue::Bool(at_storage));
+            ws.set("inventory_full", StateValue::Bool(is_full));
+            ws.set("has_house", StateValue::Bool(has_house.as_ref().map_or(false, |h| h.0)));
+        } else {
+            // Create new WorldState if missing
+            let mut ws = WorldState::new();
+            ws.set("is_hungry", StateValue::Float(hunger_level));
+            ws.set("has_energy", StateValue::Float(energy_level));
+            ws.set("is_working", StateValue::Bool(working));
+            ws.set("has_wood", StateValue::Int(wood_count));
+            ws.set("has_food", StateValue::Int(food_count));
+            ws.set("has_stone", StateValue::Int(stone_count));
+            ws.set("at_resource", StateValue::Bool(at_resource));
+            ws.set("at_storage", StateValue::Bool(at_storage));
+            ws.set("inventory_full", StateValue::Bool(is_full));
+            ws.set("has_house", StateValue::Bool(has_house.as_ref().map_or(false, |h| h.0)));
+            commands.entity(entity).insert(ws);
+        }
+        
         // Log state changes for first worker (for debugging)
         if population == 1 {
             debug_system.log(
-                crate::debug::DebugLevel::Debug,
-                "GOAP",
-                &format!("Worker states - Hungry: {:.1}, Energy: {:.1}, Working: {}", 
-                    hunger_level, energy.current as f64 / 100.0, working)
+                crate::debug::DebugLevel::Info,
+                "WORKER_STATE",
+                &format!("Worker 1 - Hunger: {:.0}%, Energy: {:.0}%, Wood: {}, Food: {}, Working: {}", 
+                    hunger_level * 100.0, 
+                    energy_level * 100.0, 
+                    wood_count,
+                    food_count,
+                    if working { "✓" } else { "✗" })
             );
         }
     }
@@ -195,7 +265,7 @@ pub fn sync_goap_states_system(
     let has_farm = buildings.iter().any(|(b, _)| b.building_type == BuildingType::Farm);
     
     // Update all workers with building availability
-    for (entity, _, _, _, _, _, _, _, _, _, _, _, _, _) in workers.iter_mut() {
+    for (entity, _, _, _, _, _, _, _, _, _, _, _, _, _, _) in workers.iter_mut() {
         commands.entity(entity)
             .insert(StorageAvailable(has_storage))
             .insert(HouseAvailable(has_house))

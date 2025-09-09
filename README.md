@@ -18,6 +18,12 @@ A pure headless simulation engine for medieval economy and fortress games, built
 git clone https://github.com/jeanfbrito/world-simulator.git
 cd world-simulator
 
+# Run the simple simulation with GUI and GOAP AI
+cargo run -p world_sim_simple
+
+# Run with debug output to see AI decisions
+RUST_LOG=info cargo run -p world_sim_simple
+
 # Run headless simulation (no graphics)
 cargo run --example headless
 

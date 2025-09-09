@@ -87,7 +87,24 @@ impl WorldState {
     /// Apply the effects of an action to this world state
     pub fn apply_action(&mut self, action: &GoapAction) {
         for (key, value) in &action.effects {
-            self.states.insert(key.clone(), value.clone());
+            // For resource counts (has_wood, has_stone, has_food), add to existing value
+            if key.starts_with("has_") {
+                if let StateValue::Int(add_amount) = value {
+                    if let Some(StateValue::Int(current)) = self.states.get(key) {
+                        // Add to existing amount
+                        self.states.insert(key.clone(), StateValue::Int(current + add_amount));
+                    } else {
+                        // Set initial amount
+                        self.states.insert(key.clone(), value.clone());
+                    }
+                } else {
+                    // Non-int resource or other state, just set it
+                    self.states.insert(key.clone(), value.clone());
+                }
+            } else {
+                // For non-resource states, just set the value
+                self.states.insert(key.clone(), value.clone());
+            }
         }
     }
     
@@ -104,11 +121,12 @@ impl WorldState {
             Option<&AtResource>,
             Option<&AtStorage>,
             Option<&InventoryFull>,
+            Option<&HasHouse>,
         )>,
     ) -> Self {
         let mut state = WorldState::new();
         
-        if let Ok((hungry, energy, working, wood, food, stone, at_resource, at_storage, inv_full)) = query.get(entity) {
+        if let Ok((hungry, energy, working, wood, food, stone, at_resource, at_storage, inv_full, has_house)) = query.get(entity) {
             if let Some(h) = hungry {
                 state.set("is_hungry", StateValue::Float(h.0));
             }
@@ -136,6 +154,9 @@ impl WorldState {
             if let Some(if_) = inv_full {
                 state.set("inventory_full", StateValue::Bool(if_.0));
             }
+            if let Some(hh) = has_house {
+                state.set("has_house", StateValue::Bool(hh.0));
+            }
         }
         
         state
@@ -155,6 +176,14 @@ impl Default for ActionSet {
 }
 
 impl ActionSet {
+    /// Get all actions that are valid for the given world state
+    pub fn get_valid_actions(&self, state: &WorldState) -> Vec<&GoapAction> {
+        self.actions
+            .iter()
+            .filter(|action| action.is_valid(state))
+            .collect()
+    }
+    
     pub fn new() -> Self {
         let mut actions = Vec::new();
         
@@ -200,15 +229,66 @@ impl ActionSet {
                 .with_effect("has_energy", StateValue::Float(1.0))
         );
         
-        // Rest action
+        // Rest action (when energy is low)
         actions.push(
             GoapAction::new("rest", 0.1)
-                .with_precondition("has_energy", StateValue::Float(0.0))
-                .with_effect("has_energy", StateValue::Float(0.5))
+                .with_precondition("has_energy", StateValue::Float(0.5)) // Can rest when below 50% energy
+                .with_effect("has_energy", StateValue::Float(1.0)) // Restores to full energy
                 .with_effect("is_working", StateValue::Bool(false))
         );
         
-        // Build structure action
+        // Gather food action (find berry bushes)
+        actions.push(
+            GoapAction::new("gather_food", 1.5)
+                .with_precondition("has_energy", StateValue::Float(0.3)) // Need some energy to gather
+                .with_precondition("has_food", StateValue::Int(0)) // Only gather if we don't have food
+                .with_effect("has_food", StateValue::Int(3)) // Gather 3 food items
+        );
+        
+        // Cut wood from trees (when need more wood)
+        actions.push(
+            GoapAction::new("cut_wood", 2.5)
+                .with_precondition("has_energy", StateValue::Float(0.4))
+                // No wood precondition - can cut wood anytime
+                .with_effect("has_wood", StateValue::Int(10))
+        );
+        
+        // Build house action
+        actions.push(
+            GoapAction::new("build_house", 8.0)
+                .with_precondition("has_wood", StateValue::Int(15)) // Need 15 wood for house
+                .with_precondition("has_stone", StateValue::Int(10)) // Need 10 stone for house
+                .with_precondition("has_energy", StateValue::Float(0.5))
+                .with_effect("has_house", StateValue::Bool(true))
+                .with_effect("has_wood", StateValue::Int(0))
+                .with_effect("has_stone", StateValue::Int(0))
+        );
+        
+        // Get wood from stockpile
+        actions.push(
+            GoapAction::new("get_wood_from_stockpile", 1.0)
+                .with_precondition("at_storage", StateValue::Bool(true))
+                .with_precondition("has_wood", StateValue::Int(0))
+                .with_effect("has_wood", StateValue::Int(15))
+        );
+        
+        // Get stone from stockpile  
+        actions.push(
+            GoapAction::new("get_stone_from_stockpile", 1.0)
+                .with_precondition("at_storage", StateValue::Bool(true))
+                .with_precondition("has_stone", StateValue::Int(0))
+                .with_effect("has_stone", StateValue::Int(10))
+        );
+        
+        // Quarry stone (when need more stone)
+        actions.push(
+            GoapAction::new("quarry_stone", 3.0)
+                .with_precondition("has_energy", StateValue::Float(0.4))
+                // No stone precondition - can quarry stone anytime
+                .with_effect("has_stone", StateValue::Int(10))
+        );
+        
+        // Build structure action (generic for other buildings)
         actions.push(
             GoapAction::new("build_structure", 5.0)
                 .with_precondition("has_wood", StateValue::Int(10))
@@ -219,14 +299,6 @@ impl ActionSet {
         );
         
         Self { actions }
-    }
-    
-    /// Get all valid actions for the current world state
-    pub fn get_valid_actions(&self, world_state: &WorldState) -> Vec<&GoapAction> {
-        self.actions
-            .iter()
-            .filter(|action| action.is_valid(world_state))
-            .collect()
     }
 }
 

@@ -45,6 +45,9 @@ pub struct InventoryEmpty(pub bool);
 
 // Building availability states
 #[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct HasHouse(pub bool);
+
+#[derive(Component, Clone, Debug, Default, Reflect)]
 pub struct HouseAvailable(pub bool);
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
@@ -92,6 +95,7 @@ pub fn register_goap_states(app: &mut App) {
         .register_type::<HasStone>()
         .register_type::<InventoryFull>()
         .register_type::<InventoryEmpty>()
+        .register_type::<HasHouse>()
         .register_type::<HouseAvailable>()
         .register_type::<StorageAvailable>()
         .register_type::<FarmAvailable>()

@@ -4,6 +4,8 @@ mod pathfinding;
 mod goap_state_sync;
 pub mod goap_actions;
 pub mod goap_planner;
+mod goap_bridge;
+mod task_executor;
 
 pub use behaviors::{AIBehavior, BehaviorState, WorkerAI};
 pub use task_system::{TaskSystem, Task, TaskType, TaskPriority, TaskStatus};
@@ -11,9 +13,17 @@ pub use pathfinding::{find_path, Path};
 pub use goap_state_sync::sync_goap_states_system;
 pub use goap_actions::{GoapAction, WorldState, StateValue, ActionSet, ActionPlan};
 pub use goap_planner::{GoapPlanner, goap_planning_system, goap_execution_system};
+pub use goap_bridge::{goap_to_task_bridge_system, update_needs_system};
+pub use task_executor::{task_execution_system, TreeTag, RockTag, BerryBushTag};
 
 use bevy::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};
+use crate::SimulationState;
+
+/// Run condition to check if simulation is running
+fn simulation_running(sim_state: Res<SimulationState>) -> bool {
+    sim_state.running
+}
 
 pub struct AIPlugin;
 
@@ -26,15 +36,18 @@ impl Plugin for AIPlugin {
             .add_systems(Update, (
                 // Task assignment must run first
                 task_assignment_system,
-            ))
+            ).run_if(simulation_running))
             .add_systems(Update, (
                 // These can run in parallel as they work on different components
                 worker_ai_update_system,
                 pathfinding_update_system,
-                sync_goap_states_system, // Sync GOAP states with worker conditions
-                // goap_planning_system,    // Create GOAP plans (disabled for now)
-                // goap_execution_system,   // Execute GOAP plans (disabled for now)
-            ));
+                sync_goap_states_system,    // Sync GOAP states with worker conditions
+                update_needs_system,        // Update hunger/energy over time
+                goap_planning_system,       // Create GOAP plans
+                goap_execution_system,      // Execute GOAP plans
+                goap_to_task_bridge_system, // Bridge GOAP to tasks
+                task_execution_system,      // Execute tasks with actual movement
+            ).run_if(simulation_running));
     }
 }
 

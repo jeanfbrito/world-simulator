@@ -8,6 +8,8 @@ pub enum BuildingType {
     // Storage
     Storage,
     Warehouse,
+    Stockpile,  // For wood, stone, and other raw materials
+    Granary,    // For food storage
     
     // Production
     Lumbermill,
@@ -35,6 +37,8 @@ impl BuildingType {
         match self {
             Self::Storage => "Storage",
             Self::Warehouse => "Warehouse",
+            Self::Stockpile => "Stockpile",
+            Self::Granary => "Granary",
             Self::Lumbermill => "Lumbermill",
             Self::Quarry => "Quarry",
             Self::Mine => "Mine",
@@ -55,6 +59,8 @@ impl BuildingType {
             Self::Storage => BuildingSize::Small,
             Self::House => BuildingSize::Small,
             Self::WallSection => BuildingSize::Small,
+            Self::Stockpile => BuildingSize::Medium,
+            Self::Granary => BuildingSize::Medium,
             
             Self::Lumbermill | Self::Quarry | Self::Kitchen => BuildingSize::Medium,
             Self::Workshop | Self::Farm => BuildingSize::Medium,
@@ -70,6 +76,14 @@ impl BuildingType {
         match self {
             Self::Storage => {
                 resources.insert(ResourceType::Wood, 20);
+                resources.insert(ResourceType::Stone, 10);
+            },
+            Self::Stockpile => {
+                resources.insert(ResourceType::Wood, 10);
+                resources.insert(ResourceType::Stone, 5);
+            },
+            Self::Granary => {
+                resources.insert(ResourceType::Wood, 15);
                 resources.insert(ResourceType::Stone, 10);
             },
             Self::Warehouse => {
