@@ -227,28 +227,64 @@ RUST_LOG=debug cargo run  # Run with debug
 
 ### Build Strategies
 
-1. **Use background builds** - Continue working while compiling:
+**CRITICAL: Don't let long compilation block your work!**
+
+1. **ALWAYS use background builds** - Continue working while compiling:
    ```bash
-   cargo build -p world_sim_simple &  # Run in background
-   # Continue editing other files
+   cargo build -p world_sim_simple 2>&1 &  # Run in background
+   # or use run_in_background: true with Bash tool
+   
+   # Then immediately continue with other tasks:
+   # - Write documentation
+   # - Plan next features
+   # - Refactor other files
+   # - Research solutions
    ```
 
-2. **Check syntax quickly**:
+2. **Monitor compilation without blocking**:
    ```bash
-   cargo check  # Faster than full build, catches most errors
+   # Use BashOutput tool to check progress periodically
+   # Look for "Compiling" messages - means it's working
+   # No output for 30+ seconds is still normal for Bevy
    ```
 
-3. **Build specific package**:
+3. **Parallel workflow pattern**:
    ```bash
-   cargo build -p world_sim_simple  # Don't rebuild entire workspace
+   # START: Launch build in background
+   cargo build --release 2>&1 &
+   
+   # WORK: Continue with non-dependent tasks
+   # - Implement next feature in different module
+   # - Update documentation
+   # - Write tests
+   # - Fix issues in other files
+   
+   # CHECK: Periodically verify build progress (every 5-10 min)
+   # - Use BashOutput to see compilation messages
+   # - If seeing "Compiling crate_name", it's working
+   # - If seeing repeated errors, fix and restart
    ```
 
-4. **Monitor build progress**:
+4. **Signs build is actually stuck** (rare):
    ```bash
-   # Check if cargo is still working (not stuck)
+   # Check CPU usage - should be high if compiling
    ps aux | grep cargo
-   # Watch for "Compiling" messages
+   # No CPU usage + no output for 10+ minutes = possibly stuck
+   # Safe to kill and restart if truly stuck
    ```
+
+### Productive During Compilation
+
+While Rust compiles (5-15 minutes is normal!), you can:
+- ✅ Implement features in other modules
+- ✅ Write or update documentation
+- ✅ Plan architecture for next components
+- ✅ Research algorithms or patterns
+- ✅ Review and refactor existing code
+- ✅ Create or update tests
+- ✅ Fix linting warnings in other files
+
+Never just wait for compilation - always have parallel work ready!
 
 ### Common Build Issues and Solutions
 
