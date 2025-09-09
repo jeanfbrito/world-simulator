@@ -2,11 +2,15 @@ mod behaviors;
 mod task_system;
 mod pathfinding;
 mod goap_state_sync;
+pub mod goap_actions;
+pub mod goap_planner;
 
 pub use behaviors::{AIBehavior, BehaviorState, WorkerAI};
 pub use task_system::{TaskSystem, Task, TaskType, TaskPriority, TaskStatus};
 pub use pathfinding::{find_path, Path};
 pub use goap_state_sync::sync_goap_states_system;
+pub use goap_actions::{GoapAction, WorldState, StateValue, ActionSet, ActionPlan};
+pub use goap_planner::{GoapPlanner, goap_planning_system, goap_execution_system};
 
 use bevy::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};
@@ -17,6 +21,7 @@ impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TaskSystem>()
             .insert_resource(crate::components::SettlementState::default())
+            .insert_resource(ActionSet::default())
             .add_systems(Startup, ai_init_system)
             .add_systems(Update, (
                 // Task assignment must run first
@@ -27,6 +32,8 @@ impl Plugin for AIPlugin {
                 worker_ai_update_system,
                 pathfinding_update_system,
                 sync_goap_states_system, // Sync GOAP states with worker conditions
+                // goap_planning_system,    // Create GOAP plans (disabled for now)
+                // goap_execution_system,   // Execute GOAP plans (disabled for now)
             ));
     }
 }
