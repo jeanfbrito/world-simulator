@@ -1,9 +1,8 @@
 //! Building definition loader from Lua scripts
 
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use bevy_mod_scripting::prelude::*;
 use bevy_mod_scripting_lua::prelude::*;
-use bevy_reflect::Reflect;
 use std::collections::HashMap;
 use world_sim_interface::BuildingType;
 

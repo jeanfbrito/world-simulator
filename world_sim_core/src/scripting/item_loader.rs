@@ -1,9 +1,8 @@
 //! Item definition loader from Lua scripts
 
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use bevy_mod_scripting::prelude::*;
 use bevy_mod_scripting_lua::prelude::*;
-use bevy_reflect::Reflect;
 use std::collections::HashMap;
 use world_sim_interface::ResourceType;
 
@@ -265,11 +264,11 @@ impl DecayComponent {
 /// System to update item decay
 pub fn update_item_decay(
     mut items: Query<(&mut DecayComponent, Entity)>,
-    time: Res<bevy_time::Time>,
+    time: Res<Time>,
     mut commands: Commands,
 ) {
     for (mut decay, entity) in items.iter_mut() {
-        decay.update(time.delta_secs());
+        decay.update(time.delta_seconds());
         
         if decay.spoiled {
             // Mark item as spoiled or remove it

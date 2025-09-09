@@ -6,6 +6,7 @@ pub mod ai_scripts;
 pub mod commands;
 pub mod item_loader;
 pub mod building_loader;
+pub mod material_loader;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
@@ -28,11 +29,13 @@ impl Plugin for ScriptingPlugin {
         app.add_event::<recipe_loader::ReloadRecipeScriptsCommand>()
            .add_event::<ai_scripts::ReloadAIScriptsCommand>()
            .add_event::<item_loader::ReloadItemScriptsCommand>()
-           .add_event::<building_loader::ReloadBuildingScriptsCommand>();
+           .add_event::<building_loader::ReloadBuildingScriptsCommand>()
+           .add_event::<material_loader::ReloadMaterialScriptsCommand>();
         
         // Initialize registries
         app.init_resource::<item_loader::ItemRegistry>()
-           .init_resource::<building_loader::BuildingRegistry>();
+           .init_resource::<building_loader::BuildingRegistry>()
+           .init_resource::<material_loader::MaterialRegistry>();
         
         // Add script loading systems (triggered by commands)
         app.add_systems(Update, (
@@ -40,6 +43,7 @@ impl Plugin for ScriptingPlugin {
             ai_scripts::load_ai_scripts,
             item_loader::load_item_scripts,
             building_loader::load_building_scripts,
+            material_loader::load_material_scripts,
         ));
         
         // Add script processing systems
@@ -48,6 +52,7 @@ impl Plugin for ScriptingPlugin {
             ai_scripts::process_ai_scripts,
             item_loader::process_item_scripts,
             building_loader::process_building_scripts,
+            material_loader::process_material_scripts,
             lua_api::apply_lua_recipe_modifiers,
             lua_api::apply_lua_worker_modifiers,
             lua_api::apply_lua_ai_modifiers,
@@ -58,6 +63,8 @@ impl Plugin for ScriptingPlugin {
             item_loader::update_item_decay,
             building_loader::update_building_maintenance,
             building_loader::construction_system,
+            material_loader::update_material_states,
+            material_loader::material_reaction_system,
         ));
         
         // Register script events
