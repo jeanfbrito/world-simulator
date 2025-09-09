@@ -4,6 +4,7 @@
 //! It uses Bevy ECS for entity management and emits events for visualization.
 
 pub mod ai;
+pub mod asset_manager;
 pub mod components;
 pub mod engine;
 pub mod plugin;

@@ -1,0 +1,79 @@
+# Dwarf Fortress Pack Configuration
+
+[pack]
+name = "Dwarf Fortress Classic"
+version = "1.0.0"
+author = "World Simulator Team"
+description = "Deep colony simulation with complex crafting, inspired by Dwarf Fortress"
+icon = "icon.png"
+
+[features]
+# Core simulation features
+z_levels = true                    # Vertical layers for mining and construction
+temperature_simulation = true      # Heat/cold affects materials and creatures
+fluid_dynamics = true             # Water and magma flow simulation
+weather_system = true              # Rain, snow, storms affect gameplay
+seasons = true                     # Spring, summer, autumn, winter cycles
+
+# Gameplay features
+complex_crafting = true            # Multi-tier workshop system
+material_properties = true         # Detailed material physics
+moods_and_artifacts = true        # Strange moods create legendary items
+nobles_and_mandates = true        # Political system with demands
+military_squads = true            # Organized military with training
+trade_caravans = true             # Seasonal trading opportunities
+megabeasts = true                 # Dragons, titans, forgotten beasts
+cavern_layers = true              # Underground ecosystems
+adamantine = true                 # Legendary material with risks
+
+[balance]
+# Starting conditions
+starting_population = 7
+starting_supplies = 100
+embark_points = 1000
+map_size = [256, 256, 50]         # x, y, z dimensions
+
+# Difficulty settings
+difficulty = "normal"
+hostile_wildlife = true
+siege_frequency = "seasonal"
+disaster_chance = 0.1
+starvation_enabled = true
+disease_enabled = true
+
+# Economy
+base_trade_multiplier = 1.0
+value_calculation = "complex"      # Uses material, quality, and decoration
+wealth_attracts_danger = true
+
+[world_generation]
+# Biome distribution
+biome_types = ["forest", "mountain", "desert", "tundra", "swamp", "ocean"]
+cave_density = 0.3
+ore_distribution = "realistic"
+aquifer_chance = 0.2
+volcano_chance = 0.05
+river_frequency = 0.4
+
+# History generation
+years_of_history = 250
+civilizations = ["dwarves", "elves", "humans", "goblins"]
+forgotten_beasts_count = 50
+artifact_count = 100
+
+[performance]
+# Optimization settings
+max_pathfinding_distance = 100
+update_rate = 20                  # Updates per second
+temperature_update_rate = 1       # Updates per second
+fluid_update_rate = 5            # Updates per second
+ai_lod_enabled = true            # Level of detail for distant NPCs
+chunk_loading = true             # Load/unload distant areas
+
+[ui]
+# Interface preferences
+default_view = "isometric"
+zoom_levels = [0.5, 1.0, 2.0, 4.0]
+show_temperature_overlay = false
+show_traffic_overlay = false
+auto_pause_on_danger = true

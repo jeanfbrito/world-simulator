@@ -4,6 +4,8 @@ use bevy::prelude::*;
 use bevy_mod_scripting::prelude::*;
 use bevy_mod_scripting_lua::prelude::*;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use world_sim_interface::ResourceType;
 
 /// Component to mark entities with item scripts
@@ -89,15 +91,26 @@ pub fn load_item_scripts(
         commands.entity(entity).despawn();
     }
     
-    // Load item definition scripts
-    let item_scripts = vec![
+    // Scan for all Lua files in the items directory
+    let item_scripts = scan_for_lua_files("assets/scripts/items");
+    
+    // Also support legacy single files if they exist
+    let legacy_scripts = vec![
         "scripts/items/resources.lua",
         "scripts/items/tools.lua",
         "scripts/items/consumables.lua",
         "scripts/items/rare_items.lua",
     ];
     
-    for script_path in item_scripts {
+    // Load all discovered scripts
+    let mut all_scripts = item_scripts;
+    for legacy in legacy_scripts {
+        if Path::new(&format!("assets/{}", legacy)).exists() {
+            all_scripts.push(legacy.to_string());
+        }
+    }
+    
+    for script_path in all_scripts {
         commands.spawn((
             ItemScript {
                 script_path: script_path.to_string(),
@@ -108,6 +121,41 @@ pub fn load_item_scripts(
         
         tracing::info!("Loading item script: {}", script_path);
     }
+}
+
+/// Recursively scan directory for Lua files
+fn scan_for_lua_files(dir: &str) -> Vec<String> {
+    let mut scripts = Vec::new();
+    
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            
+            if path.is_dir() {
+                // Recursively scan subdirectories
+                let subdir_scripts = scan_for_lua_files(path.to_str().unwrap_or(""));
+                scripts.extend(subdir_scripts);
+            } else if path.extension().and_then(|s| s.to_str()) == Some("lua") {
+                // Skip files starting with underscore (utilities/constants)
+                let file_name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                    
+                if !file_name.starts_with('_') {
+                    // Convert absolute path to relative script path
+                    let script_path = path.strip_prefix("assets/")
+                        .unwrap_or(&path)
+                        .to_str()
+                        .unwrap_or("")
+                        .to_string();
+                    
+                    scripts.push(script_path);
+                }
+            }
+        }
+    }
+    
+    scripts
 }
 
 /// System to process loaded item scripts

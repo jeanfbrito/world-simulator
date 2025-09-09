@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 # Bevy ECS - NO DefaultPlugins!
+bevy = { version = "0.14", default-features = false, features = ["bevy_asset"] }
 bevy_ecs = { workspace = true }
 bevy_app = { workspace = true }
 bevy_reflect = "0.14"
@@ -26,6 +27,7 @@ world_sim_interface = { path = "../world_sim_interface" }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = "0.8"
 
 # Error handling
 anyhow = { workspace = true }
