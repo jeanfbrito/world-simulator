@@ -22,6 +22,10 @@ pub enum ClientMessage {
     GenerateMap { map_type: String },
     RequestState,
     Ping,
+    // Debug messages
+    DebugGetSystemInfo,
+    DebugGetComponents,
+    DebugValidateState,
 }
 
 // Messages from server to client
@@ -34,6 +38,9 @@ pub enum ServerMessage {
     EntityUpdate { entities: Vec<EntityData> },
     TickUpdate { tick: u32 },
     Error { message: String },
+    // Debug responses
+    DebugInfo { info: serde_json::Value },
+    ValidationResult { valid: bool, details: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +230,7 @@ fn process_client_messages(
     mut sim_state: ResMut<crate::SimulationState>,
     mut world_map: ResMut<crate::WorldMap>,
     mut commands: Commands,
+    connections: Res<WebSocketConnections>,
 ) {
     let mut messages = message_queue.messages.lock().unwrap();
     
@@ -245,6 +253,50 @@ fn process_client_messages(
             ClientMessage::RequestState => {
                 // Trigger immediate state broadcast
                 sim_state.set_changed();
+            }
+            ClientMessage::DebugGetSystemInfo => {
+                let info = serde_json::json!({
+                    "tick": sim_state.tick,
+                    "running": sim_state.running,
+                    "speed": sim_state.speed,
+                    "map_size": crate::MAP_SIZE,
+                    "worker_count": 5, // TODO: Query actual count
+                });
+                let msg = ServerMessage::DebugInfo { info };
+                let _ = connections.sender.send(msg);
+            }
+            ClientMessage::DebugGetComponents => {
+                // Will be expanded as we add components
+                let info = serde_json::json!({
+                    "components": ["Worker", "TileEntity", "WorldMap"],
+                    "systems": ["simulation_system", "render_map_system", "ui_system"],
+                });
+                let msg = ServerMessage::DebugInfo { info };
+                let _ = connections.sender.send(msg);
+            }
+            ClientMessage::DebugValidateState => {
+                // Validate system state
+                let mut valid = true;
+                let mut details = Vec::new();
+                
+                if world_map.tiles.len() != crate::MAP_SIZE {
+                    valid = false;
+                    details.push("Invalid map height");
+                }
+                
+                for row in world_map.tiles.iter() {
+                    if row.len() != crate::MAP_SIZE {
+                        valid = false;
+                        details.push("Invalid map width");
+                        break;
+                    }
+                }
+                
+                let msg = ServerMessage::ValidationResult {
+                    valid,
+                    details: details.join(", "),
+                };
+                let _ = connections.sender.send(msg);
             }
             _ => {}
         }

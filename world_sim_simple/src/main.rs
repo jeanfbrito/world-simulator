@@ -3,14 +3,28 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use rand::Rng;
+use colored::Colorize;
 
 mod websocket;
+mod simulation;
+mod debug;
+mod debug_cli;
+mod components;
+
 use websocket::WebSocketPlugin;
+use debug::{DebugPlugin, DebugSystem};
+use debug_cli::DebugCLI;
+use components::{ComponentsPlugin, PositionComponent, HealthComponent};
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
 
 fn main() {
+    // Initialize env_logger for terminal output
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_millis()
+        .init();
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -22,10 +36,13 @@ fn main() {
         }))
         .add_plugins(EguiPlugin)
         .add_plugins(WebSocketPlugin)
+        .add_plugins(DebugPlugin)
+        .add_plugins(ComponentsPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()
         .add_systems(Startup, setup)
+        .add_systems(PostStartup, setup_debug_cli)
         .add_systems(Update, (
             ui_system,
             tile_interaction_system,
@@ -223,7 +240,7 @@ fn setup(mut commands: Commands) {
             let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
-            commands.spawn((
+            let worker_entity = commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
                         color: Color::srgb(1.0, 0.75, 0.0),
@@ -238,8 +255,14 @@ fn setup(mut commands: Commands) {
                     health: 100.0,
                     energy: 100.0,
                 },
+                PositionComponent::from_tile(x, y),
+                HealthComponent::new(100.0),
                 TileEntity { x, y },
-            ));
+            )).id();
+            
+            // Log worker creation with components
+            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) with Position and Health components", 
+                i + 1, x, y).green());
         }
     }
 }
@@ -369,4 +392,9 @@ fn render_map_system(
     for (mut sprite, tile_entity) in tiles.iter_mut() {
         sprite.color = world_map.tiles[tile_entity.y][tile_entity.x].color();
     }
+}
+
+fn setup_debug_cli(debug: Res<DebugSystem>) {
+    let cli = DebugCLI::new(debug.get_command_sender());
+    cli.start();
 }
