@@ -310,6 +310,8 @@ fn ui_system(
     mut sim_state: ResMut<SimulationState>,
     selected_tile: Res<SelectedTile>,
     world_map: Res<WorldMap>,
+    debug_system: Res<DebugSystem>,
+    performance_metrics: Res<performance::PerformanceMetrics>,
 ) {
     egui::SidePanel::left("controls").show(contexts.ctx_mut(), |ui| {
         ui.heading("World Simulator");
@@ -358,6 +360,71 @@ fn ui_system(
             // Would generate forest
         }
     });
+    
+    // Right panel for logs
+    egui::SidePanel::right("logs")
+        .default_width(400.0)
+        .show(contexts.ctx_mut(), |ui| {
+            ui.heading("System Logs");
+            
+            // Performance metrics at top
+            let (fps, frame_ms, _, _) = performance_metrics.get_stats();
+            ui.horizontal(|ui| {
+                ui.label(format!("FPS: {:.1}", fps));
+                ui.separator();
+                ui.label(format!("Frame: {:.1}ms", frame_ms));
+                if fps < 30.0 {
+                    ui.separator();
+                    ui.colored_label(egui::Color32::RED, "⚠ Low FPS");
+                }
+            });
+            
+            ui.separator();
+            
+            // Log filter buttons
+            ui.horizontal(|ui| {
+                if ui.button("Clear").clicked() {
+                    // Would clear logs
+                }
+                ui.separator();
+                ui.label("Filter:");
+                if ui.selectable_label(false, "All").clicked() {}
+                if ui.selectable_label(false, "Info").clicked() {}
+                if ui.selectable_label(false, "Errors").clicked() {}
+            });
+            
+            ui.separator();
+            
+            // Scrollable log area
+            egui::ScrollArea::vertical()
+                .max_height(ui.available_height())
+                .auto_shrink([false; 2])
+                .stick_to_bottom(true)
+                .show(ui, |ui| {
+                    let logs = debug_system.get_recent_logs(100);
+                    
+                    for log in logs {
+                        let color = match log.level {
+                            debug::DebugLevel::Error => egui::Color32::RED,
+                            debug::DebugLevel::Warn => egui::Color32::YELLOW,
+                            debug::DebugLevel::Info => egui::Color32::GREEN,
+                            debug::DebugLevel::Debug => egui::Color32::LIGHT_BLUE,
+                            debug::DebugLevel::Trace => egui::Color32::GRAY,
+                        };
+                        
+                        ui.horizontal(|ui| {
+                            // Timestamp
+                            ui.monospace(format!("[{:6.2}]", log.timestamp));
+                            
+                            // Category
+                            ui.colored_label(egui::Color32::LIGHT_GRAY, format!("[{}]", log.category));
+                            
+                            // Message with color based on level
+                            ui.colored_label(color, &log.message);
+                        });
+                    }
+                });
+        });
 }
 
 fn tile_interaction_system(

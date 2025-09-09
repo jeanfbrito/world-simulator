@@ -162,6 +162,21 @@ impl DebugSystem {
     pub fn get_command_sender(&self) -> Sender<DebugCommand> {
         self.command_tx.clone()
     }
+    
+    pub fn get_recent_logs(&self, count: usize) -> Vec<DebugMessage> {
+        let buffer = self.log_buffer.lock().unwrap();
+        buffer.iter()
+            .rev()
+            .take(count)
+            .rev()
+            .cloned()
+            .collect()
+    }
+    
+    pub fn get_all_logs(&self) -> Vec<DebugMessage> {
+        let buffer = self.log_buffer.lock().unwrap();
+        buffer.iter().cloned().collect()
+    }
 }
 
 // Bevy plugin for debug system
