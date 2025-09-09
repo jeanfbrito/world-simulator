@@ -5,17 +5,17 @@ use big_brain::prelude::*;
 use crate::components::*;
 
 /// Scores based on nearby allies needing help
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct SocialScorer {
     pub help_range: f32,
 }
 
 /// Scores based on worker morale/happiness
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct MoraleScorer;
 
 /// Scores based on isolation (too far from other workers)
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct IsolationScorer {
     pub comfort_range: f32,
 }

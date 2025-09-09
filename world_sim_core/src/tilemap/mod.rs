@@ -136,36 +136,6 @@ impl TileType {
     }
 }
 
-/// Setup the initial tilemap
-fn setup_tilemap(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    asset_manager: Res<crate::asset_manager::AssetPackManager>,
-) {
-    use bevy_entitiles::prelude::*;
-    
-    // Load tileset texture from active asset pack
-    let texture_path = asset_manager.get_asset_path("textures/tileset.png");
-    let texture = asset_server.load(texture_path);
-    
-    // Create tilemap entity with StandardTilemapBundle
-    let tilemap = commands.spawn((
-        StandardTilemapBundle {
-            tile_render_size: TileRenderSize(Vec2::new(32.0, 32.0)),
-            slot_size: TilemapSlotSize(Vec2::new(32.0, 32.0)),
-            ty: TilemapType::Square,
-            storage: TilemapStorage::new(64, commands.spawn_empty().id()),
-            texture: TilemapTexture::Single(texture),
-            transform: TilemapTransform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        },
-        Name::new("World Tilemap"),
-    )).id();
-    
-    // Store tilemap entity for later use
-    commands.insert_resource(TilemapEntity(tilemap));
-}
-
 /// Resource to store the main tilemap entity
 #[derive(Resource)]
 pub struct TilemapEntity(pub Entity);
@@ -181,4 +151,52 @@ pub fn tile_to_world(tile_pos: &IVec2) -> Position {
         x: tile_pos.x,
         y: tile_pos.y,
     }
+}
+
+/// Setup the initial tilemap
+fn setup_tilemap(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    asset_manager: Res<crate::asset_manager::AssetPackManager>,
+    mut materials: ResMut<Assets<bevy_entitiles::render::material::StandardTilemapMaterial>>,
+    mut textures_assets: ResMut<Assets<bevy_entitiles::tilemap::map::TilemapTextures>>,
+) {
+    use bevy_entitiles::prelude::*;
+    use bevy_entitiles::tilemap::map::{TilemapTextures, TilemapAxisFlip};
+    
+    // Load tileset texture from active asset pack
+    let texture_path = asset_manager.get_asset_path("textures/tileset.png");
+    let texture: Handle<Image> = asset_server.load(texture_path);
+    
+    // Create tilemap textures handle
+    let textures = textures_assets.add(TilemapTextures::single(texture.clone()));
+    
+    // Create material with texture
+    let material = materials.add(bevy_entitiles::render::material::StandardTilemapMaterial::default());
+    
+    // Create tilemap storage
+    let storage_entity = commands.spawn_empty().id();
+    let storage = TilemapStorage::new(64, storage_entity);
+    
+    // Create tilemap entity with StandardTilemapBundle
+    let tilemap = commands.spawn((
+        StandardTilemapBundle {
+            name: TilemapName("World Tilemap".to_string()),
+            tile_render_size: TileRenderSize(Vec2::new(32.0, 32.0)),
+            slot_size: TilemapSlotSize(Vec2::new(32.0, 32.0)),
+            ty: TilemapType::Square,
+            tile_pivot: TilePivot::default(),
+            layer_opacities: TilemapLayerOpacities::default(),
+            storage,
+            transform: TilemapTransform::from_translation_3d(Vec3::ZERO),
+            axis_flip: TilemapAxisFlip::default(),
+            material,
+            textures,
+            ..Default::default()
+        },
+        Name::new("World Tilemap"),
+    )).id();
+    
+    // Store tilemap entity for later use
+    commands.insert_resource(TilemapEntity(tilemap));
 }

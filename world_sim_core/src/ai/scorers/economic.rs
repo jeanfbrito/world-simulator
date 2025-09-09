@@ -5,15 +5,15 @@ use big_brain::prelude::*;
 use crate::components::*;
 
 /// Scores based on potential profit from trading
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct ProfitScorer;
 
 /// Scores based on inventory fullness
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct InventoryFullScorer;
 
 /// Scores based on resource scarcity
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct ResourceScarcityScorer {
     pub resource_type: world_sim_interface::ResourceType,
 }

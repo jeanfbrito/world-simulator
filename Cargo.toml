@@ -5,6 +5,7 @@ members = [
     "world_sim_interface", 
     "world_sim_bevy_viz",
     "world_sim_terminal",
+    "world_sim_simple",
 ]
 
 [workspace.package]

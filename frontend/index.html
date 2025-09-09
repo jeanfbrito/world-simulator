@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Simulator - Interactive Map</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>World Simulator</h1>
+            <div id="status" class="status-bar">
+                <span id="connection-status" class="disconnected">⚫ Disconnected</span>
+                <span id="fps-counter">FPS: 0</span>
+                <span id="tick-counter">Tick: 0</span>
+            </div>
+        </header>
+        
+        <div class="main-container">
+            <aside class="sidebar">
+                <section class="controls">
+                    <h2>Map Controls</h2>
+                    <button onclick="game.generateRandomMap()">Generate Random</button>
+                    <button onclick="game.generateIslandMap()">Generate Island</button>
+                    <button onclick="game.generateForestMap()">Generate Forest</button>
+                    <button onclick="game.generateVillageMap()">Generate Village</button>
+                    <button onclick="game.clearMap()">Clear Map</button>
+                </section>
+                
+                <section class="tools">
+                    <h2>Placement Tools</h2>
+                    <div class="tool-grid">
+                        <button class="tool-btn" data-tool="grass">🌱 Grass</button>
+                        <button class="tool-btn" data-tool="stone">🪨 Stone</button>
+                        <button class="tool-btn" data-tool="sand">🏖️ Sand</button>
+                        <button class="tool-btn" data-tool="water">💧 Water</button>
+                        <button class="tool-btn" data-tool="tree">🌳 Tree</button>
+                        <button class="tool-btn" data-tool="ore">⛏️ Ore</button>
+                        <button class="tool-btn" data-tool="berry">🫐 Berry</button>
+                        <button class="tool-btn" data-tool="wall">🧱 Wall</button>
+                        <button class="tool-btn" data-tool="door">🚪 Door</button>
+                        <button class="tool-btn" data-tool="storage">📦 Storage</button>
+                        <button class="tool-btn" data-tool="workshop">🔨 Workshop</button>
+                    </div>
+                </section>
+                
+                <section class="info">
+                    <h2>Tile Info</h2>
+                    <div id="tile-info">
+                        <p>Position: <span id="tile-pos">-</span></p>
+                        <p>Type: <span id="tile-type">-</span></p>
+                        <p>Walkable: <span id="tile-walkable">-</span></p>
+                        <p>Entities: <span id="tile-entities">0</span></p>
+                    </div>
+                </section>
+            </aside>
+            
+            <main class="map-container">
+                <div class="map-controls">
+                    <button id="zoom-in">➕</button>
+                    <button id="zoom-out">➖</button>
+                    <button id="zoom-reset">🔄</button>
+                    <span class="zoom-level">Zoom: <span id="zoom-value">100%</span></span>
+                </div>
+                <div id="map-viewport">
+                    <div id="map"></div>
+                </div>
+            </main>
+            
+            <aside class="sidebar-right">
+                <section class="entities">
+                    <h2>Entities</h2>
+                    <div id="entity-list">
+                        <div class="entity-count">Workers: <span id="worker-count">0</span></div>
+                        <div class="entity-count">Buildings: <span id="building-count">0</span></div>
+                        <div class="entity-count">Resources: <span id="resource-count">0</span></div>
+                    </div>
+                    <div id="selected-entity" class="hidden">
+                        <h3>Selected Entity</h3>
+                        <div id="entity-details"></div>
+                    </div>
+                </section>
+                
+                <section class="simulation">
+                    <h2>Simulation</h2>
+                    <button id="play-pause" class="primary">▶️ Play</button>
+                    <button id="step">⏭️ Step</button>
+                    <button id="reset">🔄 Reset</button>
+                    <div class="speed-control">
+                        <label>Speed: <span id="speed-value">1x</span></label>
+                        <input type="range" id="speed-slider" min="0" max="4" value="1">
+                    </div>
+                </section>
+                
+                <section class="logs">
+                    <h2>Event Log</h2>
+                    <div id="event-log"></div>
+                </section>
+            </aside>
+        </div>
+    </div>
+    
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

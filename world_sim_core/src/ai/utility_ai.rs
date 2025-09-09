@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use big_brain::prelude::*;
 use world_sim_interface::Position;
-use crate::components::*;
+use crate::components::{WorkerComponent, PositionComponent, MovementComponent, InventoryComponent};
 use super::scorers::*;
 use super::utility_actions::*;
 use super::coordinator::AICoordinator;

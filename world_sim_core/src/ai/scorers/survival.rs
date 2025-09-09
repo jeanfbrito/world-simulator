@@ -5,30 +5,30 @@ use big_brain::prelude::*;
 use crate::components::*;
 
 /// Scores based on hunger level
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct HungerScorer;
 
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct CriticalHungerScorer;
 
 /// Scores based on fatigue/energy level
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct FatigueScorer;
 
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct ExhaustionScorer;
 
 /// Scores based on nearby threats
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct ThreatScorer {
     pub threat_range: f32,
 }
 
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct DangerScorer;
 
 /// Scores based on nearby opportunities
-#[derive(Component, ScorerBuilder, Clone)]
+#[derive(Component, ScorerBuilder, Clone, Debug)]
 pub struct OpportunityScorer {
     pub opportunity_range: f32,
 }
