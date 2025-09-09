@@ -1,6 +1,8 @@
 mod chunk;
+mod terrain;
 
 pub use chunk::{Chunk, ChunkCoordinate, CHUNK_SIZE};
+pub use terrain::{TerrainType, TerrainProperties};
 
 use bevy::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};

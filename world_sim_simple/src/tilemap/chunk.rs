@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::TileType;
+use super::terrain::{TerrainType, TerrainProperties};
 
 pub const CHUNK_SIZE: usize = 16;
 
@@ -38,7 +38,7 @@ impl ChunkCoordinate {
 #[derive(Component, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     pub coordinate: ChunkCoordinate,
-    pub tiles: [[TileType; CHUNK_SIZE]; CHUNK_SIZE],
+    pub tiles: [[TerrainType; CHUNK_SIZE]; CHUNK_SIZE],
     pub is_dirty: bool,
 }
 
@@ -46,7 +46,7 @@ impl Chunk {
     pub fn new(coordinate: ChunkCoordinate) -> Self {
         let mut chunk = Self {
             coordinate,
-            tiles: [[TileType::Grass; CHUNK_SIZE]; CHUNK_SIZE],
+            tiles: [[TerrainType::Grass; CHUNK_SIZE]; CHUNK_SIZE],
             is_dirty: true,
         };
         chunk.generate_terrain();
@@ -62,21 +62,20 @@ impl Chunk {
                 let world_x = self.coordinate.x * CHUNK_SIZE as i32 + x as i32;
                 let world_y = self.coordinate.y * CHUNK_SIZE as i32 + y as i32;
                 
-                let noise = ((world_x as f32 * 0.1).sin() + (world_y as f32 * 0.1).cos()) * 0.5 + 0.5;
+                // Generate terrain properties based on position
+                let elevation_noise = (world_x as f32 * 0.05).sin() * (world_y as f32 * 0.05).cos();
+                let moisture_noise = (world_x as f32 * 0.07).cos() * (world_y as f32 * 0.07).sin();
+                let temp_noise = (world_x as f32 * 0.03).sin() + (world_y as f32 * 0.03).cos();
                 
-                self.tiles[y][x] = if noise < 0.3 {
-                    TileType::Water
-                } else if noise < 0.4 {
-                    TileType::Sand
-                } else if noise < 0.7 {
-                    TileType::Grass
-                } else if rng.gen_bool(0.3) {
-                    TileType::Tree
-                } else if rng.gen_bool(0.1) {
-                    TileType::Stone
-                } else {
-                    TileType::Grass
-                };
+                let elevation = ((elevation_noise + 1.0) / 2.0).clamp(0.0, 1.0);
+                let moisture = ((moisture_noise + 1.0) / 2.0).clamp(0.0, 1.0);
+                let temperature = ((temp_noise + 1.0) / 2.0).clamp(0.0, 1.0);
+                
+                // Add some randomness
+                let elevation = (elevation + rng.gen::<f32>() * 0.1).clamp(0.0, 1.0);
+                let moisture = (moisture + rng.gen::<f32>() * 0.1).clamp(0.0, 1.0);
+                
+                self.tiles[y][x] = TerrainProperties::determine_terrain(elevation, moisture, temperature);
             }
         }
         
@@ -84,7 +83,7 @@ impl Chunk {
             self.coordinate.x, self.coordinate.y, CHUNK_SIZE * CHUNK_SIZE);
     }
 
-    pub fn get_tile(&self, local_x: usize, local_y: usize) -> Option<TileType> {
+    pub fn get_tile(&self, local_x: usize, local_y: usize) -> Option<TerrainType> {
         if local_x < CHUNK_SIZE && local_y < CHUNK_SIZE {
             Some(self.tiles[local_y][local_x])
         } else {
@@ -92,7 +91,7 @@ impl Chunk {
         }
     }
 
-    pub fn set_tile(&mut self, local_x: usize, local_y: usize, tile_type: TileType) -> bool {
+    pub fn set_tile(&mut self, local_x: usize, local_y: usize, tile_type: TerrainType) -> bool {
         if local_x < CHUNK_SIZE && local_y < CHUNK_SIZE {
             self.tiles[local_y][local_x] = tile_type;
             self.is_dirty = true;
