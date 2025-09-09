@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use super::{Item, ItemStack, ItemType, ResourceType};
+use bevy::log::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InventorySlot {
@@ -184,6 +185,8 @@ pub fn create_starter_inventory() -> Inventory {
     inventory.add_item(Item::new_resource(ResourceType::Wood), 10);
     inventory.add_item(Item::new_resource(ResourceType::Stone), 5);
     inventory.add_item(Item::new_resource(ResourceType::Berries), 20);
+    
+    info!("[INVENTORY] Created starter inventory: Wood x10, Stone x5, Berries x20");
     
     inventory
 }
