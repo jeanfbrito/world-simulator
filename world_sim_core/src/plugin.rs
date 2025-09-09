@@ -22,6 +22,9 @@ impl Plugin for SimulationPlugin {
         // Add scripting plugin for dynamic content
         app.add_plugins(crate::scripting::ScriptingPlugin);
         
+        // Add tilemap plugin for spatial rendering and pathfinding
+        app.add_plugins(crate::tilemap::TilemapPlugin);
+        
         // Register GOAP components
         register_components!(app, vec![
             components::IsHungry,

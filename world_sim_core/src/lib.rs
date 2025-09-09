@@ -12,6 +12,7 @@ pub mod recipes;
 pub mod resources;
 pub mod scripting;
 pub mod systems;
+pub mod tilemap;
 pub mod world;
 
 // Re-export main types
