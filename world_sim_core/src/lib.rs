@@ -9,6 +9,7 @@ pub mod engine;
 pub mod plugin;
 pub mod recipes;
 pub mod resources;
+pub mod scripting;
 pub mod systems;
 pub mod world;
 
@@ -16,6 +17,7 @@ pub mod world;
 pub use engine::SimulationEngine;
 pub use plugin::SimulationPlugin;
 pub use recipes::RecipeRegistry;
+pub use scripting::commands::ScriptCommands;
 
 // Re-export interface types for convenience
 pub use world_sim_interface::{

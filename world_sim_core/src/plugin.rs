@@ -19,6 +19,9 @@ impl Plugin for SimulationPlugin {
         app.add_plugins(DogoapPlugin)
            .add_plugins(BigBrainPlugin::new(PreUpdate));
         
+        // Add scripting plugin for dynamic content
+        app.add_plugins(crate::scripting::ScriptingPlugin);
+        
         // Register GOAP components
         register_components!(app, vec![
             components::IsHungry,
