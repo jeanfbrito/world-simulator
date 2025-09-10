@@ -8,6 +8,7 @@ use rand::Rng;
 use colored::Colorize;
 
 mod websocket;
+mod legacy_simulation;
 mod simulation;
 mod debug;
 #[path = "debug/ai_monitor.rs"]
@@ -25,8 +26,7 @@ mod save_load;
 mod performance;
 mod scripting;
 mod spawning;
-#[path = "systems/needs_update.rs"]
-mod needs_update;
+mod systems;
 
 use websocket::WebSocketPlugin;
 use debug::DebugPlugin;
@@ -46,6 +46,10 @@ use save_load::SaveLoadPlugin;
 use performance::PerformancePlugin;
 use scripting::ScriptingPlugin;
 use spawning::SpawningPlugin;
+use systems::SystemsPlugin;
+
+// Import the new tick-based simulation module
+use simulation::TickSimulationPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -61,6 +65,7 @@ fn main() {
         .add_plugins(AssetPlugin::default()) // Add asset system for scripting without rendering
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
+        .add_plugins(TickSimulationPlugin) // Core tick-based simulation
         .add_plugins(WebSocketPlugin)
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
@@ -75,6 +80,7 @@ fn main() {
         .add_plugins(SaveLoadPlugin)
         .add_plugins(PerformancePlugin)
         .add_plugins(SpawningPlugin)
+        .add_plugins(SystemsPlugin)  // Add the new systems plugin
         // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
@@ -85,8 +91,8 @@ fn main() {
         .add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
             simulation_system,
-            needs_update::update_unit_needs_system,
-            needs_update::sync_needs_to_worldstate_system,
+            systems::update_unit_needs_system,  // Keep old system for compatibility
+            systems::sync_needs_to_worldstate_system,
             ai_monitor::simple_ai_monitor_system,
         ))
         .run();

@@ -13,6 +13,7 @@ pub mod resource;
 
 // New consolidated modules
 pub mod unit_state;
+pub mod unit_needs_v2;
 
 // Re-export existing components
 pub use position::PositionComponent;
@@ -29,6 +30,7 @@ pub use unit_state::{
     UnitNeeds, UnitInventory, UnitLocation, LocationType,
     UnitWorkState, UnitOwnership
 };
+pub use unit_needs_v2::{UnitNeedsV2, migrate_needs_system};
 
 /// Plugin to register all components
 pub struct ComponentsPlugin;

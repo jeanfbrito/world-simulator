@@ -7,7 +7,7 @@ pub mod goap_planner;
 mod goap_bridge;
 mod task_executor;
 mod debug_logger;
-mod behavior_state;
+pub mod behavior_state;
 // New AI modules (temporarily disabled due to library compatibility issues)
 // mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap
 // mod shared_state;       // For hybrid AI
