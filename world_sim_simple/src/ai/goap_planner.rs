@@ -122,7 +122,15 @@ impl GoapPlanner {
             }
             
             // Explore all valid actions from this state
-            for action in action_set.get_valid_actions(&current_node.state) {
+            let valid_actions = action_set.get_valid_actions(&current_node.state);
+            debug.log(
+                DebugLevel::Debug,
+                "GOAP_ACTIONS",
+                &format!("Valid actions available: {:?}", 
+                    valid_actions.iter().map(|a| &a.name).collect::<Vec<_>>())
+            );
+            
+            for action in valid_actions {
                 let mut new_state = current_node.state.clone();
                 new_state.apply_action(action);
                 
@@ -233,6 +241,13 @@ pub fn goap_planning_system(
     action_set: Res<ActionSet>,
     debug: Res<DebugSystem>,
 ) {
+    let agent_count = agents.iter().count();
+    debug.log(
+        DebugLevel::Info,
+        "GOAP_PLANNING",
+        &format!("🤖 GOAP planning system running - found {} agents", agent_count)
+    );
+    
     let planner = GoapPlanner::new();
     
     for (entity, current_state, existing_plan) in agents.iter_mut() {
@@ -287,13 +302,19 @@ pub fn goap_planning_system(
                         .and_then(|v| if let StateValue::Int(n) = v { Some(*n) } else { None })
                         .unwrap_or(0);
                     
-                    // We need 15 wood and 10 stone for a house
-                    if current_wood < 15 {
-                        goal.set("has_wood", StateValue::Int(15)); // Want enough wood for house
-                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Gather wood ({}/15)", current_wood));
+                    // Be more incremental - start with smaller goals
+                    if current_wood < 5 {
+                        goal.set("has_wood", StateValue::Int(5)); // Get some wood first
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Get wood ({}/5)", current_wood));
+                    } else if current_stone < 5 {
+                        goal.set("has_stone", StateValue::Int(5)); // Get some stone first
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Get stone ({}/5)", current_stone));
+                    } else if current_wood < 15 {
+                        goal.set("has_wood", StateValue::Int(15)); // Get enough wood for house
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Get more wood ({}/15)", current_wood));
                     } else if current_stone < 10 {
-                        goal.set("has_stone", StateValue::Int(10)); // Want enough stone for house  
-                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Gather stone ({}/10)", current_stone));
+                        goal.set("has_stone", StateValue::Int(10)); // Get enough stone for house  
+                        debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("Goal: Get more stone ({}/10)", current_stone));
                     } else {
                         // We have all resources, now build the house
                         goal.set("has_house", StateValue::Bool(true));

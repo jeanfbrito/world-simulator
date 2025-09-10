@@ -52,15 +52,15 @@ impl Plugin for AIPlugin {
             ).run_if(simulation_running))
             .add_systems(Update, (
                 // These can run in parallel as they work on different components
-                worker_ai_update_system,
-                pathfinding_update_system,
-                // sync_goap_states_system,    // DISABLED - GOAP is broken
-                // update_needs_system,        // DISABLED - GOAP is broken
-                // goap_planning_system,       // DISABLED - GOAP is broken
-                // goap_execution_system,      // DISABLED - GOAP is broken
-                // goap_to_task_bridge_system, // DISABLED - GOAP is broken
-                task_execution_system          // Execute tasks with actual movement
-            ).run_if(simulation_running));
+                worker_ai_update_system.run_if(simulation_running),
+                pathfinding_update_system.run_if(simulation_running),
+                sync_goap_states_system,     // Remove run condition to test
+                update_needs_system,         // Remove run condition to test  
+                goap_planning_system,        // Remove run condition to test
+                goap_execution_system,       // Remove run condition to test
+                goap_to_task_bridge_system,  // Remove run condition to test
+                task_execution_system.run_if(simulation_running),
+            ));
     }
 }
 

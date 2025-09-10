@@ -10,7 +10,7 @@ use colored::Colorize;
 mod websocket;
 mod simulation;
 mod debug;
-// mod debug_cli; // Disabled for headless operation
+// // mod debug_cli; // Disabled for headless operation
 mod components;
 mod plugin;
 mod plugins;
