@@ -31,7 +31,8 @@ fn save_load_init_system(debug: Res<DebugSystem>) {
 }
 
 fn save_command_system(
-    keys: Res<ButtonInput<KeyCode>>,
+    // Keyboard input disabled for headless operation
+    // keys: Res<ButtonInput<KeyCode>>,
     save_manager: Res<SaveManager>,
     sim_state: Res<crate::SimulationState>,
     chunk_query: Query<&crate::tilemap::Chunk>,
@@ -39,8 +40,8 @@ fn save_command_system(
     building_query: Query<(Entity, &crate::buildings::BuildingComponent)>,
     debug: Res<DebugSystem>,
 ) {
-    // Ctrl+S for quick save
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
+    // Keyboard saves disabled for headless operation - can be triggered via WebSocket API instead
+    if false { // Disabled: keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyS) {
         debug.log(DebugLevel::Info, "SAVE", "Quick save triggered");
         info!("[SAVE] Quick save triggered by Ctrl+S");
         
@@ -117,14 +118,15 @@ fn save_command_system(
 }
 
 fn load_command_system(
-    keys: Res<ButtonInput<KeyCode>>,
+    // Keyboard input disabled for headless operation
+    // keys: Res<ButtonInput<KeyCode>>,
     save_manager: Res<SaveManager>,
     mut sim_state: ResMut<crate::SimulationState>,
     mut commands: Commands,
     debug: Res<DebugSystem>,
 ) {
-    // Ctrl+L for quick load
-    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyL) {
+    // Keyboard loads disabled for headless operation - can be triggered via WebSocket API instead
+    if false { // Disabled: keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::KeyL) {
         debug.log(DebugLevel::Info, "SAVE", "Quick load triggered");
         info!("[SAVE] Quick load triggered by Ctrl+L");
         

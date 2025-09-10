@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use consistent Bevy 0.16 versions
-bevy = "0.16"
-bevy_egui = "0.36"
+# Headless Bevy 0.16 configuration - minimal features for pure simulation
+bevy = { version = "0.16", default-features = false, features = [
+  "multi_threaded",
+  "serialize",     # Required for save/load functionality
+  "bevy_asset",    # Required for scripting system
+  "file_watcher",  # For hot-reloading scripts
+] }
 
 # Interface
 world_sim_interface = { path = "../world_sim_interface" }

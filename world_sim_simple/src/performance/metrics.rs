@@ -141,14 +141,15 @@ pub fn performance_metrics_system(
         let (fps, avg_ms, min_ms, max_ms) = metrics.get_stats();
         
         debug.log(
-            DebugLevel::Info,
+            DebugLevel::Debug,  // Changed from Info to Debug to reduce terminal noise
             "METRICS",
             &format!("FPS: {:.1} | Frame: {:.1}ms (min: {:.1}ms, max: {:.1}ms)", 
                 fps, avg_ms, min_ms, max_ms)
         );
         
-        info!("[METRICS] FPS: {:.1} | Frame time: {:.1}ms (min: {:.1}ms, max: {:.1}ms)", 
-            fps, avg_ms, min_ms, max_ms);
+        // Metrics logging disabled by default to reduce terminal noise
+        // info!("[METRICS] FPS: {:.1} | Frame time: {:.1}ms (min: {:.1}ms, max: {:.1}ms)", 
+        //     fps, avg_ms, min_ms, max_ms);
         
         // Warn if performance is poor
         if fps < 30.0 {

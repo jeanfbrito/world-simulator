@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy::asset::AssetPlugin;
+// Removed bevy_egui import for headless operation
 // use bevy_dogoap::prelude::*; // Temporarily disabled for testing
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,7 +10,7 @@ use colored::Colorize;
 mod websocket;
 mod simulation;
 mod debug;
-mod debug_cli;
+// mod debug_cli; // Disabled for headless operation
 mod components;
 mod plugin;
 mod plugins;
@@ -24,7 +25,7 @@ mod scripting;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
-use debug_cli::DebugCLI;
+// use debug_cli::DebugCLI; // Disabled for headless operation
 use components::{
     ComponentsPlugin, PositionComponent, HealthComponent, 
     NameComponent, EnergyComponent, WorkerTag, WorkerStats
@@ -51,15 +52,9 @@ fn main() {
         .init();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "World Simulator - Simple".to_string(),
-                resolution: (1280.0, 720.0).into(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .add_plugins(EguiPlugin::default())
+        .add_plugins(MinimalPlugins) // Headless operation - no window, no rendering
+        .add_plugins(AssetPlugin::default()) // Add asset system for scripting without rendering
+        // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         .add_plugins(WebSocketPlugin)
         .add_plugins(DebugPlugin)
@@ -74,21 +69,16 @@ fn main() {
         .add_plugins(AIPlugin)
         .add_plugins(SaveLoadPlugin)
         .add_plugins(PerformancePlugin)
-        .add_plugins(ScriptingPlugin)
+        // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
-        .init_resource::<SelectedTile>()
+        // Removed SelectedTile resource initialization for headless operation
         .add_systems(Startup, setup)
-        .add_systems(PostStartup, (setup_debug_cli, plugin_init_system))
+        .add_systems(PostStartup, plugin_init_system)
+        // Removed UI systems for headless operation
         .add_systems(Update, (
-            // UI systems (sequential, can't parallelize with rendering)
-            ui_system,
-            tile_interaction_system,
-        ).chain())
-        .add_systems(Update, (
-            // Simulation systems (can run in parallel)
+            // Simulation systems (can run in parallel) - headless mode
             simulation_system,
-            render_map_system,
         ))
         .run();
 }
@@ -225,10 +215,7 @@ impl SimulationState {
     }
 }
 
-#[derive(Resource, Default)]
-struct SelectedTile {
-    position: Option<(usize, usize)>,
-}
+// Removed SelectedTile resource for headless operation
 
 #[derive(Component)]
 pub struct TileEntity {
@@ -239,29 +226,10 @@ pub struct TileEntity {
 // Worker entity is now composed of multiple components instead of a single struct
 
 fn setup(mut commands: Commands) {
-    // Camera
-    commands.spawn(Camera2d);
+    // Removed Camera2d for headless operation
     
-    // Spawn initial tiles as entities for rendering
+    // Initialize world map for headless operation (no tile sprites)
     let world_map = WorldMap::default();
-    
-    for y in 0..MAP_SIZE {
-        for x in 0..MAP_SIZE {
-            let tile_type = world_map.tiles[y][x];
-            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            
-            commands.spawn((
-                Sprite {
-                    color: tile_type.color(),
-                    custom_size: Some(Vec2::new(TILE_SIZE - 1.0, TILE_SIZE - 1.0)),
-                    ..default()
-                },
-                Transform::from_xyz(world_x, world_y, 0.0),
-                TileEntity { x, y },
-            ));
-        }
-    }
     
     // Spawn a few workers
     let mut rng = rand::thread_rng();
@@ -270,18 +238,8 @@ fn setup(mut commands: Commands) {
         let y = rng.gen_range(20..44);
         
         if world_map.tiles[y][x].is_walkable() {
-            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            
             let worker_entity = commands.spawn((
-                // Rendering
-                Sprite {
-                    color: Color::srgb(1.0, 0.75, 0.0),
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.6, TILE_SIZE * 0.6)),
-                    ..default()
-                },
-                Transform::from_xyz(world_x, world_y, 1.0),
-                // Core components
+                // Core components (no rendering)
                 NameComponent::new(format!("Worker {}", i + 1)),
                 PositionComponent::from_tile(x, y),
                 HealthComponent::new(100.0),
@@ -294,7 +252,7 @@ fn setup(mut commands: Commands) {
                 WorldState::new(),  // GOAP world state
                 // Inventory
                 create_starter_inventory(),
-                // Tile tracking
+                // Tile tracking (for logic)
                 TileEntity { x, y },
             ))
             .insert((
@@ -387,12 +345,6 @@ fn setup(mut commands: Commands) {
         let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
         
         commands.spawn((
-            Sprite {
-                color: Color::srgb(0.7, 0.6, 0.2), // Yellow-brown for granary
-                custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
-                ..default()
-            },
-            Transform::from_xyz(world_x, world_y, 0.5),
             BuildingComponent::new(BuildingType::Granary, (x as i32, y as i32)),
             NameComponent::new("Central Granary".to_string()),
             PositionComponent::from_tile(x, y),
@@ -424,12 +376,6 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.18, 0.31, 0.09),  // Dark green for trees
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.8, TILE_SIZE * 0.8)),
-                    ..default()
-                },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Tree".to_string()),
                 PositionComponent::from_tile(x, y),
                 TileEntity { x, y },
@@ -450,12 +396,6 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.4, 0.4, 0.4),  // Gray for rocks
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.7, TILE_SIZE * 0.7)),
-                    ..default()
-                },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Rock".to_string()),
                 PositionComponent::from_tile(x, y),
                 TileEntity { x, y },
@@ -476,12 +416,6 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.8, 0.1, 0.4),
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.5, TILE_SIZE * 0.5)),
-                    ..default()
-                },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
                 components::ResourceNode {
@@ -500,195 +434,9 @@ fn setup(mut commands: Commands) {
     }
 }
 
-fn ui_system(
-    mut contexts: EguiContexts,
-    mut sim_state: ResMut<SimulationState>,
-    selected_tile: Res<SelectedTile>,
-    world_map: Res<WorldMap>,
-    debug_system: Res<DebugSystem>,
-    performance_metrics: Res<performance::PerformanceMetrics>,
-    settlement_state: Res<components::SettlementState>,
-    workers: Query<(&NameComponent, &components::IsHungry, &components::HasEnergy, &components::HasWood, &components::HasFood, &components::HasHouse), With<WorkerTag>>,
-) {
-    egui::SidePanel::left("controls").show(contexts.ctx_mut().unwrap(), |ui| {
-        ui.heading("World Simulator");
-        
-        ui.separator();
-        ui.label(format!("Tick: {}", sim_state.tick));
-        
-        if ui.button(if sim_state.running { "⏸ Pause" } else { "▶ Play" }).clicked() {
-            sim_state.running = !sim_state.running;
-        }
-        
-        if ui.button("Step").clicked() && !sim_state.running {
-            sim_state.tick += 1;
-        }
-        
-        if ui.button("Reset").clicked() {
-            sim_state.tick = 0;
-            sim_state.running = false;
-        }
-        
-        ui.add(egui::Slider::new(&mut sim_state.speed, 0.1..=5.0).text("Speed"));
-        
-        ui.separator();
-        ui.heading("Selected Tile");
-        
-        if let Some((x, y)) = selected_tile.position {
-            ui.label(format!("Position: ({}, {})", x, y));
-            ui.label(format!("Type: {:?}", world_map.tiles[y][x]));
-            ui.label(format!("Walkable: {}", world_map.tiles[y][x].is_walkable()));
-        } else {
-            ui.label("No tile selected");
-        }
-        
-        ui.separator();
-        ui.heading("Settlement Resources");
-        ui.label(format!("🪵 Wood: {}", settlement_state.wood_supply));
-        ui.label(format!("🪨 Stone: {}", settlement_state.stone_supply));
-        ui.label(format!("🍎 Food: {}", settlement_state.food_supply));
-        ui.label(format!("🏠 Buildings: {}", settlement_state.building_count));
-        
-        ui.separator();
-        ui.heading("Workers Status");
-        
-        for (name, hunger, energy, wood, food, has_house) in workers.iter() {
-            ui.collapsing(&name.display_name, |ui| {
-                ui.horizontal(|ui| {
-                    let hunger_color = if hunger.0 > 0.7 { egui::Color32::RED } 
-                                     else if hunger.0 > 0.4 { egui::Color32::YELLOW } 
-                                     else { egui::Color32::GREEN };
-                    ui.colored_label(hunger_color, format!("Hunger: {:.0}%", hunger.0 * 100.0));
-                });
-                
-                ui.horizontal(|ui| {
-                    let energy_color = if energy.0 < 0.3 { egui::Color32::RED }
-                                     else if energy.0 < 0.6 { egui::Color32::YELLOW }
-                                     else { egui::Color32::GREEN };
-                    ui.colored_label(energy_color, format!("Energy: {:.0}%", energy.0 * 100.0));
-                });
-                
-                ui.label(format!("Inventory: 🪵{} 🍎{}", wood.0, food.0));
-                ui.label(format!("House: {}", if has_house.0 { "✅" } else { "❌" }));
-            });
-        }
-        
-        ui.separator();
-        ui.heading("Map Generation");
-        
-        if ui.button("Generate Random").clicked() {
-            // Would regenerate map here
-        }
-        
-        if ui.button("Generate Island").clicked() {
-            // Would regenerate as island
-        }
-        
-        if ui.button("Generate Forest").clicked() {
-            // Would generate forest
-        }
-    });
-    
-    // Right panel for logs
-    egui::SidePanel::right("logs")
-        .default_width(400.0)
-        .show(contexts.ctx_mut().unwrap(), |ui| {
-            ui.heading("System Logs");
-            
-            // Performance metrics at top
-            let (fps, frame_ms, _, _) = performance_metrics.get_stats();
-            ui.horizontal(|ui| {
-                ui.label(format!("FPS: {:.1}", fps));
-                ui.separator();
-                ui.label(format!("Frame: {:.1}ms", frame_ms));
-                if fps < 30.0 {
-                    ui.separator();
-                    ui.colored_label(egui::Color32::RED, "⚠ Low FPS");
-                }
-            });
-            
-            ui.separator();
-            
-            // Category filter toggles
-            ui.label("Category Filters:");
-            ui.horizontal_wrapped(|ui| {
-                let categories = debug_system.get_known_categories();
-                for category in categories {
-                    let is_enabled = debug_system.is_category_enabled(&category);
-                    let button_text = if is_enabled {
-                        format!("✓ {}", category)
-                    } else {
-                        format!("  {}", category)
-                    };
-                    
-                    let button = if is_enabled {
-                        ui.small_button(&button_text)
-                    } else {
-                        ui.add(egui::Button::new(&button_text).small().fill(egui::Color32::from_gray(60)))
-                    };
-                    
-                    if button.clicked() {
-                        debug_system.toggle_category(&category);
-                    }
-                }
-            });
-            
-            ui.separator();
-            
-            // Scrollable log area
-            egui::ScrollArea::vertical()
-                .max_height(ui.available_height())
-                .auto_shrink([false; 2])
-                .stick_to_bottom(true)
-                .show(ui, |ui| {
-                    let logs = debug_system.get_recent_logs(100);
-                    
-                    for log in logs {
-                        let color = match log.level {
-                            debug::DebugLevel::Error => egui::Color32::RED,
-                            debug::DebugLevel::Warn => egui::Color32::YELLOW,
-                            debug::DebugLevel::Info => egui::Color32::GREEN,
-                            debug::DebugLevel::Debug => egui::Color32::LIGHT_BLUE,
-                            debug::DebugLevel::Trace => egui::Color32::GRAY,
-                        };
-                        
-                        ui.horizontal(|ui| {
-                            // Timestamp
-                            ui.monospace(format!("[{:6.2}]", log.timestamp));
-                            
-                            // Category
-                            ui.colored_label(egui::Color32::LIGHT_GRAY, format!("[{}]", log.category));
-                            
-                            // Message with color based on level
-                            ui.colored_label(color, &log.message);
-                        });
-                    }
-                });
-        });
-}
+// Removed ui_system for headless operation
 
-fn tile_interaction_system(
-    windows: Query<&Window>,
-    camera: Query<(&Camera, &GlobalTransform)>,
-    buttons: Res<ButtonInput<MouseButton>>,
-    mut selected_tile: ResMut<SelectedTile>,
-) {
-    let Ok(window) = windows.single() else { return };
-    let Ok((camera, camera_transform)) = camera.single() else { return };
-    
-    if let Some(cursor_pos) = window.cursor_position() {
-        if buttons.just_pressed(MouseButton::Left) {
-            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-                let tile_x = ((world_pos.x / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
-                let tile_y = ((world_pos.y / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
-                
-                if tile_x < MAP_SIZE && tile_y < MAP_SIZE {
-                    selected_tile.position = Some((tile_x, tile_y));
-                }
-            }
-        }
-    }
-}
+// Removed tile_interaction_system for headless operation
 
 fn simulation_system(
     time: Res<Time>,
@@ -711,16 +459,10 @@ fn simulation_system(
     }
 }
 
-fn render_map_system(
-    mut tiles: Query<(&mut Sprite, &TileEntity), Without<WorkerTag>>,
-    world_map: Res<WorldMap>,
-) {
-    for (mut sprite, tile_entity) in tiles.iter_mut() {
-        sprite.color = world_map.tiles[tile_entity.y][tile_entity.x].color();
-    }
-}
+// Removed render_map_system for headless operation
 
-fn setup_debug_cli(debug: Res<DebugSystem>) {
-    let cli = DebugCLI::new(debug.get_command_sender());
-    cli.start();
-}
+// Debug CLI disabled for headless operation
+// fn setup_debug_cli(debug: Res<DebugSystem>) {
+//     let cli = DebugCLI::new(debug.get_command_sender());
+//     cli.start();
+// }

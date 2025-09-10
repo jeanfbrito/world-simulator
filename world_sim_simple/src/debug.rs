@@ -248,24 +248,25 @@ impl Plugin for DebugPlugin {
 
 fn debug_update_system(
     mut debug: ResMut<DebugSystem>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    // Keyboard input disabled for headless operation
+    // keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     debug.process_commands();
     debug.update_frame();
 
-    // Keyboard shortcuts for debug commands
-    if keyboard.just_pressed(KeyCode::F1) {
-        debug.show_stats = !debug.show_stats;
-    }
-    if keyboard.just_pressed(KeyCode::F2) {
-        debug.show_grid = !debug.show_grid;
-    }
-    if keyboard.just_pressed(KeyCode::F3) {
-        debug.show_agents = !debug.show_agents;
-    }
-    if keyboard.just_pressed(KeyCode::F5) {
-        debug.log_buffer.lock().unwrap().clear();
-    }
+    // Keyboard shortcuts disabled for headless operation
+    // if keyboard.just_pressed(KeyCode::F1) {
+    //     debug.show_stats = !debug.show_stats;
+    // }
+    // if keyboard.just_pressed(KeyCode::F2) {
+    //     debug.show_grid = !debug.show_grid;
+    // }
+    // if keyboard.just_pressed(KeyCode::F3) {
+    //     debug.show_agents = !debug.show_agents;
+    // }
+    // if keyboard.just_pressed(KeyCode::F5) {
+    //     debug.log_buffer.lock().unwrap().clear();
+    // }
 
 }
 
