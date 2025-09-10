@@ -4,9 +4,11 @@
 
 pub mod needs_update;
 pub mod needs_update_v2;
+pub mod movement;
 
 pub use needs_update::*;
 pub use needs_update_v2::*;
+pub use movement::*;
 
 use bevy::prelude::*;
 
@@ -15,19 +17,37 @@ pub struct SystemsPlugin;
 
 impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
-        // Add migration system to run once at startup
-        app.add_systems(PostStartup, crate::components::migrate_needs_system);
+        // Add migration systems to run once at startup
+        app.add_systems(PostStartup, (
+            crate::components::migrate_needs_system,
+            crate::components::migrate_positions_system,
+        ));
         
-        // Add tick-based systems
+        // Add tick-based systems (simulation)
         app.add_systems(
             Update,
             (
-                // New tick-based needs system
+                // Needs systems
                 update_unit_needs_tick_system,
                 sync_needs_v2_to_worldstate_system,
                 eating_action_system,
+                
+                // Movement systems (tick-based)
+                movement_request_system,
+                tick_movement_system,
+                sync_tile_entity_system,
+                sync_position_component_system,
+                
+                // Performance monitoring
                 needs_performance_monitor_system,
+                movement_performance_monitor_system,
             ).chain().run_if(crate::simulation::on_simulation_tick_legacy)
+        );
+        
+        // Add frame-based systems (presentation)
+        app.add_systems(
+            Update,
+            visual_interpolation_system, // Runs every frame for smooth movement
         );
     }
 }
