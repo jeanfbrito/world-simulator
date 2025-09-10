@@ -166,7 +166,7 @@ fn autosave_system(
     building_query: Query<(Entity, &crate::buildings::BuildingComponent)>,
     debug: Res<DebugSystem>,
 ) {
-    save_manager.update_autosave_timer(time.delta_seconds());
+    save_manager.update_autosave_timer(time.delta_secs());
     
     if save_manager.should_autosave() {
         debug.log(DebugLevel::Info, "SAVE", "Autosave triggered");

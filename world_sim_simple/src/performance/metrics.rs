@@ -131,7 +131,7 @@ pub fn performance_metrics_system(
     metrics.last_frame = now;
     
     metrics.record_frame(delta);
-    metrics.time_since_update += time.delta_seconds();
+    metrics.time_since_update += time.delta_secs();
     
     // Update stats periodically
     if metrics.time_since_update >= metrics.update_interval {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::resources::{ResourceType, ItemType};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BuildingType {
     // Storage
     Storage,

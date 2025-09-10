@@ -48,5 +48,5 @@ fn crafting_update_system(
     time: Res<Time>,
     debug: Res<DebugSystem>,
 ) {
-    crafting_system.update(time.delta_seconds(), &debug);
+    crafting_system.update(time.delta_secs(), &debug);
 }

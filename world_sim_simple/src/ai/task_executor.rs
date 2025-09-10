@@ -47,7 +47,7 @@ pub fn task_execution_system(
                             &mut transform,
                             &mut tile_entity,
                             &tree_pos,
-                            time.delta_seconds(),
+                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached tree, harvest it
@@ -70,7 +70,7 @@ pub fn task_execution_system(
                             &mut transform,
                             &mut tile_entity,
                             &rock_pos,
-                            time.delta_seconds(),
+                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached rock, mine it
@@ -93,7 +93,7 @@ pub fn task_execution_system(
                             &mut transform,
                             &mut tile_entity,
                             &berry_pos,
-                            time.delta_seconds(),
+                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached berries, gather them
@@ -116,7 +116,7 @@ pub fn task_execution_system(
                             &mut transform,
                             &mut tile_entity,
                             &stockpile_pos,
-                            time.delta_seconds(),
+                            time.delta_secs(),
                             &debug,
                         ) {
                             debug.log(
@@ -171,7 +171,7 @@ pub fn task_execution_system(
                         &mut transform,
                         &mut tile_entity,
                         &house_pos,
-                        time.delta_seconds(),
+                        time.delta_secs(),
                         &debug,
                     ) {
                         // Build house (consume resources)

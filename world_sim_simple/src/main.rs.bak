@@ -57,7 +57,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(EguiPlugin::default())
+        .add_plugins(EguiPlugin)
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         .add_plugins(WebSocketPlugin)
         .add_plugins(DebugPlugin)
@@ -237,7 +237,7 @@ pub struct TileEntity {
 
 fn setup(mut commands: Commands) {
     // Camera
-    commands.spawn(Camera2d);
+    commands.spawn(Camera2dBundle::default());
     
     // Spawn initial tiles as entities for rendering
     let world_map = WorldMap::default();
@@ -249,12 +249,15 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: tile_type.color(),
-                    custom_size: Some(Vec2::new(TILE_SIZE - 1.0, TILE_SIZE - 1.0)),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: tile_type.color(),
+                        custom_size: Some(Vec2::new(TILE_SIZE - 1.0, TILE_SIZE - 1.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.0),
                     ..default()
                 },
-                Transform::from_xyz(world_x, world_y, 0.0),
                 TileEntity { x, y },
             ));
         }
@@ -272,12 +275,15 @@ fn setup(mut commands: Commands) {
             
             let worker_entity = commands.spawn((
                 // Rendering
-                Sprite {
-                    color: Color::srgb(1.0, 0.75, 0.0),
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.6, TILE_SIZE * 0.6)),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(1.0, 0.75, 0.0),
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.6, TILE_SIZE * 0.6)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 1.0),
                     ..default()
                 },
-                Transform::from_xyz(world_x, world_y, 1.0),
                 // Core components
                 NameComponent::new(format!("Worker {}", i + 1)),
                 PositionComponent::from_tile(x, y),
@@ -349,12 +355,15 @@ fn setup(mut commands: Commands) {
         let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
         
         commands.spawn((
-            Sprite {
-                color: Color::srgb(0.5, 0.3, 0.1), // Brown for stockpile
-                custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.5, 0.3, 0.1), // Brown for stockpile
+                    custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(world_x, world_y, 0.5),
                 ..default()
             },
-            Transform::from_xyz(world_x, world_y, 0.5),
             BuildingComponent::new(BuildingType::Stockpile, (x as i32, y as i32)),
             NameComponent::new("Central Stockpile".to_string()),
             PositionComponent::from_tile(x, y),
@@ -384,12 +393,15 @@ fn setup(mut commands: Commands) {
         let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
         
         commands.spawn((
-            Sprite {
-                color: Color::srgb(0.7, 0.6, 0.2), // Yellow-brown for granary
-                custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.7, 0.6, 0.2), // Yellow-brown for granary
+                    custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(world_x, world_y, 0.5),
                 ..default()
             },
-            Transform::from_xyz(world_x, world_y, 0.5),
             BuildingComponent::new(BuildingType::Granary, (x as i32, y as i32)),
             NameComponent::new("Central Granary".to_string()),
             PositionComponent::from_tile(x, y),
@@ -421,12 +433,15 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.18, 0.31, 0.09),  // Dark green for trees
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.8, TILE_SIZE * 0.8)),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.18, 0.31, 0.09),  // Dark green for trees
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.8, TILE_SIZE * 0.8)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
                     ..default()
                 },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Tree".to_string()),
                 PositionComponent::from_tile(x, y),
                 TileEntity { x, y },
@@ -447,12 +462,15 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.4, 0.4, 0.4),  // Gray for rocks
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.7, TILE_SIZE * 0.7)),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.4, 0.4, 0.4),  // Gray for rocks
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.7, TILE_SIZE * 0.7)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
                     ..default()
                 },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Rock".to_string()),
                 PositionComponent::from_tile(x, y),
                 TileEntity { x, y },
@@ -473,12 +491,15 @@ fn setup(mut commands: Commands) {
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             
             commands.spawn((
-                Sprite {
-                    color: Color::srgb(0.8, 0.1, 0.4),
-                    custom_size: Some(Vec2::new(TILE_SIZE * 0.5, TILE_SIZE * 0.5)),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(0.8, 0.1, 0.4),
+                        custom_size: Some(Vec2::new(TILE_SIZE * 0.5, TILE_SIZE * 0.5)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(world_x, world_y, 0.5),
                     ..default()
                 },
-                Transform::from_xyz(world_x, world_y, 0.5),
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
                 components::ResourceNode {
@@ -507,7 +528,7 @@ fn ui_system(
     settlement_state: Res<components::SettlementState>,
     workers: Query<(&NameComponent, &components::IsHungry, &components::HasEnergy, &components::HasWood, &components::HasFood, &components::HasHouse), With<WorkerTag>>,
 ) {
-    egui::SidePanel::left("controls").show(contexts.ctx_mut().unwrap(), |ui| {
+    egui::SidePanel::left("controls").show(contexts.ctx_mut(), |ui| {
         ui.heading("World Simulator");
         
         ui.separator();
@@ -589,7 +610,7 @@ fn ui_system(
     // Right panel for logs
     egui::SidePanel::right("logs")
         .default_width(400.0)
-        .show(contexts.ctx_mut().unwrap(), |ui| {
+        .show(contexts.ctx_mut(), |ui| {
             ui.heading("System Logs");
             
             // Performance metrics at top
@@ -670,12 +691,12 @@ fn tile_interaction_system(
     buttons: Res<ButtonInput<MouseButton>>,
     mut selected_tile: ResMut<SelectedTile>,
 ) {
-    let Ok(window) = windows.single() else { return };
-    let Ok((camera, camera_transform)) = camera.single() else { return };
+    let window = windows.single();
+    let (camera, camera_transform) = camera.single();
     
     if let Some(cursor_pos) = window.cursor_position() {
         if buttons.just_pressed(MouseButton::Left) {
-            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
+            if let Some(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) {
                 let tile_x = ((world_pos.x / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
                 let tile_y = ((world_pos.y / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
                 
@@ -690,7 +711,7 @@ fn tile_interaction_system(
 fn simulation_system(
     time: Res<Time>,
     mut sim_state: ResMut<SimulationState>,
-    workers: Query<(&mut Transform, &mut TileEntity), With<WorkerTag>>,
+    mut workers: Query<(&mut Transform, &mut TileEntity), With<WorkerTag>>,
     world_map: Res<WorldMap>,
 ) {
     if !sim_state.running {

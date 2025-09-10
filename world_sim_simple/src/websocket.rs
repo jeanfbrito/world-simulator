@@ -429,7 +429,7 @@ fn should_broadcast(time: Res<Time>, sim_state: Res<crate::SimulationState>) -> 
     use std::sync::atomic::{AtomicU32, Ordering};
     static LAST_BROADCAST_MS: AtomicU32 = AtomicU32::new(0);
     
-    let elapsed_ms = (time.elapsed_seconds() * 1000.0) as u32;
+    let elapsed_ms = (time.elapsed_secs() * 1000.0) as u32;
     let last_ms = LAST_BROADCAST_MS.load(Ordering::Relaxed);
     
     if elapsed_ms - last_ms > 100 || sim_state.is_changed() {

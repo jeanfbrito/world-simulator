@@ -352,7 +352,7 @@ pub fn goap_execution_system(
     mut agents: Query<(&mut ActionPlan, &mut WorldState, Entity)>,
     debug: Res<DebugSystem>,
 ) {
-    for (mut plan, mut world_state, entity) in agents.iter_mut() {
+    for (mut plan, mut world_state, _entity) in agents.iter_mut() {
         if plan.is_complete() {
             continue;
         }

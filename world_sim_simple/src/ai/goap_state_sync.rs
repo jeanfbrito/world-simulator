@@ -38,7 +38,7 @@ pub fn sync_goap_states_system(
     let mut building_count = 0i32;
     
     // Count buildings
-    for (building, _) in buildings.iter() {
+    for (_, _) in buildings.iter() {
         building_count += 1;
         // Note: We'd need to count storage resources separately
         // For now just counting building types
@@ -48,7 +48,7 @@ pub fn sync_goap_states_system(
     for (entity, pos, energy, stats, inventory, 
          mut is_hungry, mut has_energy, mut is_working, mut is_idle,
          mut has_wood, mut has_food, mut has_stone,
-         mut inventory_full, mut inventory_empty, mut has_house) in workers.iter_mut() {
+         inventory_full, inventory_empty, has_house) in workers.iter_mut() {
         
         population += 1;
         

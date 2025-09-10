@@ -32,7 +32,7 @@ fn simulation_tick_system(
         return;
     }
     
-    sim_state.accumulated_time += time.delta_seconds() * sim_state.speed;
+    sim_state.accumulated_time += time.delta_secs() * sim_state.speed;
     
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;
@@ -57,7 +57,7 @@ fn simulation_stats_system(
 ) {
     static mut LAST_STATS: f32 = 0.0;
     unsafe {
-        LAST_STATS += time.delta_seconds();
+        LAST_STATS += time.delta_secs();
         if LAST_STATS > 10.0 {  // Every 10 seconds
             debug.log(
                 DebugLevel::Info,

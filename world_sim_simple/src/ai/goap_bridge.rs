@@ -73,7 +73,7 @@ pub fn update_needs_system(
     time: Res<Time>,
     debug: Res<DebugSystem>,
 ) {
-    let delta = time.delta_seconds() as f64;
+    let delta = time.delta_secs() as f64;
     
     for (mut hunger, mut energy, is_working, _) in workers.iter_mut() {
         // Increase hunger over time (much slower, realistic rate)

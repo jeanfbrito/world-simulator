@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use consistent Bevy 0.14 versions
-bevy = "0.14"
-bevy_egui = "0.28"
+# Use consistent Bevy 0.16 versions
+bevy = "0.16"
+bevy_egui = "0.36"
 
 # Interface
 world_sim_interface = { path = "../world_sim_interface" }
@@ -33,4 +33,4 @@ log = "0.4"
 # AI libraries for intelligent agent behavior
 dogoap = "0.5"
 bevy_dogoap = "0.5"
-big-brain = "0.21"  # Utility AI for reactive behaviors
+big-brain = { git = "https://github.com/zkat/big-brain", branch = "main" }  # Utility AI for reactive behaviors

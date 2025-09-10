@@ -4,27 +4,27 @@ use big_brain::prelude::*;
 
 // Shared state components that both AI systems can read/write
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct IsHungry(pub bool);
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct IsTired(pub bool);
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct HasWood(pub i32);
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct HasStone(pub i32);
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct HasFood(pub i32);
 
-#[derive(Component, Reflect, Clone, DatumComponent)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct NeedsShelter(pub bool);
 
@@ -93,7 +93,7 @@ pub fn update_worker_stats_system(
     time: Res<Time>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     
     for (mut stats, mut is_hungry, mut is_tired) in query.iter_mut() {
         // Decrease hunger over time
@@ -107,14 +107,14 @@ pub fn update_worker_stats_system(
         // Log critical states
         if stats.hunger < 0.1 {
             debug.log(
-                crate::debug::DebugLevel::Warning,
+                crate::debug::DebugLevel::Warn,
                 "WORKER_STATE",
                 "Worker is starving!"
             );
         }
         if stats.energy < 0.1 {
             debug.log(
-                crate::debug::DebugLevel::Warning,
+                crate::debug::DebugLevel::Warn,
                 "WORKER_STATE",
                 "Worker is exhausted!"
             );

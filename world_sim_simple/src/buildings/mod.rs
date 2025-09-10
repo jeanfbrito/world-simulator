@@ -36,7 +36,7 @@ fn construction_update_system(
     time: Res<Time>,
     debug: Res<DebugSystem>,
 ) {
-    queue.update(time.delta_seconds(), &debug);
+    queue.update(time.delta_secs(), &debug);
 }
 
 fn building_placement_update_system(

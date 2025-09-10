@@ -27,7 +27,7 @@ fn world_update_system(
     // For now, just track that the system runs
     static mut LAST_LOG: f32 = 0.0;
     unsafe {
-        LAST_LOG += time.delta_seconds();
+        LAST_LOG += time.delta_secs();
         if LAST_LOG > 5.0 {
             println!("{}", "[WORLD] World update tick".dimmed());
             LAST_LOG = 0.0;

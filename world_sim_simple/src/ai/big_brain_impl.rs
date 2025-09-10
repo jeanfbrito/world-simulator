@@ -111,7 +111,7 @@ pub fn rest_quick_action_system(
                     *state = ActionState::Executing;
                 }
                 ActionState::Executing => {
-                    stats.energy = (stats.energy + time.delta_seconds() * 0.5).min(1.0);
+                    stats.energy = (stats.energy + time.delta_secs() * 0.5).min(1.0);
                     
                     if stats.energy >= 0.6 {
                         debug.log(DebugLevel::Info, "BIG_BRAIN", "Quick rest complete");
@@ -138,7 +138,7 @@ pub fn panic_gather_action_system(
                 ActionState::Requested => {
                     // Desperately gather any nearby food
                     food.0 += 2;
-                    debug.log(DebugLevel::Warning, "BIG_BRAIN", "Panic gathering food!");
+                    debug.log(DebugLevel::Warn, "BIG_BRAIN", "Panic gathering food!");
                     *state = ActionState::Success;
                 }
                 ActionState::Cancelled => {
