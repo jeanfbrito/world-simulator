@@ -22,25 +22,26 @@ mod ai;
 mod save_load;
 mod performance;
 mod scripting;
+mod spawning;
 
 use websocket::WebSocketPlugin;
-use debug::{DebugPlugin, DebugSystem};
+use debug::DebugPlugin;
 // use debug_cli::DebugCLI; // Disabled for headless operation
 use components::{
-    ComponentsPlugin, PositionComponent, HealthComponent, 
-    NameComponent, EnergyComponent, WorkerTag, WorkerStats
+    ComponentsPlugin, PositionComponent, 
+    NameComponent, WorkerTag
 };
-use resources::create_starter_inventory;
 use plugin::{PluginManager, plugin_init_system};
 use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
 use tilemap::TilemapPlugin;
 use resources::ResourcesPlugin;
 use buildings::{BuildingsPlugin, BuildingComponent, BuildingType};
 use crafting::CraftingPlugin;
-use ai::{AIPlugin, WorkerAI, goap_actions::{WorldState, StateValue}};
+use ai::AIPlugin;
 use save_load::SaveLoadPlugin;
 use performance::PerformancePlugin;
 use scripting::ScriptingPlugin;
+use spawning::SpawningPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -69,6 +70,7 @@ fn main() {
         .add_plugins(AIPlugin)
         .add_plugins(SaveLoadPlugin)
         .add_plugins(PerformancePlugin)
+        .add_plugins(SpawningPlugin)
         // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
@@ -233,79 +235,8 @@ fn setup(mut commands: Commands) {
     // Initialize world map for headless operation (no tile sprites)
     let world_map = WorldMap::default();
     
-    // Spawn peasants (based on stronghold/scripts/units/peasant.lua)
+    // Peasant spawning is now handled by SpawningPlugin
     let mut rng = rand::thread_rng();
-    for i in 0..5 {
-        let x = rng.gen_range(20..44);
-        let y = rng.gen_range(20..44);
-        
-        if world_map.tiles[y][x].is_walkable() {
-            let peasant_config = components::PeasantConfig::default();
-            let peasant_entity = commands.spawn((
-                // Core components (no rendering)
-                NameComponent::new(format!("Peasant {}", i + 1)),
-                PositionComponent::from_tile(x, y),
-                HealthComponent::new(peasant_config.health),
-                EnergyComponent::new(100.0),
-                // Worker-specific components
-                WorkerTag,
-                WorkerStats::default(),
-                // Peasant configuration (based on Lua)
-                components::PeasantTag::with_config(peasant_config.clone()),
-                // AI
-                WorkerAI::new(),
-                WorldState::new(),  // GOAP world state
-                // Inventory
-                create_starter_inventory(),
-                // Tile tracking (for logic)
-                TileEntity { x, y },
-            ))
-            .insert((
-                // GOAP states (initial values) - Peasant needs (Stronghold style)
-                components::IsHungry(0.6),  // Peasants start hungry and need food regularly
-                components::HasEnergy(1.0),
-                components::IsWorking(false),
-                components::IsIdle(true),
-                components::HasWood(0),  // No initial resources - must work for everything
-                components::HasHouse(false),  // No shelter initially (basic need from peasant.lua)
-                components::HasFood(0),  // Start hungry - must find food to survive
-                components::HasStone(0),  // No initial stone
-                components::InventoryFull(false),
-                components::InventoryEmpty(true),  // Start with empty inventory
-            ))
-            .insert((
-                // Location states
-                components::AtResource(false),
-                components::AtStorage(false),
-                components::AtHome(false),
-                components::AtCraftingStation(false),
-                // Building ownership and availability
-                components::HasHouse(false),  // Workers start without a house
-                components::StorageAvailable(true),  // We spawned stockpile
-                components::HouseAvailable(false),
-                components::WorkshopAvailable(false),
-                components::FarmAvailable(false),
-            ))
-            .insert({
-                let mut ws = WorldState::new();
-                // Initialize with current component values
-                ws.set("is_hungry", StateValue::Float(0.0));
-                ws.set("has_energy", StateValue::Float(1.0));
-                ws.set("has_wood", StateValue::Int(10));  // From inventory
-                ws.set("has_food", StateValue::Int(20));  // Berries from inventory  
-                ws.set("has_stone", StateValue::Int(5));  // From inventory
-                ws.set("has_house", StateValue::Bool(false));
-                ws.set("at_storage", StateValue::Bool(false));
-                ws.set("inventory_full", StateValue::Bool(false));
-                ws
-            })  // Add GOAP world state for planning with initial values
-            .id();
-            
-            // Log worker creation with component-based architecture
-            println!("{}", format!("[SPAWN] Peasant {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats, GOAP States", 
-                i + 1, x, y).green());
-        }
-    }
     
     // Spawn stockpile (for wood/stone storage) at center of map
     {

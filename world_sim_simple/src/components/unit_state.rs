@@ -126,6 +126,7 @@ pub struct UnitLocation {
 }
 
 #[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 pub enum LocationType {
     Wilderness,
     Storage,

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use colored::Colorize;
 use crate::components::{
     PositionComponent, HealthComponent, NameComponent, EnergyComponent,
     WorkerTag, WorkerStats, PeasantTag, PeasantConfig,
@@ -18,18 +19,29 @@ impl Plugin for SpawningPlugin {
 }
 
 /// Spawns initial units at the start of the game
-fn initial_unit_spawn_system(mut commands: Commands) {
+fn initial_unit_spawn_system(
+    mut commands: Commands,
+    world_map: Res<crate::WorldMap>
+) {
     let mut rng = rand::thread_rng();
+    let mut spawned = 0;
     
     // Spawn 5 peasants with consolidated components
-    for i in 0..5 {
+    while spawned < 5 {
         let x = rng.gen_range(20..44);
         let y = rng.gen_range(20..44);
         
-        spawn_peasant(&mut commands, i + 1, x, y);
+        // Check if tile is walkable
+        if world_map.tiles[y][x].is_walkable() {
+            spawn_peasant(&mut commands, spawned + 1, x, y);
+            spawned += 1;
+            
+            println!("{}", format!("[SPAWN] Peasant {} at ({}, {}) with consolidated components", 
+                spawned, x, y).green());
+        }
     }
     
-    println!("[SPAWN] Created 5 initial peasants with consolidated state components");
+    println!("{}", "[SPAWN] Created 5 initial peasants with consolidated state components".green());
 }
 
 /// Factory function to spawn a peasant with all necessary components
