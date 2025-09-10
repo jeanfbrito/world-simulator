@@ -37,3 +37,6 @@ big-brain = { git = "https://github.com/zkat/big-brain", branch = "main" }  # Ut
 
 # Scripting support
 bevy_mod_scripting = { version = "0.15.1", default-features = false, features = ["lua54"] }
+
+# Tilemap rendering and pathfinding
+# bevy_entitiles = { git = "https://github.com/jeanfbrito/bevy_entitiles.git", branch = "bevy-0.16-migration", features = ["algorithm"] }

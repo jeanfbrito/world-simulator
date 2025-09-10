@@ -34,9 +34,9 @@ pub fn load_recipe_scripts(
             commands.entity(entity).despawn();
         }
         
-        // Load all recipe scripts from the assets directory
+        // Load all recipe scripts from the packs directory
         let recipe_scripts = vec![
-            "scripts/recipes/wood_processing.lua",
+            "packs/stronghold/scripts/recipes/wood_processing.lua",
         ];
         
         for script_path in recipe_scripts {
@@ -49,7 +49,7 @@ pub fn load_recipe_scripts(
                     script_path: script_path.to_string(),
                     loaded: false,
                 },
-                ScriptComponent::new(script_handle),
+                ScriptComponent::new(vec![script_handle]),
                 Name::new(format!("RecipeScript_{}", script_path.replace("/", "_"))),
             ));
             

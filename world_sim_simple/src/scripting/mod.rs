@@ -4,9 +4,11 @@ use crate::debug::{DebugSystem, DebugLevel};
 
 pub mod lua_api;
 pub mod recipe_scripts;
+pub mod tree_generation;
 
 // Re-export key types for easier use
 pub use recipe_scripts::{RecipeScript, ReloadRecipeScriptsCommand};
+pub use tree_generation::{ScriptedTree, GenerateTreesCommand, TreeGenerationState};
 
 #[derive(Event)]
 pub struct ScriptReloadEvent {
@@ -27,11 +29,14 @@ impl Plugin for ScriptingPlugin {
         app.add_plugins(BMSPlugin)
             .add_event::<ScriptReloadEvent>()
             .add_event::<ReloadRecipeScriptsCommand>()
+            .add_event::<GenerateTreesCommand>()
+            .init_resource::<TreeGenerationState>()
             .add_systems(Startup, scripting_init_system)
             .add_systems(Update, (
                 script_reload_system,
                 recipe_scripts::load_recipe_scripts,
                 recipe_scripts::process_recipe_scripts,
+                tree_generation::generate_trees_system,
             ));
     }
 }
@@ -39,6 +44,7 @@ impl Plugin for ScriptingPlugin {
 fn scripting_init_system(
     debug: Res<DebugSystem>,
     mut reload_events: EventWriter<ReloadRecipeScriptsCommand>,
+    mut tree_events: EventWriter<GenerateTreesCommand>,
 ) {
     debug.log(
         DebugLevel::Info,
@@ -53,6 +59,18 @@ fn scripting_init_system(
         DebugLevel::Info,
         "SCRIPT",
         "Triggering initial recipe script loading"
+    );
+    
+    // Automatically generate trees on startup
+    tree_events.send(GenerateTreesCommand {
+        area: None,
+        force_regenerate: false,
+    });
+    
+    debug.log(
+        DebugLevel::Info,
+        "SCRIPT", 
+        "Triggering initial tree generation"
     );
 }
 
