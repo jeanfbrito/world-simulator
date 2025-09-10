@@ -101,16 +101,18 @@ pub fn simple_ai_monitor_system(
         );
         
         if let Some(plan) = plan {
-            if !plan.actions.is_empty() {
+            if !plan.actions.is_empty() && plan.current_index < plan.actions.len() {
                 let current = &plan.actions[plan.current_index];
                 println!("   ➡️ Current: {}", current.name.green());
-                if plan.actions.len() > 1 {
+                if plan.current_index + 1 < plan.actions.len() {
                     let remaining: Vec<&str> = plan.actions[plan.current_index + 1..]
                         .iter()
                         .map(|a| a.name.as_str())
                         .collect();
                     println!("   📝 Next: {}", remaining.join(" → ").bright_black());
                 }
+            } else if plan.is_complete() {
+                println!("   ✅ {}", "Plan completed".green());
             }
         } else {
             println!("   ⚠️ {}", "Trying to create plan...".yellow());

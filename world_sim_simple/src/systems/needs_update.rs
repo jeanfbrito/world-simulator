@@ -75,6 +75,15 @@ pub fn sync_needs_to_worldstate_system(
         let food = inventory.get_amount(crate::resources::ResourceType::Berries);
         let stone = inventory.get_amount(crate::resources::ResourceType::Stone);
         
+        // Debug output on first tick
+        static mut LOGGED: bool = false;
+        unsafe {
+            if !LOGGED {
+                println!("DEBUG: Inventory sync - Wood: {}, Food: {}, Stone: {}", wood, food, stone);
+                LOGGED = true;
+            }
+        }
+        
         world_state.set("has_wood", crate::ai::StateValue::Int(wood));
         world_state.set("has_food", crate::ai::StateValue::Int(food));
         world_state.set("has_stone", crate::ai::StateValue::Int(stone));

@@ -48,7 +48,7 @@ fn initial_unit_spawn_system(
 pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> Entity {
     let peasant_config = PeasantConfig::default();
     
-    commands.spawn((
+    let entity = commands.spawn((
         // Identity
         NameComponent::new(format!("Peasant {}", id)),
         
@@ -64,7 +64,10 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         WorkerTag,
         WorkerStats::default(),
         PeasantTag::with_config(peasant_config.clone()),
-        
+    )).id();
+    
+    // Add additional components separately to avoid bundle size limit
+    commands.entity(entity).insert((
         // NEW: Consolidated state components
         UnitNeeds::new(),
         UnitInventory::with_starting_items(),
@@ -75,7 +78,10 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         // AI components
         WorkerAI::new(),
         create_initial_world_state(),
-    )).id()
+        crate::ai::BehaviorCycle::default(),
+    ));
+    
+    entity
 }
 
 /// Creates the initial GOAP world state for a unit

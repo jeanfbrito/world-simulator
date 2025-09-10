@@ -7,6 +7,7 @@ pub mod goap_planner;
 mod goap_bridge;
 mod task_executor;
 mod debug_logger;
+mod behavior_state;
 // New AI modules (temporarily disabled due to library compatibility issues)
 // mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap
 // mod shared_state;       // For hybrid AI
@@ -21,6 +22,7 @@ pub use goap_planner::{GoapPlanner, goap_planning_system, goap_execution_system}
 pub use goap_bridge::{goap_to_task_bridge_system, update_needs_system};
 pub use task_executor::{task_execution_system, TreeTag, RockTag, BerryBushTag};
 pub use debug_logger::{AIDebugLogger, enhanced_debug_system};
+pub use behavior_state::{BehaviorState as BehaviorStateNew, BehaviorCycle, behavior_state_machine_system};
 // New AI exports (temporarily disabled due to library compatibility issues)
 // pub use bevy_dogoap_impl::BevyDogoapPlugin;
 // pub use big_brain_impl::BigBrainAIPlugin;
@@ -63,6 +65,7 @@ impl Plugin for AIPlugin {
                 pathfinding_update_system.run_if(simulation_running),
                 sync_goap_states_system.run_if(simulation_just_ticked),
                 update_needs_system.run_if(simulation_just_ticked),
+                behavior_state_machine_system.run_if(simulation_just_ticked),  // Run before planning
                 goap_planning_system.run_if(simulation_just_ticked),
                 goap_execution_system.run_if(simulation_just_ticked),
                 goap_to_task_bridge_system.run_if(simulation_just_ticked),

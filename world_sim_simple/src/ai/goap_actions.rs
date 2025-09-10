@@ -17,6 +17,7 @@ pub enum StateValue {
     Bool(bool),
     Float(f64),
     Int(u32),
+    IntDelta(i32),  // For consumption/production changes
 }
 
 impl GoapAction {
@@ -56,8 +57,28 @@ impl GoapAction {
     fn check_condition(&self, current: &StateValue, required: &StateValue) -> bool {
         match (current, required) {
             (StateValue::Bool(c), StateValue::Bool(r)) => c == r,
-            (StateValue::Float(c), StateValue::Float(r)) => (c - r).abs() < 0.01,
+            (StateValue::Float(c), StateValue::Float(r)) => {
+                // For needs like hunger/energy, use threshold checks based on action name
+                // This is a bit hacky but works for our current action set
+                // Better solution would be to have a separate threshold type
+                match self.name.as_str() {
+                    "eat_food" => *c >= *r,  // Can eat when hunger is >= threshold (more hungry)
+                    "rest" => *c <= *r,      // Can rest when energy is <= threshold (less energy)
+                    "move_to_resource" | "move_to_storage" | "harvest_resource" | 
+                    "cut_wood" | "quarry_stone" | "build_house" | "build_structure" |
+                    "gather_food" => *c >= *r, // Need energy >= threshold for actions
+                    _ => *c >= *r,           // Default: current must be >= required
+                }
+            },
             (StateValue::Int(c), StateValue::Int(r)) => c >= r, // For resources, current must be >= required
+            (StateValue::Int(c), StateValue::IntDelta(d)) => {
+                // For consumption, check if we have enough
+                if *d < 0 {
+                    *c >= (-d) as u32
+                } else {
+                    true // Can always add resources
+                }
+            },
             _ => false,
         }
     }
@@ -87,23 +108,35 @@ impl WorldState {
     /// Apply the effects of an action to this world state
     pub fn apply_action(&mut self, action: &GoapAction) {
         for (key, value) in &action.effects {
-            // For resource counts (has_wood, has_stone, has_food), add to existing value
-            if key.starts_with("has_") {
-                if let StateValue::Int(add_amount) = value {
+            match value {
+                StateValue::IntDelta(delta) => {
+                    // Handle resource changes (consumption/production)
                     if let Some(StateValue::Int(current)) = self.states.get(key) {
-                        // Add to existing amount
-                        self.states.insert(key.clone(), StateValue::Int(current + add_amount));
+                        let new_amount = (*current as i32 + delta).max(0) as u32;
+                        self.states.insert(key.clone(), StateValue::Int(new_amount));
+                    } else if *delta > 0 {
+                        // Starting from 0 if adding resources
+                        self.states.insert(key.clone(), StateValue::Int(*delta as u32));
+                    }
+                },
+                StateValue::Int(amount) => {
+                    // For absolute values (like rewards from gathering)
+                    if key.starts_with("has_") {
+                        // For resources, add to existing
+                        if let Some(StateValue::Int(current)) = self.states.get(key) {
+                            self.states.insert(key.clone(), StateValue::Int(current + amount));
+                        } else {
+                            self.states.insert(key.clone(), value.clone());
+                        }
                     } else {
-                        // Set initial amount
+                        // For other states, just set
                         self.states.insert(key.clone(), value.clone());
                     }
-                } else {
-                    // Non-int resource or other state, just set it
+                },
+                _ => {
+                    // For Bool and Float, just set the value
                     self.states.insert(key.clone(), value.clone());
                 }
-            } else {
-                // For non-resource states, just set the value
-                self.states.insert(key.clone(), value.clone());
             }
         }
     }
@@ -211,22 +244,23 @@ impl ActionSet {
                 .with_effect("at_resource", StateValue::Bool(false))
         );
         
-        // Store resources action
+        // Store resources action (stores all carried resources)
         actions.push(
             GoapAction::new("store_resources", 1.0)
                 .with_precondition("at_storage", StateValue::Bool(true))
                 .with_precondition("has_wood", StateValue::Int(1))
-                .with_effect("has_wood", StateValue::Int(0))
+                .with_effect("has_wood", StateValue::IntDelta(-999))  // Clear all wood
                 .with_effect("inventory_full", StateValue::Bool(false))
         );
         
-        // Eat food action
+        // Eat food action (consumes 1 food)
         actions.push(
             GoapAction::new("eat_food", 0.5)
                 .with_precondition("has_food", StateValue::Int(1))
                 .with_precondition("is_hungry", StateValue::Float(0.3))
                 .with_effect("is_hungry", StateValue::Float(0.0))
                 .with_effect("has_energy", StateValue::Float(1.0))
+                .with_effect("has_food", StateValue::IntDelta(-1))  // Consume 1 food
         );
         
         // Rest action (when energy is low)
@@ -253,15 +287,15 @@ impl ActionSet {
                 .with_effect("has_wood", StateValue::Int(10))
         );
         
-        // Build house action
+        // Build house action (consumes resources)
         actions.push(
             GoapAction::new("build_house", 8.0)
                 .with_precondition("has_wood", StateValue::Int(15)) // Need 15 wood for house
                 .with_precondition("has_stone", StateValue::Int(10)) // Need 10 stone for house
                 .with_precondition("has_energy", StateValue::Float(0.5))
                 .with_effect("has_house", StateValue::Bool(true))
-                .with_effect("has_wood", StateValue::Int(0))
-                .with_effect("has_stone", StateValue::Int(0))
+                .with_effect("has_wood", StateValue::IntDelta(-15))  // Consume 15 wood
+                .with_effect("has_stone", StateValue::IntDelta(-10)) // Consume 10 stone
         );
         
         // Get wood from stockpile
@@ -294,8 +328,8 @@ impl ActionSet {
                 .with_precondition("has_wood", StateValue::Int(10))
                 .with_precondition("has_stone", StateValue::Int(5))
                 .with_precondition("has_energy", StateValue::Float(0.5))
-                .with_effect("has_wood", StateValue::Int(0))
-                .with_effect("has_stone", StateValue::Int(0))
+                .with_effect("has_wood", StateValue::IntDelta(-10))  // Consume 10 wood
+                .with_effect("has_stone", StateValue::IntDelta(-5))  // Consume 5 stone
         );
         
         Self { actions }

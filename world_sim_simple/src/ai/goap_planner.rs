@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use std::collections::{HashMap, BinaryHeap, HashSet};
 use std::cmp::Ordering;
+use colored::Colorize;
 use crate::ai::goap_actions::{GoapAction, WorldState, StateValue, ActionSet, ActionPlan};
 use crate::debug::{DebugSystem, DebugLevel};
 
@@ -123,6 +124,34 @@ impl GoapPlanner {
             
             // Explore all valid actions from this state
             let valid_actions = action_set.get_valid_actions(&current_node.state);
+            
+            // Debug: Show all actions and why they might not be valid
+            if iterations == 1 {
+                debug.log(DebugLevel::Info, "GOAP_DEBUG", "Checking action validity:");
+                for action in &action_set.actions {
+                    let is_valid = action.is_valid(&current_node.state);
+                    debug.log(
+                        DebugLevel::Info,
+                        "GOAP_DEBUG",
+                        &format!("  {} {}: {}", 
+                            if is_valid { "✓" } else { "✗" },
+                            action.name,
+                            if !is_valid {
+                                let mut missing = Vec::new();
+                                for (key, req) in &action.preconditions {
+                                    if let Some(_curr) = current_node.state.get(key) {
+                                        // Already handled in check_condition
+                                    } else {
+                                        missing.push(format!("{} missing", key));
+                                    }
+                                }
+                                if missing.is_empty() { "preconditions not met" } else { &missing.join(", ") }
+                            } else { "valid" }
+                        )
+                    );
+                }
+            }
+            
             debug.log(
                 DebugLevel::Debug,
                 "GOAP_ACTIONS",
@@ -193,6 +222,10 @@ impl GoapPlanner {
             (StateValue::Bool(c), StateValue::Bool(g)) => c == g,
             (StateValue::Float(c), StateValue::Float(g)) => (c - g).abs() < 0.1,
             (StateValue::Int(c), StateValue::Int(g)) => c >= g,
+            (StateValue::IntDelta(_), _) | (_, StateValue::IntDelta(_)) => {
+                // IntDelta is only for effects, not goals
+                false
+            },
             _ => false,
         }
     }
@@ -227,6 +260,7 @@ impl GoapPlanner {
                 StateValue::Bool(b) => hash.push_str(&b.to_string()),
                 StateValue::Float(f) => hash.push_str(&format!("{:.1}", f)),
                 StateValue::Int(i) => hash.push_str(&i.to_string()),
+                StateValue::IntDelta(d) => hash.push_str(&format!("Δ{}", d)),
             }
             hash.push(';');
         }
@@ -251,9 +285,11 @@ pub fn goap_planning_system(
     let planner = GoapPlanner::new();
     
     for (entity, current_state, existing_plan) in agents.iter_mut() {
-        // Skip if already has a plan
-        if existing_plan.is_some() {
-            continue;
+        // Skip if already has an active (non-completed) plan
+        if let Some(plan) = existing_plan {
+            if !plan.is_complete() {
+                continue;
+            }
         }
         
         debug.log(
@@ -269,22 +305,38 @@ pub fn goap_planning_system(
         // Don't set has_house as immediate goal - let it emerge from resource gathering
         // This is handled later in the resource gathering section
         
-        // Check if hungry (priority 1 - URGENT in Stronghold)
+        // Priority 1: CRITICAL - If completely exhausted, must rest first (can't do anything without energy)
+        if let Some(StateValue::Float(energy)) = current_state.get("has_energy") {
+            if *energy <= 0.0 {
+                goal.set("has_energy", StateValue::Float(1.0)); // Want full energy
+                debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("⚠️ CRITICAL: {} exhausted! Must rest immediately (energy: {:.2})", entity, energy));
+            }
+        }
+        
+        // Priority 2: If starving AND have food, eat
         if goal.states.is_empty() {
             if let Some(StateValue::Float(hunger)) = current_state.get("is_hungry") {
                 if *hunger > 0.3 {  // Peasants need food more urgently
-                    goal.set("is_hungry", StateValue::Float(0.0)); // Want to not be hungry
-                    debug.log(DebugLevel::Info, "GOAP_GOAL", "🍞 URGENT: Peasant needs food!");
+                    if let Some(StateValue::Int(food)) = current_state.get("has_food") {
+                        if *food > 0 {
+                            goal.set("is_hungry", StateValue::Float(0.0)); // Want to not be hungry
+                            debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("🍞 URGENT: Needs food! (hunger: {:.2}, has {} food)", hunger, food));
+                        } else {
+                            // Need to gather food first
+                            goal.set("has_food", StateValue::Int(3)); // Get some food
+                            debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("🍞 Hungry but no food! Need to gather (hunger: {:.2})", hunger));
+                        }
+                    }
                 }
             }
         }
         
-        // Check if exhausted (priority 3)
+        // Priority 3: If low energy, rest
         if goal.states.is_empty() {
             if let Some(StateValue::Float(energy)) = current_state.get("has_energy") {
                 if *energy < 0.3 {
                     goal.set("has_energy", StateValue::Float(1.0)); // Want full energy
-                    debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Rest to recover energy");
+                    debug.log(DebugLevel::Info, "GOAP_GOAL", &format!("😴 Low energy, need rest (energy: {:.2})", energy));
                 }
             }
         }
@@ -370,11 +422,31 @@ pub fn goap_planning_system(
 
 /// System to execute GOAP plans
 pub fn goap_execution_system(
-    mut agents: Query<(&mut ActionPlan, &mut WorldState, Entity)>,
+    mut agents: Query<(
+        &mut ActionPlan, 
+        &mut WorldState, 
+        &mut crate::components::UnitNeeds,
+        &mut crate::components::UnitInventory,
+        Entity,
+        &crate::components::NameComponent
+    )>,
     debug: Res<DebugSystem>,
+    sim_state: Res<crate::SimulationState>,
 ) {
-    for (mut plan, mut world_state, _entity) in agents.iter_mut() {
+    // Only execute on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (mut plan, mut world_state, mut needs, mut inventory, entity, name) in agents.iter_mut() {
+        // Clear completed plans to trigger replanning
         if plan.is_complete() {
+            debug.log(
+                DebugLevel::Info,
+                "GOAP",
+                &format!("{} completed plan, clearing for replanning", name.name)
+            );
+            *plan = ActionPlan::new(Vec::new());
             continue;
         }
         
@@ -382,12 +454,31 @@ pub fn goap_execution_system(
             // Check if action is still valid
             if action.is_valid(&world_state) {
                 debug.log(
-                    DebugLevel::Debug,
+                    DebugLevel::Info,
                     "GOAP",
-                    &format!("Executing action: {}", action.name)
+                    &format!("{} executing: {}", name.name, action.name)
                 );
                 
-                // Apply the action's effects
+                // Apply effects to actual components based on action
+                match action.name.as_str() {
+                    "eat_food" => {
+                        // Actually consume food from inventory
+                        if inventory.remove_item(crate::resources::ResourceType::Berries, 1) {
+                            needs.hunger = 0.0;  // Reset hunger
+                            needs.energy = 1.0;  // Restore energy
+                            println!("🍎 {} ate food! Hunger reset to 0", name.name.green());
+                        }
+                    },
+                    "rest" => {
+                        needs.energy = 1.0;  // Restore energy
+                        println!("😴 {} rested! Energy restored", name.name.blue());
+                    },
+                    _ => {
+                        // Other actions handled by task system
+                    }
+                }
+                
+                // Apply the action's effects to world state
                 world_state.apply_action(action);
                 
                 // Move to next action
@@ -396,9 +487,10 @@ pub fn goap_execution_system(
                 debug.log(
                     DebugLevel::Info,
                     "GOAP",
-                    &format!("Action {} no longer valid, replanning needed", action.name)
+                    &format!("Action {} no longer valid for {}, replanning needed", action.name, name.name)
                 );
-                // TODO: Trigger replanning
+                // Clear the plan to trigger replanning
+                *plan = ActionPlan::new(Vec::new());
             }
         }
     }
