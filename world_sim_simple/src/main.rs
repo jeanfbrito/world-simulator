@@ -10,6 +10,8 @@ use colored::Colorize;
 mod websocket;
 mod simulation;
 mod debug;
+#[path = "debug/ai_monitor.rs"]
+mod ai_monitor;
 // // mod debug_cli; // Disabled for headless operation
 mod components;
 mod plugin;
@@ -81,6 +83,7 @@ fn main() {
         .add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
             simulation_system,
+            ai_monitor::simple_ai_monitor_system,
         ))
         .run();
 }
