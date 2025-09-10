@@ -20,6 +20,7 @@ mod crafting;
 mod ai;
 mod save_load;
 mod performance;
+mod scripting;
 
 use websocket::WebSocketPlugin;
 use debug::{DebugPlugin, DebugSystem};
@@ -38,6 +39,7 @@ use crafting::CraftingPlugin;
 use ai::{AIPlugin, WorkerAI, goap_actions::{WorldState, StateValue}};
 use save_load::SaveLoadPlugin;
 use performance::PerformancePlugin;
+use scripting::ScriptingPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
@@ -72,6 +74,7 @@ fn main() {
         .add_plugins(AIPlugin)
         .add_plugins(SaveLoadPlugin)
         .add_plugins(PerformancePlugin)
+        .add_plugins(ScriptingPlugin)
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
         .init_resource::<SelectedTile>()

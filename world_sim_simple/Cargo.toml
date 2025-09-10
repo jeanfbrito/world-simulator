@@ -34,3 +34,6 @@ log = "0.4"
 dogoap = "0.5"
 bevy_dogoap = "0.5"
 big-brain = { git = "https://github.com/zkat/big-brain", branch = "main" }  # Utility AI for reactive behaviors
+
+# Scripting support
+bevy_mod_scripting = { version = "0.15.1", default-features = false, features = ["lua54"] }
