@@ -25,6 +25,8 @@ mod save_load;
 mod performance;
 mod scripting;
 mod spawning;
+#[path = "systems/needs_update.rs"]
+mod needs_update;
 
 use websocket::WebSocketPlugin;
 use debug::DebugPlugin;
@@ -83,6 +85,8 @@ fn main() {
         .add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
             simulation_system,
+            needs_update::update_unit_needs_system,
+            needs_update::sync_needs_to_worldstate_system,
             ai_monitor::simple_ai_monitor_system,
         ))
         .run();

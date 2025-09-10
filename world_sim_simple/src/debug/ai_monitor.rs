@@ -2,6 +2,11 @@ use bevy::prelude::*;
 use colored::Colorize;
 use crate::components::*;
 use crate::ai::{WorldState, ActionPlan};
+use crate::TileEntity;
+use std::collections::HashMap;
+
+// Store previous positions to detect movement
+static mut PREV_POSITIONS: Option<HashMap<Entity, (usize, usize)>> = None;
 
 /// Simple AI monitor that shows what each peasant is doing
 pub fn simple_ai_monitor_system(
@@ -12,12 +17,21 @@ pub fn simple_ai_monitor_system(
         &UnitNeeds,
         &UnitInventory,
         &UnitLocation,
+        &TileEntity,
+        &PositionComponent,
         Option<&ActionPlan>,
     ), With<PeasantTag>>,
     resources: Query<Entity, Or<(With<crate::ai::TreeTag>, With<crate::ai::RockTag>, With<crate::ai::BerryBushTag>)>>,
 ) {
     if !sim_state.just_ticked {
         return;
+    }
+    
+    // Initialize previous positions if needed
+    unsafe {
+        if PREV_POSITIONS.is_none() {
+            PREV_POSITIONS = Some(HashMap::new());
+        }
     }
     
     // Clear screen for better readability (optional)
@@ -30,7 +44,22 @@ pub fn simple_ai_monitor_system(
     println!("🌍 World Resources: {} trees/rocks/berries available", trees);
     
     // Show each peasant's status
-    for (entity, name, needs, inventory, location, plan) in peasants.iter() {
+    for (entity, name, needs, inventory, location, tile, position, plan) in peasants.iter() {
+        // Check if peasant moved
+        let current_pos = (tile.x, tile.y);
+        let moved = unsafe {
+            let prev_map = PREV_POSITIONS.as_mut().unwrap();
+            let prev_pos = prev_map.get(&entity).copied();
+            prev_map.insert(entity, current_pos);
+            
+            if let Some(prev) = prev_pos {
+                prev != current_pos
+            } else {
+                false
+            }
+        };
+        
+        let movement_indicator = if moved { "🚶" } else { "🧍" };
         let status = if plan.is_some() { "📋 Has Plan" } else { "❓ No Plan" };
         let hunger_bar = create_bar(needs.hunger, true);
         let energy_bar = create_bar(needs.energy, false);
@@ -50,15 +79,25 @@ pub fn simple_ai_monitor_system(
             LocationType::Resource(_) => "🌲 Resource",
         };
         
-        println!("👤 {} ({:?})", name.name.cyan(), entity);
-        println!("   {} | Hunger {} | Energy {} | {}", 
+        println!("👤 {} {} @ ({},{}) {}", 
+            name.name.cyan(), 
+            movement_indicator,
+            tile.x, 
+            tile.y,
+            format!("({:?})", entity).bright_black()
+        );
+        println!("   {} | Hunger {} ({:.2}) | Energy {} ({:.2})", 
             status,
             hunger_bar,
+            needs.hunger,
             energy_bar,
-            loc
+            needs.energy
         );
-        println!("   Inventory: {}🪵 {}🍖 {}⛏️", 
-            wood, food, stone
+        println!("   📍 {} | Inventory: {}🪵 {}🍖 {}⛏️ (weight: {:.1}/{:.1})", 
+            loc,
+            wood, food, stone,
+            inventory.current_weight,
+            inventory.max_weight
         );
         
         if let Some(plan) = plan {
