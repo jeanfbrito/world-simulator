@@ -27,7 +27,7 @@ pub struct Agent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimulationState {
+pub struct LegacySimulationState {
     pub tick: u64,
     pub agents: Vec<Agent>,
     pub events: Vec<SimulationEvent>,
@@ -64,7 +64,7 @@ impl Default for WorldGrid {
     }
 }
 
-impl Default for SimulationState {
+impl Default for LegacySimulationState {
     fn default() -> Self {
         Self {
             tick: 0,

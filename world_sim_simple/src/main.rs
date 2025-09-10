@@ -187,6 +187,7 @@ pub struct SimulationState {
     pub speed: f32,
     accumulated_time: f32,
     changed: bool,
+    pub just_ticked: bool,
 }
 
 impl Default for SimulationState {
@@ -197,6 +198,7 @@ impl Default for SimulationState {
             speed: 1.0,
             accumulated_time: 0.0,
             changed: false,
+            just_ticked: false,
         }
     }
 }
@@ -231,22 +233,25 @@ fn setup(mut commands: Commands) {
     // Initialize world map for headless operation (no tile sprites)
     let world_map = WorldMap::default();
     
-    // Spawn a few workers
+    // Spawn peasants (based on stronghold/scripts/units/peasant.lua)
     let mut rng = rand::thread_rng();
     for i in 0..5 {
         let x = rng.gen_range(20..44);
         let y = rng.gen_range(20..44);
         
         if world_map.tiles[y][x].is_walkable() {
-            let worker_entity = commands.spawn((
+            let peasant_config = components::PeasantConfig::default();
+            let peasant_entity = commands.spawn((
                 // Core components (no rendering)
-                NameComponent::new(format!("Worker {}", i + 1)),
+                NameComponent::new(format!("Peasant {}", i + 1)),
                 PositionComponent::from_tile(x, y),
-                HealthComponent::new(100.0),
+                HealthComponent::new(peasant_config.health),
                 EnergyComponent::new(100.0),
                 // Worker-specific components
                 WorkerTag,
                 WorkerStats::default(),
+                // Peasant configuration (based on Lua)
+                components::PeasantTag::with_config(peasant_config.clone()),
                 // AI
                 WorkerAI::new(),
                 WorldState::new(),  // GOAP world state
@@ -256,17 +261,17 @@ fn setup(mut commands: Commands) {
                 TileEntity { x, y },
             ))
             .insert((
-                // GOAP states (initial values)
-                components::IsHungry(0.0),
+                // GOAP states (initial values) - Peasant needs (Stronghold style)
+                components::IsHungry(0.6),  // Peasants start hungry and need food regularly
                 components::HasEnergy(1.0),
                 components::IsWorking(false),
                 components::IsIdle(true),
-                components::HasWood(0),  // No initial wood, must gather
-                components::HasHouse(false),  // Worker starts without a house
-                components::HasFood(5),  // Start with some food to survive initially
-                components::HasStone(0),  // No initial stone, must gather
+                components::HasWood(0),  // No initial resources - must work for everything
+                components::HasHouse(false),  // No shelter initially (basic need from peasant.lua)
+                components::HasFood(0),  // Start hungry - must find food to survive
+                components::HasStone(0),  // No initial stone
                 components::InventoryFull(false),
-                components::InventoryEmpty(false),  // Not empty since has food
+                components::InventoryEmpty(true),  // Start with empty inventory
             ))
             .insert((
                 // Location states
@@ -297,7 +302,7 @@ fn setup(mut commands: Commands) {
             .id();
             
             // Log worker creation with component-based architecture
-            println!("{}", format!("[SPAWN] Worker {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats, GOAP States", 
+            println!("{}", format!("[SPAWN] Peasant {} at ({}, {}) - Components: Name, Position, Health, Energy, WorkerTag, WorkerStats, GOAP States", 
                 i + 1, x, y).green());
         }
     }
@@ -448,11 +453,18 @@ fn simulation_system(
         return;
     }
     
+    // Reset the just_ticked flag at the beginning of each frame
+    sim_state.just_ticked = false;
+    
     sim_state.accumulated_time += time.delta_secs() * sim_state.speed;
     
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;
         sim_state.tick += 1;
+        sim_state.just_ticked = true; // Set the flag when a tick occurs
+        
+        // Log tick for easy reading
+        println!("{}", format!("\n=== TICK {} ===", sim_state.tick).bright_blue());
         
         // Movement is now handled by the AI task execution system
         // Workers will move according to their GOAP plans

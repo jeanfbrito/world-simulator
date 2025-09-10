@@ -359,6 +359,140 @@ Each phase should compile and run independently!
 - **Resources are shared** - Use for global state/configuration
 - **Queries must match exactly** - Component types must be registered
 
+## 14. Project Organization Best Practices
+
+### File Size Guidelines
+
+**CRITICAL**: Keep files small and focused for better maintainability:
+- **Maximum file size**: 300-400 lines (preferred), 500 lines absolute maximum
+- **Single responsibility**: Each file should handle ONE concept
+- **Break up large files**: Split into submodules when exceeding limits
+
+### Module Structure
+
+```rust
+// Instead of one giant file:
+// ❌ src/ai/mod.rs (2000+ lines)
+
+// Use this structure:
+// ✅ src/ai/
+//     mod.rs          (module declarations and public API)
+//     behaviors/
+//         mod.rs      (behavior subsystem)
+//         goap.rs     (GOAP specific logic)
+//         utility.rs  (Utility AI logic)
+//     actions/
+//         mod.rs      (action subsystem)
+//         movement.rs (movement actions)
+//         work.rs     (work actions)
+//         combat.rs   (combat actions)
+//     scorers/
+//         mod.rs      (scorer subsystem)
+//         needs.rs    (need-based scorers)
+//         environment.rs (environment scorers)
+//     planners/
+//         mod.rs      (planning subsystem)
+//         goap_planner.rs
+//         task_scheduler.rs
+```
+
+### Component Organization
+
+Split large component files:
+```rust
+// ❌ components/mod.rs with 15+ components
+
+// ✅ components/
+//     mod.rs           (re-exports)
+//     unit_state.rs    (UnitNeeds, UnitWorkState)
+//     inventory.rs     (UnitInventory)
+//     location.rs      (UnitLocation)
+//     ownership.rs     (UnitOwnership)
+//     combat.rs        (CombatStats, Weapon)
+//     building.rs      (BuildingComponent)
+```
+
+### System Organization
+
+Keep systems focused:
+```rust
+// Each system in its own file:
+// systems/
+//     movement.rs      (movement_system - 100 lines)
+//     combat.rs        (combat_system - 150 lines)
+//     needs.rs         (needs_update_system - 80 lines)
+//     building.rs      (building_system - 120 lines)
+```
+
+### Configuration Files
+
+Keep data files small and specific:
+```lua
+-- ❌ Single giant config.lua (1000+ lines)
+
+-- ✅ Split by domain:
+-- assets/packs/[pack_name]/scripts/
+--     units/
+--         peasant.lua
+--         soldier.lua
+--     buildings/
+--         house.lua
+--         stockpile.lua
+--     ai/
+--         goap_actions.lua
+--         utility_scorers.lua
+--         goap_goals.lua
+```
+
+### Benefits of Modular Organization
+
+1. **Easier navigation**: Find code quickly
+2. **Better collaboration**: Less merge conflicts
+3. **Faster compilation**: Incremental builds work better
+4. **Clearer dependencies**: Easy to see what depends on what
+5. **Testability**: Easier to unit test small modules
+
+### When to Split Files
+
+Split when you see:
+- File exceeds 300 lines
+- Multiple unrelated structs/functions
+- Complex nested modules
+- Difficulty finding specific code
+- Frequent merge conflicts
+
+### Module Best Practices
+
+1. **Public API at top**: Put pub declarations first
+2. **Tests in same file**: Keep unit tests with code
+3. **Documentation**: Each module needs clear docs
+4. **Re-exports**: Use mod.rs for clean public API
+5. **Feature flags**: Use for optional dependencies
+
+## 15. AI System References
+
+When implementing AI behaviors, refer to these key examples:
+
+### Dogoap (Goal-Oriented Action Planning)
+- **Repository**: ~/Github/dogoap/
+- **Key Example**: `crates/bevy_dogoap/examples/miner.rs`
+- **Usage**: Long-term planning, goal-driven behavior
+- **Pattern**: Define states with derive macros, actions with preconditions/effects
+
+### Big-Brain (Utility AI)
+- **Repository**: ~/Github/big-brain/
+- **Key Examples**: 
+  - `examples/thirst.rs` (simple utility AI)
+  - `examples/farming_sim.rs` (complex behaviors with sequences)
+- **Usage**: Reactive behaviors, immediate needs, utility scoring
+- **Pattern**: Thinkers with Scorers and Actions, state machine execution
+
+### Hybrid Approach
+Combine both systems:
+1. Dogoap for strategic planning (what goals to achieve)
+2. Big-Brain for tactical execution (how to achieve them)
+3. Use consolidated state components instead of 15+ separate ones
+
 ## Summary
 
-**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems.
+**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems. Refer to dogoap and big-brain repositories for AI implementation patterns.

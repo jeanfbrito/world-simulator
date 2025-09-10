@@ -1,0 +1,122 @@
+{
+  "type": "sequence",
+  "name": "work_cycle",
+  "description": "Daily work routine for peasants",
+  "children": [
+    {
+      "type": "condition",
+      "name": "check_needs",
+      "description": "Ensure basic needs are met",
+      "conditions": {
+        "hunger": { "less_than": 0.7 },
+        "energy": { "greater_than": 0.3 }
+      }
+    },
+    {
+      "type": "selector",
+      "name": "choose_work",
+      "description": "Select work based on settlement needs",
+      "children": [
+        {
+          "type": "sequence",
+          "name": "gather_wood_task",
+          "children": [
+            {
+              "type": "condition",
+              "check": "settlement_needs_wood"
+            },
+            {
+              "type": "action",
+              "name": "move_to_forest"
+            },
+            {
+              "type": "repeat",
+              "times": 3,
+              "child": {
+                "type": "action",
+                "name": "chop_tree",
+                "duration": 5.0
+              }
+            },
+            {
+              "type": "action",
+              "name": "move_to_stockpile"
+            },
+            {
+              "type": "action",
+              "name": "store_wood"
+            }
+          ]
+        },
+        {
+          "type": "sequence",
+          "name": "gather_stone_task",
+          "children": [
+            {
+              "type": "condition",
+              "check": "settlement_needs_stone"
+            },
+            {
+              "type": "action",
+              "name": "move_to_quarry"
+            },
+            {
+              "type": "repeat",
+              "times": 2,
+              "child": {
+                "type": "action",
+                "name": "mine_stone",
+                "duration": 8.0
+              }
+            },
+            {
+              "type": "action",
+              "name": "move_to_stockpile"
+            },
+            {
+              "type": "action",
+              "name": "store_stone"
+            }
+          ]
+        },
+        {
+          "type": "sequence",
+          "name": "build_task",
+          "children": [
+            {
+              "type": "condition",
+              "check": "construction_available"
+            },
+            {
+              "type": "action",
+              "name": "get_materials_from_stockpile"
+            },
+            {
+              "type": "action",
+              "name": "move_to_construction_site"
+            },
+            {
+              "type": "action",
+              "name": "construct",
+              "duration": 10.0
+            }
+          ]
+        },
+        {
+          "type": "action",
+          "name": "idle",
+          "description": "No work available",
+          "duration": 2.0
+        }
+      ]
+    },
+    {
+      "type": "decorator",
+      "decorator": "always_succeed",
+      "child": {
+        "type": "action",
+        "name": "report_work_complete"
+      }
+    }
+  ]
+}

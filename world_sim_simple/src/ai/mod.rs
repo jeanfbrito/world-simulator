@@ -33,6 +33,11 @@ fn simulation_running(sim_state: Res<SimulationState>) -> bool {
     sim_state.running
 }
 
+/// Run condition to check if a simulation tick just occurred
+fn simulation_just_ticked(sim_state: Res<SimulationState>) -> bool {
+    sim_state.just_ticked
+}
+
 pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
@@ -54,11 +59,11 @@ impl Plugin for AIPlugin {
                 // These can run in parallel as they work on different components
                 worker_ai_update_system.run_if(simulation_running),
                 pathfinding_update_system.run_if(simulation_running),
-                sync_goap_states_system,     // Remove run condition to test
-                update_needs_system,         // Remove run condition to test  
-                goap_planning_system,        // Remove run condition to test
-                goap_execution_system,       // Remove run condition to test
-                goap_to_task_bridge_system,  // Remove run condition to test
+                sync_goap_states_system.run_if(simulation_just_ticked),
+                update_needs_system.run_if(simulation_just_ticked),
+                goap_planning_system.run_if(simulation_just_ticked),
+                goap_execution_system.run_if(simulation_just_ticked),
+                goap_to_task_bridge_system.run_if(simulation_just_ticked),
                 task_execution_system.run_if(simulation_running),
             ));
     }

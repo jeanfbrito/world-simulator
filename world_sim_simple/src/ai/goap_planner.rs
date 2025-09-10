@@ -269,12 +269,12 @@ pub fn goap_planning_system(
         // Don't set has_house as immediate goal - let it emerge from resource gathering
         // This is handled later in the resource gathering section
         
-        // Check if hungry (priority 2)
+        // Check if hungry (priority 1 - URGENT in Stronghold)
         if goal.states.is_empty() {
             if let Some(StateValue::Float(hunger)) = current_state.get("is_hungry") {
-                if *hunger > 0.5 {
+                if *hunger > 0.3 {  // Peasants need food more urgently
                     goal.set("is_hungry", StateValue::Float(0.0)); // Want to not be hungry
-                    debug.log(DebugLevel::Info, "GOAP_GOAL", "Goal: Satisfy hunger");
+                    debug.log(DebugLevel::Info, "GOAP_GOAL", "🍞 URGENT: Peasant needs food!");
                 }
             }
         }
