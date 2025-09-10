@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use crate::components::{
     GridPosition, VisualPosition, GridMovement,
-    NameComponent, PeasantTag
+    NameComponent, PeasantTag, MovementSpeed, MovementEffects
 };
 use crate::{SimulationState, WorldMap, TILE_SIZE};
 use crate::ai::ActionPlan;
@@ -23,6 +23,8 @@ pub fn tick_movement_system(
         &mut GridMovement,
         &mut VisualPosition,
         &NameComponent,
+        Option<&MovementSpeed>,
+        Option<&MovementEffects>,
         Option<&ActionPlan>,
     ), With<PeasantTag>>,
     debug: Res<crate::debug::DebugSystem>,
@@ -34,7 +36,7 @@ pub fn tick_movement_system(
         return;
     }
     
-    for (entity, mut grid_pos, mut movement, mut visual_pos, name, plan) in units.iter_mut() {
+    for (entity, mut grid_pos, mut movement, mut visual_pos, name, speed, effects, plan) in units.iter_mut() {
         // Skip if not moving
         if !movement.is_moving {
             continue;
@@ -42,8 +44,13 @@ pub fn tick_movement_system(
         
         let old_pos = grid_pos.clone();
         
-        // Update movement progress
-        let completed = movement.tick_update(&mut grid_pos);
+        // Calculate effective movement speed
+        let base_ticks = speed.map(|s| s.get_ticks_per_tile()).unwrap_or(3);
+        let modifier = effects.map(|e| e.get_total_modifier()).unwrap_or(1.0);
+        let effective_ticks = ((base_ticks as f32 / modifier).max(1.0)) as u32;
+        
+        // Update movement progress with unit-specific speed
+        let completed = movement.tick_update(&mut grid_pos, effective_ticks);
         
         // If position changed, update visual target
         if old_pos != *grid_pos {

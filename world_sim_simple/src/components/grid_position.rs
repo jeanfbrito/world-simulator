@@ -178,13 +178,15 @@ impl GridMovement {
     }
     
     /// Update movement progress (called on ticks)
-    pub fn tick_update(&mut self, current_pos: &mut GridPosition) -> bool {
+    /// Returns true if movement to a tile was completed
+    pub fn tick_update(&mut self, current_pos: &mut GridPosition, ticks_per_tile: u32) -> bool {
         if !self.is_moving || self.target.is_none() {
             return false;
         }
         
-        // Increment progress based on speed
-        let progress_increment = (MOVE_PROGRESS_PER_TICK as f32 * self.speed_modifier) as u32;
+        // Calculate progress increment based on movement speed
+        // MAX_WORK_PROGRESS / ticks_per_tile = progress per tick
+        let progress_increment = (MAX_WORK_PROGRESS / ticks_per_tile.max(1)) as u32;
         self.progress_counter += progress_increment;
         
         // Check if we've completed movement to next tile

@@ -5,10 +5,12 @@
 pub mod needs_update;
 pub mod needs_update_v2;
 pub mod movement;
+pub mod movement_effects;
 
 pub use needs_update::*;
 pub use needs_update_v2::*;
 pub use movement::*;
+pub use movement_effects::*;
 
 use bevy::prelude::*;
 
@@ -21,6 +23,8 @@ impl Plugin for SystemsPlugin {
         app.add_systems(PostStartup, (
             crate::components::migrate_needs_system,
             crate::components::migrate_positions_system,
+            add_movement_components_system,
+            configure_unit_speeds_system,
         ));
         
         // Add tick-based systems (simulation)
@@ -33,6 +37,7 @@ impl Plugin for SystemsPlugin {
                 eating_action_system,
                 
                 // Movement systems (tick-based)
+                update_movement_effects_system,
                 movement_request_system,
                 tick_movement_system,
                 sync_tile_entity_system,
