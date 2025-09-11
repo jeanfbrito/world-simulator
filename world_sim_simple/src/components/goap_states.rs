@@ -103,7 +103,7 @@ pub fn register_goap_states(app: &mut App) {
         .register_type::<HarvestComplete>()
         .register_type::<BuildingComplete>()
         .register_type::<CraftingComplete>();
-    
+
     // Add settlement state resource
     app.insert_resource(SettlementState::default());
 }
@@ -113,7 +113,7 @@ impl IsHungry {
     pub fn update(&mut self, hunger_level: f64) {
         self.0 = hunger_level.clamp(0.0, 1.0);
     }
-    
+
     pub fn is_hungry(&self) -> bool {
         self.0 > 0.3 // Hungry when above 30%
     }
@@ -123,7 +123,7 @@ impl HasEnergy {
     pub fn update(&mut self, energy_level: f64) {
         self.0 = energy_level.clamp(0.0, 1.0);
     }
-    
+
     pub fn is_tired(&self) -> bool {
         self.0 < 0.3 // Tired when below 30%
     }
@@ -138,7 +138,8 @@ pub fn update_location_states(
     at_crafting: bool,
     commands: &mut Commands,
 ) {
-    commands.entity(entity)
+    commands
+        .entity(entity)
         .insert(AtResource(at_resource))
         .insert(AtStorage(at_storage))
         .insert(AtHome(at_home))
@@ -154,7 +155,8 @@ pub fn update_inventory_states(
     commands: &mut Commands,
 ) {
     let total = wood + food + stone;
-    commands.entity(entity)
+    commands
+        .entity(entity)
         .insert(HasWood(wood))
         .insert(HasFood(food))
         .insert(HasStone(stone))

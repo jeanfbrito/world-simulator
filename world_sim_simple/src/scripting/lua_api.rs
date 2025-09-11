@@ -1,5 +1,5 @@
+use crate::debug::{DebugLevel, DebugSystem};
 use bevy::prelude::*;
-use crate::debug::{DebugSystem, DebugLevel};
 
 #[derive(Component)]
 pub struct LuaScriptComponent {
@@ -11,6 +11,6 @@ pub fn register_lua_api(debug: Res<DebugSystem>) {
     debug.log(
         DebugLevel::Info,
         "SCRIPT",
-        "Lua API registered successfully"
+        "Lua API registered successfully",
     );
 }

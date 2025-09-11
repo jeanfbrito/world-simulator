@@ -1,6 +1,6 @@
+use crate::resources::{Item, ItemType, ResourceType, ToolType};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::resources::{ResourceType, ItemType, Item, ToolType, WeaponType, ArmorType};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,27 +40,30 @@ impl Recipe {
             station_required: None,
         }
     }
-    
+
     pub fn with_requirement(mut self, item_type: ItemType, quantity: u32) -> Self {
-        self.requirements.push(RecipeRequirement { item_type, quantity });
+        self.requirements.push(RecipeRequirement {
+            item_type,
+            quantity,
+        });
         self
     }
-    
+
     pub fn with_output(mut self, item: Item, quantity: u32) -> Self {
         self.outputs.push(RecipeOutput { item, quantity });
         self
     }
-    
+
     pub fn with_time(mut self, time: f32) -> Self {
         self.crafting_time = time;
         self
     }
-    
+
     pub fn with_station(mut self, station: super::CraftingStationType) -> Self {
         self.station_required = Some(station);
         self
     }
-    
+
     pub fn can_craft(&self, inventory: &HashMap<ItemType, u32>) -> bool {
         for req in &self.requirements {
             if inventory.get(&req.item_type).copied().unwrap_or(0) < req.quantity {
@@ -80,132 +83,131 @@ pub struct RecipeRegistry {
 impl RecipeRegistry {
     pub fn register(&mut self, recipe: Recipe) {
         info!("[RECIPES] Registering recipe: {}", recipe.name);
-        
+
         if let Some(station) = recipe.station_required {
             self.recipes_by_station
                 .entry(station)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(recipe.id.clone());
         }
-        
+
         self.recipes.insert(recipe.id.clone(), recipe);
     }
-    
+
     pub fn get(&self, id: &str) -> Option<&Recipe> {
         self.recipes.get(id)
     }
-    
+
     pub fn get_for_station(&self, station: super::CraftingStationType) -> Vec<&Recipe> {
         self.recipes_by_station
             .get(&station)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.recipes.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.recipes.get(id)).collect())
             .unwrap_or_default()
     }
-    
+
     pub fn get_craftable(&self, inventory: &HashMap<ItemType, u32>) -> Vec<&Recipe> {
         self.recipes
             .values()
             .filter(|recipe| recipe.can_craft(inventory))
             .collect()
     }
-    
+
     pub fn count(&self) -> usize {
         self.recipes.len()
     }
-    
+
     pub fn register_default_recipes(&mut self) {
         use super::CraftingStationType;
-        
+
         // Basic tools
         self.register(
             Recipe::new("wooden_pickaxe", "Wooden Pickaxe")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 3)
                 .with_requirement(ItemType::Resource(ResourceType::Stone), 2)
                 .with_output(Item::new_tool(ToolType::Pickaxe, ResourceType::Wood), 1)
-                .with_time(3.0)
+                .with_time(3.0),
         );
-        
+
         self.register(
             Recipe::new("stone_pickaxe", "Stone Pickaxe")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 2)
                 .with_requirement(ItemType::Resource(ResourceType::Stone), 3)
                 .with_output(Item::new_tool(ToolType::Pickaxe, ResourceType::Stone), 1)
                 .with_time(5.0)
-                .with_station(CraftingStationType::Workbench)
+                .with_station(CraftingStationType::Workbench),
         );
-        
+
         self.register(
             Recipe::new("iron_pickaxe", "Iron Pickaxe")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 2)
                 .with_requirement(ItemType::Resource(ResourceType::IronIngot), 3)
-                .with_output(Item::new_tool(ToolType::Pickaxe, ResourceType::IronIngot), 1)
+                .with_output(
+                    Item::new_tool(ToolType::Pickaxe, ResourceType::IronIngot),
+                    1,
+                )
                 .with_time(8.0)
-                .with_station(CraftingStationType::Anvil)
+                .with_station(CraftingStationType::Anvil),
         );
-        
+
         // Processing recipes
         self.register(
             Recipe::new("planks", "Wood Planks")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 1)
                 .with_output(Item::new_resource(ResourceType::Plank), 4)
-                .with_time(2.0)
+                .with_time(2.0),
         );
-        
+
         self.register(
             Recipe::new("iron_ingot", "Iron Ingot")
                 .with_requirement(ItemType::Resource(ResourceType::IronOre), 2)
                 .with_requirement(ItemType::Resource(ResourceType::Coal), 1)
                 .with_output(Item::new_resource(ResourceType::IronIngot), 1)
                 .with_time(10.0)
-                .with_station(CraftingStationType::Furnace)
+                .with_station(CraftingStationType::Furnace),
         );
-        
+
         self.register(
             Recipe::new("glass", "Glass")
                 .with_requirement(ItemType::Resource(ResourceType::Sand), 2)
                 .with_requirement(ItemType::Resource(ResourceType::Coal), 1)
                 .with_output(Item::new_resource(ResourceType::Glass), 1)
                 .with_time(5.0)
-                .with_station(CraftingStationType::Furnace)
+                .with_station(CraftingStationType::Furnace),
         );
-        
+
         self.register(
             Recipe::new("brick", "Brick")
                 .with_requirement(ItemType::Resource(ResourceType::Clay), 2)
                 .with_requirement(ItemType::Resource(ResourceType::Coal), 1)
                 .with_output(Item::new_resource(ResourceType::Brick), 2)
                 .with_time(6.0)
-                .with_station(CraftingStationType::Furnace)
+                .with_station(CraftingStationType::Furnace),
         );
-        
+
         // Food recipes
         self.register(
             Recipe::new("bread", "Bread")
                 .with_requirement(ItemType::Resource(ResourceType::Wheat), 3)
                 .with_output(Item::new_resource(ResourceType::Bread), 1)
                 .with_time(4.0)
-                .with_station(CraftingStationType::Kitchen)
+                .with_station(CraftingStationType::Kitchen),
         );
-        
+
         // More tools
         self.register(
             Recipe::new("wooden_axe", "Wooden Axe")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 3)
                 .with_requirement(ItemType::Resource(ResourceType::Stone), 2)
                 .with_output(Item::new_tool(ToolType::Axe, ResourceType::Wood), 1)
-                .with_time(3.0)
+                .with_time(3.0),
         );
-        
+
         self.register(
             Recipe::new("fishing_rod", "Fishing Rod")
                 .with_requirement(ItemType::Resource(ResourceType::Wood), 3)
                 .with_output(Item::new_tool(ToolType::FishingRod, ResourceType::Wood), 1)
                 .with_time(4.0)
-                .with_station(CraftingStationType::Workbench)
+                .with_station(CraftingStationType::Workbench),
         );
     }
 }

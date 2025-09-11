@@ -19,7 +19,10 @@ pub enum TerrainType {
 
 impl TerrainType {
     pub fn is_walkable(&self) -> bool {
-        !matches!(self, TerrainType::Water | TerrainType::DeepWater | TerrainType::Mountain)
+        !matches!(
+            self,
+            TerrainType::Water | TerrainType::DeepWater | TerrainType::Mountain
+        )
     }
 
     pub fn movement_cost(&self) -> f32 {

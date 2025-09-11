@@ -12,7 +12,7 @@ pub enum ResourceType {
     Coal,
     Sand,
     Clay,
-    
+
     // Processed Materials
     IronIngot,
     CopperIngot,
@@ -20,7 +20,7 @@ pub enum ResourceType {
     Glass,
     Brick,
     Plank,
-    
+
     // Food Resources
     Wheat,
     Corn,
@@ -28,12 +28,12 @@ pub enum ResourceType {
     Fish,
     Meat,
     Bread,
-    
+
     // Energy Resources
     Firewood,
     Charcoal,
     Oil,
-    
+
     // Special Resources
     Gem,
     Crystal,
@@ -52,21 +52,32 @@ pub enum ResourceCategory {
 impl ResourceType {
     pub fn category(&self) -> ResourceCategory {
         match self {
-            Self::Wood | Self::Stone | Self::IronOre | Self::CopperOre 
-            | Self::GoldOre | Self::Coal | Self::Sand | Self::Clay => ResourceCategory::RawMaterial,
-            
-            Self::IronIngot | Self::CopperIngot | Self::GoldIngot 
-            | Self::Glass | Self::Brick | Self::Plank => ResourceCategory::ProcessedMaterial,
-            
-            Self::Wheat | Self::Corn | Self::Berries | Self::Fish 
-            | Self::Meat | Self::Bread => ResourceCategory::Food,
-            
+            Self::Wood
+            | Self::Stone
+            | Self::IronOre
+            | Self::CopperOre
+            | Self::GoldOre
+            | Self::Coal
+            | Self::Sand
+            | Self::Clay => ResourceCategory::RawMaterial,
+
+            Self::IronIngot
+            | Self::CopperIngot
+            | Self::GoldIngot
+            | Self::Glass
+            | Self::Brick
+            | Self::Plank => ResourceCategory::ProcessedMaterial,
+
+            Self::Wheat | Self::Corn | Self::Berries | Self::Fish | Self::Meat | Self::Bread => {
+                ResourceCategory::Food
+            }
+
             Self::Firewood | Self::Charcoal | Self::Oil => ResourceCategory::Energy,
-            
+
             Self::Gem | Self::Crystal | Self::MagicDust => ResourceCategory::Special,
         }
     }
-    
+
     pub fn base_value(&self) -> u32 {
         match self {
             // Raw materials
@@ -78,7 +89,7 @@ impl ResourceType {
             Self::IronOre => 8,
             Self::CopperOre => 6,
             Self::GoldOre => 20,
-            
+
             // Processed materials
             Self::Plank => 5,
             Self::Brick => 4,
@@ -86,7 +97,7 @@ impl ResourceType {
             Self::IronIngot => 15,
             Self::CopperIngot => 12,
             Self::GoldIngot => 40,
-            
+
             // Food
             Self::Wheat => 3,
             Self::Corn => 3,
@@ -94,19 +105,19 @@ impl ResourceType {
             Self::Fish => 5,
             Self::Meat => 8,
             Self::Bread => 10,
-            
+
             // Energy
             Self::Firewood => 3,
             Self::Charcoal => 8,
             Self::Oil => 15,
-            
+
             // Special
             Self::Gem => 50,
             Self::Crystal => 30,
             Self::MagicDust => 100,
         }
     }
-    
+
     pub fn stack_size(&self) -> u32 {
         match self.category() {
             ResourceCategory::RawMaterial => 100,
@@ -116,7 +127,7 @@ impl ResourceType {
             ResourceCategory::Special => 10,
         }
     }
-    
+
     pub fn weight(&self) -> f32 {
         match self {
             Self::Stone | Self::IronOre | Self::CopperOre | Self::GoldOre => 2.0,
@@ -139,7 +150,7 @@ impl ResourceType {
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceProperties {
     pub resource_type: ResourceType,
-    pub quality: f32, // 0.0 to 1.0
+    pub quality: f32,            // 0.0 to 1.0
     pub durability: Option<f32>, // For tools/equipment
 }
 
@@ -151,12 +162,12 @@ impl ResourceProperties {
             durability: None,
         }
     }
-    
+
     pub fn with_quality(mut self, quality: f32) -> Self {
         self.quality = quality.clamp(0.0, 1.0);
         self
     }
-    
+
     pub fn value(&self) -> u32 {
         (self.resource_type.base_value() as f32 * self.quality) as u32
     }

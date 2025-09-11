@@ -10,8 +10,10 @@ pub struct UnitTag;
 /// Defines the type/class of unit for specialized behavior
 #[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect)]
 #[reflect(Component)]
+#[derive(Default)]
 pub enum UnitType {
     /// Basic worker unit (peasant in Stronghold, villager in AoE, etc.)
+    #[default]
     Worker,
     /// Military combat unit
     Military,
@@ -19,12 +21,6 @@ pub enum UnitType {
     Special,
     /// Custom type defined by game pack
     Custom(String),
-}
-
-impl Default for UnitType {
-    fn default() -> Self {
-        UnitType::Worker
-    }
 }
 
 /// Unit-specific stats (consolidates WorkerStats functionality)

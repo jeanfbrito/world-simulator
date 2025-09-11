@@ -1,6 +1,6 @@
+use crate::resources::ResourceType;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::resources::{ResourceType, ItemType};
 use std::collections::HashMap;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -8,24 +8,24 @@ pub enum BuildingType {
     // Storage
     Storage,
     Warehouse,
-    Stockpile,  // For wood, stone, and other raw materials
-    Granary,    // For food storage
-    
+    Stockpile, // For wood, stone, and other raw materials
+    Granary,   // For food storage
+
     // Production
     Lumbermill,
     Quarry,
     Mine,
     Farm,
-    
+
     // Processing
     Smelter,
     Workshop,
     Kitchen,
-    
+
     // Residential
     House,
     Barracks,
-    
+
     // Defense
     WallSection,
     Tower,
@@ -53,7 +53,7 @@ impl BuildingType {
             Self::Gate => "Gate",
         }
     }
-    
+
     pub fn size(&self) -> BuildingSize {
         match self {
             Self::Storage => BuildingSize::Small,
@@ -61,98 +61,98 @@ impl BuildingType {
             Self::WallSection => BuildingSize::Small,
             Self::Stockpile => BuildingSize::Medium,
             Self::Granary => BuildingSize::Medium,
-            
+
             Self::Lumbermill | Self::Quarry | Self::Kitchen => BuildingSize::Medium,
             Self::Workshop | Self::Farm => BuildingSize::Medium,
-            
+
             Self::Warehouse | Self::Mine | Self::Smelter => BuildingSize::Large,
             Self::Barracks | Self::Tower | Self::Gate => BuildingSize::Large,
         }
     }
-    
+
     pub fn requirements(&self) -> BuildingRequirements {
         let mut resources = HashMap::new();
-        
+
         match self {
             Self::Storage => {
                 resources.insert(ResourceType::Wood, 20);
                 resources.insert(ResourceType::Stone, 10);
-            },
+            }
             Self::Stockpile => {
                 resources.insert(ResourceType::Wood, 10);
                 resources.insert(ResourceType::Stone, 5);
-            },
+            }
             Self::Granary => {
                 resources.insert(ResourceType::Wood, 15);
                 resources.insert(ResourceType::Stone, 10);
-            },
+            }
             Self::Warehouse => {
                 resources.insert(ResourceType::Wood, 50);
                 resources.insert(ResourceType::Stone, 30);
                 resources.insert(ResourceType::IronIngot, 10);
-            },
+            }
             Self::Lumbermill => {
                 resources.insert(ResourceType::Wood, 30);
                 resources.insert(ResourceType::Stone, 20);
                 resources.insert(ResourceType::IronIngot, 5);
-            },
+            }
             Self::Quarry => {
                 resources.insert(ResourceType::Wood, 20);
                 resources.insert(ResourceType::Stone, 40);
                 resources.insert(ResourceType::IronIngot, 10);
-            },
+            }
             Self::Mine => {
                 resources.insert(ResourceType::Wood, 40);
                 resources.insert(ResourceType::Stone, 60);
                 resources.insert(ResourceType::IronIngot, 20);
-            },
+            }
             Self::Farm => {
                 resources.insert(ResourceType::Wood, 25);
                 resources.insert(ResourceType::Stone, 5);
-            },
+            }
             Self::Smelter => {
                 resources.insert(ResourceType::Stone, 50);
                 resources.insert(ResourceType::Clay, 20);
                 resources.insert(ResourceType::IronIngot, 15);
-            },
+            }
             Self::Workshop => {
                 resources.insert(ResourceType::Wood, 35);
                 resources.insert(ResourceType::Stone, 25);
                 resources.insert(ResourceType::IronIngot, 10);
-            },
+            }
             Self::Kitchen => {
                 resources.insert(ResourceType::Wood, 20);
                 resources.insert(ResourceType::Stone, 15);
                 resources.insert(ResourceType::Clay, 10);
-            },
+            }
             Self::House => {
                 resources.insert(ResourceType::Wood, 15);
                 resources.insert(ResourceType::Stone, 10);
-            },
+            }
             Self::Barracks => {
                 resources.insert(ResourceType::Wood, 30);
                 resources.insert(ResourceType::Stone, 40);
                 resources.insert(ResourceType::IronIngot, 10);
-            },
+            }
             Self::WallSection => {
                 resources.insert(ResourceType::Stone, 30);
-            },
+            }
             Self::Tower => {
                 resources.insert(ResourceType::Stone, 50);
                 resources.insert(ResourceType::Wood, 20);
-            },
+            }
             Self::Gate => {
                 resources.insert(ResourceType::Stone, 40);
                 resources.insert(ResourceType::IronIngot, 20);
-            },
+            }
         }
-        
+
         BuildingRequirements {
             resources,
             build_time: self.build_time(),
         }
     }
-    
+
     fn build_time(&self) -> f32 {
         match self.size() {
             BuildingSize::Small => 10.0,
@@ -160,7 +160,7 @@ impl BuildingType {
             BuildingSize::Large => 30.0,
         }
     }
-    
+
     pub fn production(&self) -> Option<ProductionInfo> {
         match self {
             Self::Lumbermill => Some(ProductionInfo {
@@ -240,7 +240,7 @@ impl BuildingComponent {
             BuildingSize::Medium => 200.0,
             BuildingSize::Large => 300.0,
         };
-        
+
         Self {
             building_type,
             health: max_health,
@@ -250,18 +250,18 @@ impl BuildingComponent {
             position,
         }
     }
-    
+
     pub fn is_complete(&self) -> bool {
         self.construction_progress >= 1.0
     }
-    
+
     pub fn damage(&mut self, amount: f32) {
         self.health = (self.health - amount).max(0.0);
         if self.health == 0.0 {
             self.is_active = false;
         }
     }
-    
+
     pub fn repair(&mut self, amount: f32) {
         self.health = (self.health + amount).min(self.max_health);
     }

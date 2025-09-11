@@ -1,16 +1,16 @@
+use crate::plugin::PluginManager;
+use crate::WorldMap;
 use bevy::prelude::*;
 use colored::*;
-use crate::{WorldMap, TileEntity, TILE_SIZE, MAP_SIZE};
-use crate::plugin::PluginManager;
 
 pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         println!("{}", "[WORLD] Initializing world plugin...".cyan());
-        
+
         app.add_systems(Startup, init_world_plugin)
-           .add_systems(Update, world_update_system);
+            .add_systems(Update, world_update_system);
     }
 }
 
@@ -19,10 +19,7 @@ fn init_world_plugin(mut manager: ResMut<PluginManager>) {
     println!("{}", "[WORLD] World systems initialized".green());
 }
 
-fn world_update_system(
-    world_map: Res<WorldMap>,
-    time: Res<Time>,
-) {
+fn world_update_system(world_map: Res<WorldMap>, time: Res<Time>) {
     // Future world update logic
     // For now, just track that the system runs
     static mut LAST_LOG: f32 = 0.0;

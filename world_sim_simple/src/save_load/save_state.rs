@@ -1,10 +1,10 @@
+use crate::ai::{TaskPriority, TaskStatus, TaskType};
+use crate::buildings::BuildingType;
+use crate::resources::{Item, ResourceType};
+use crate::tilemap::{BiomeType, ChunkCoordinate, TerrainType};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::tilemap::{TerrainType, ChunkCoordinate, BiomeType};
-use crate::resources::{ResourceType, Item};
-use crate::buildings::BuildingType;
-use crate::ai::{TaskType, TaskPriority, TaskStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SaveState {
@@ -99,14 +99,14 @@ pub struct BuildingData {
 impl SaveState {
     pub fn new(save_name: String) -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
-        
+
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         info!("[SAVE] Creating new save state: {}", save_name);
-        
+
         Self {
             version: "0.1.0".to_string(),
             timestamp,
@@ -122,7 +122,7 @@ impl SaveState {
             },
         }
     }
-    
+
     pub fn from_world(
         save_name: String,
         tick: u32,
@@ -131,15 +131,19 @@ impl SaveState {
         buildings: Vec<BuildingData>,
     ) -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
-        
+
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
-        info!("[SAVE] Creating save state from world: {} chunks, {} entities, {} buildings", 
-            chunks.len(), entities.len(), buildings.len());
-        
+
+        info!(
+            "[SAVE] Creating save state from world: {} chunks, {} entities, {} buildings",
+            chunks.len(),
+            entities.len(),
+            buildings.len()
+        );
+
         Self {
             version: "0.1.0".to_string(),
             timestamp,
@@ -155,17 +159,17 @@ impl SaveState {
             },
         }
     }
-    
+
     pub fn validate(&self) -> Result<(), String> {
         // Validate save data integrity
         if self.version.is_empty() {
             return Err("Invalid version".to_string());
         }
-        
+
         if self.metadata.save_name.is_empty() {
             return Err("Invalid save name".to_string());
         }
-        
+
         info!("[SAVE] Save state validated successfully");
         Ok(())
     }

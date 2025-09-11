@@ -26,7 +26,7 @@ pub struct Agent {
     pub inventory: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LegacySimulationState {
     pub tick: u64,
     pub agents: Vec<Agent>,
@@ -47,7 +47,7 @@ impl Default for WorldGrid {
         let width = 64;
         let height = 64;
         let mut tiles = Vec::with_capacity(width * height);
-        
+
         for _ in 0..width * height {
             tiles.push(Tile {
                 tile_type: "grass".to_string(),
@@ -55,21 +55,11 @@ impl Default for WorldGrid {
                 resources: vec![],
             });
         }
-        
+
         Self {
             width,
             height,
             tiles,
-        }
-    }
-}
-
-impl Default for LegacySimulationState {
-    fn default() -> Self {
-        Self {
-            tick: 0,
-            agents: vec![],
-            events: vec![],
         }
     }
 }

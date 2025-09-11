@@ -16,7 +16,7 @@ impl NameComponent {
             name: n,
         }
     }
-    
+
     pub fn with_title(name: impl Into<String>, title: impl Into<String>) -> Self {
         let n = name.into();
         let t = title.into();

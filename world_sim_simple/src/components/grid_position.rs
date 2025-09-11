@@ -1,11 +1,10 @@
+use crate::simulation::*;
 /// Grid-based position system for tick-based movement
-/// 
+///
 /// This module implements a grid-based positioning system where units
 /// occupy discrete tiles and movement happens in tick-based steps.
 /// Visual interpolation provides smooth movement for presentation.
-
 use bevy::prelude::*;
-use crate::simulation::*;
 
 /// The authoritative grid position for simulation logic
 /// This is the "true" position used for all game logic
@@ -19,7 +18,7 @@ impl GridPosition {
     pub fn new(x: u32, y: u32) -> Self {
         Self { x, y }
     }
-    
+
     /// Convert from tile coordinates
     pub fn from_tile(x: usize, y: usize) -> Self {
         Self {
@@ -27,53 +26,53 @@ impl GridPosition {
             y: y as u32,
         }
     }
-    
+
     /// Get as tuple for easy use
     pub fn as_tuple(&self) -> (u32, u32) {
         (self.x, self.y)
     }
-    
+
     /// Manhattan distance to another position
     pub fn distance_to(&self, other: &GridPosition) -> u32 {
-        let dx = (self.x as i32 - other.x as i32).abs() as u32;
-        let dy = (self.y as i32 - other.y as i32).abs() as u32;
+        let dx = (self.x as i32 - other.x as i32).unsigned_abs();
+        let dy = (self.y as i32 - other.y as i32).unsigned_abs();
         dx + dy
     }
-    
+
     /// Check if adjacent (including diagonals)
     pub fn is_adjacent_to(&self, other: &GridPosition) -> bool {
         let dx = (self.x as i32 - other.x as i32).abs();
         let dy = (self.y as i32 - other.y as i32).abs();
         dx <= 1 && dy <= 1 && (dx + dy) > 0
     }
-    
+
     /// Get all adjacent positions (8-directional)
     pub fn get_adjacent(&self) -> Vec<GridPosition> {
         let mut adjacent = Vec::with_capacity(8);
-        
+
         for dx in -1..=1 {
             for dy in -1..=1 {
                 if dx == 0 && dy == 0 {
                     continue;
                 }
-                
+
                 let new_x = self.x as i32 + dx;
                 let new_y = self.y as i32 + dy;
-                
+
                 if new_x >= 0 && new_y >= 0 {
                     adjacent.push(GridPosition::new(new_x as u32, new_y as u32));
                 }
             }
         }
-        
+
         adjacent
     }
-    
+
     /// Move toward target by one tile
     pub fn step_toward(&self, target: &GridPosition) -> GridPosition {
         let dx = (target.x as i32 - self.x as i32).signum();
         let dy = (target.y as i32 - self.y as i32).signum();
-        
+
         GridPosition::new(
             (self.x as i32 + dx).max(0) as u32,
             (self.y as i32 + dy).max(0) as u32,
@@ -102,12 +101,12 @@ impl VisualPosition {
             speed: 5.0, // Default 5 tiles per second visual movement
         }
     }
-    
+
     /// Update target from grid position
     pub fn set_target(&mut self, grid_pos: &GridPosition, tile_size: f32) {
         self.target = grid_to_world(grid_pos, tile_size);
     }
-    
+
     /// Interpolate toward target (called every frame)
     pub fn interpolate(&mut self, delta_time: f32) {
         let distance = self.current.distance(self.target);
@@ -119,7 +118,7 @@ impl VisualPosition {
             self.current = self.target;
         }
     }
-    
+
     /// Check if visual has caught up to target
     pub fn at_target(&self) -> bool {
         self.current.distance(self.target) < 0.01
@@ -151,14 +150,14 @@ impl GridMovement {
             speed_modifier: 1.0,
         }
     }
-    
+
     /// Set a new movement target
     pub fn set_target(&mut self, target: GridPosition) {
         self.target = Some(target);
         self.is_moving = true;
         self.progress_counter = 0;
     }
-    
+
     /// Set a path to follow
     pub fn set_path(&mut self, path: Vec<GridPosition>) {
         if !path.is_empty() {
@@ -168,7 +167,7 @@ impl GridMovement {
             self.progress_counter = 0;
         }
     }
-    
+
     /// Clear movement
     pub fn stop(&mut self) {
         self.target = None;
@@ -176,27 +175,27 @@ impl GridMovement {
         self.is_moving = false;
         self.progress_counter = 0;
     }
-    
+
     /// Update movement progress (called on ticks)
     /// Returns true if movement to a tile was completed
     pub fn tick_update(&mut self, current_pos: &mut GridPosition, ticks_per_tile: u32) -> bool {
         if !self.is_moving || self.target.is_none() {
             return false;
         }
-        
+
         // Calculate progress increment based on movement speed
         // MAX_WORK_PROGRESS / ticks_per_tile = progress per tick
-        let progress_increment = (MAX_WORK_PROGRESS / ticks_per_tile.max(1)) as u32;
+        let progress_increment = (MAX_WORK_PROGRESS / ticks_per_tile.max(1));
         self.progress_counter += progress_increment;
-        
+
         // Check if we've completed movement to next tile
         if self.progress_counter >= MAX_WORK_PROGRESS {
             self.progress_counter = 0;
-            
+
             // Move to target
             if let Some(target) = &self.target {
                 *current_pos = target.clone();
-                
+
                 // If following a path, get next target
                 if !self.path.is_empty() {
                     self.path.remove(0);
@@ -214,10 +213,10 @@ impl GridMovement {
                 }
             }
         }
-        
+
         false // Still moving
     }
-    
+
     /// Get movement progress as a float (0.0 to 1.0)
     pub fn progress(&self) -> f32 {
         self.progress_counter as f32 / MAX_WORK_PROGRESS as f32
@@ -257,15 +256,17 @@ pub fn migrate_positions_system(
     for (entity, tile_entity) in query.iter() {
         // Create grid position from tile entity
         let grid_pos = GridPosition::from_tile(tile_entity.x, tile_entity.y);
-        
+
         // Add grid components
         commands.entity(entity).insert((
             grid_pos.clone(),
             VisualPosition::new(&grid_pos, 10.0), // Using default tile size
             GridMovement::new(),
         ));
-        
-        println!("Migrated entity {:?} to grid-based position ({}, {})", 
-            entity, grid_pos.x, grid_pos.y);
+
+        println!(
+            "Migrated entity {:?} to grid-based position ({}, {})",
+            entity, grid_pos.x, grid_pos.y
+        );
     }
 }

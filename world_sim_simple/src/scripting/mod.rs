@@ -1,17 +1,17 @@
+use crate::debug::{DebugLevel, DebugSystem};
 use bevy::prelude::*;
 use bevy_mod_scripting::prelude::*;
-use crate::debug::{DebugSystem, DebugLevel};
 
+pub mod goap_loader;
 pub mod lua_api;
 pub mod recipe_scripts;
-pub mod tree_generation;
-pub mod goap_loader;  // Now enabled with mlua
-// pub mod storage_loader; // TODO: Enable when mlua is configured
+pub mod tree_generation; // Now enabled with mlua
+                         // pub mod storage_loader; // TODO: Enable when mlua is configured
 
 // Re-export key types for easier use
-pub use recipe_scripts::{RecipeScript, ReloadRecipeScriptsCommand};
-pub use tree_generation::{ScriptedTree, GenerateTreesCommand, TreeGenerationState};
-pub use goap_loader::{ScriptedGoapActions, ReloadGoapActionsCommand};
+pub use goap_loader::{ReloadGoapActionsCommand, ScriptedGoapActions};
+pub use recipe_scripts::ReloadRecipeScriptsCommand;
+pub use tree_generation::{GenerateTreesCommand, TreeGenerationState};
 
 #[derive(Event)]
 pub struct ScriptReloadEvent {
@@ -38,14 +38,17 @@ impl Plugin for ScriptingPlugin {
             .init_resource::<TreeGenerationState>()
             .init_resource::<ScriptedGoapActions>()
             .add_systems(Startup, scripting_init_system)
-            .add_systems(Update, (
-                script_reload_system,
-                recipe_scripts::load_recipe_scripts,
-                recipe_scripts::process_recipe_scripts,
-                tree_generation::generate_trees_system,
-                goap_loader::load_goap_actions_system,
-                goap_loader::merge_goap_actions_system,
-            ));
+            .add_systems(
+                Update,
+                (
+                    script_reload_system,
+                    recipe_scripts::load_recipe_scripts,
+                    recipe_scripts::process_recipe_scripts,
+                    tree_generation::generate_trees_system,
+                    goap_loader::load_goap_actions_system,
+                    goap_loader::merge_goap_actions_system,
+                ),
+            );
     }
 }
 
@@ -58,39 +61,39 @@ fn scripting_init_system(
     debug.log(
         DebugLevel::Info,
         "SCRIPT",
-        "Scripting system initialized with asset-based script loading"
+        "Scripting system initialized with asset-based script loading",
     );
-    
+
     // Automatically load recipe scripts on startup
     reload_events.send(ReloadRecipeScriptsCommand {});
-    
+
     debug.log(
         DebugLevel::Info,
         "SCRIPT",
-        "Triggering initial recipe script loading"
+        "Triggering initial recipe script loading",
     );
-    
+
     // Automatically generate trees on startup
     tree_events.send(GenerateTreesCommand {
         area: None,
         force_regenerate: false,
     });
-    
+
     debug.log(
         DebugLevel::Info,
-        "SCRIPT", 
-        "Triggering initial tree generation"
+        "SCRIPT",
+        "Triggering initial tree generation",
     );
-    
+
     // Load GOAP actions on startup
     goap_events.send(ReloadGoapActionsCommand {
         pack_name: Some("stronghold".to_string()),
     });
-    
+
     debug.log(
         DebugLevel::Info,
         "SCRIPT",
-        "Triggering initial GOAP actions loading"
+        "Triggering initial GOAP actions loading",
     );
 }
 
@@ -104,9 +107,9 @@ fn script_reload_system(
         debug.log(
             DebugLevel::Info,
             "SCRIPT",
-            &format!("Reloading {:?} scripts", event.script_type)
+            &format!("Reloading {:?} scripts", event.script_type),
         );
-        
+
         match event.script_type {
             ScriptType::Recipe => {
                 recipe_reload_events.send(ReloadRecipeScriptsCommand {});
@@ -115,19 +118,19 @@ fn script_reload_system(
                 debug.log(
                     DebugLevel::Debug,
                     "SCRIPT",
-                    "Worker script reloading not yet implemented"
+                    "Worker script reloading not yet implemented",
                 );
             }
             ScriptType::Goap => {
                 goap_reload_events.send(ReloadGoapActionsCommand {
-                    pack_name: None,  // Use default pack
+                    pack_name: None, // Use default pack
                 });
             }
             ScriptType::World => {
                 debug.log(
                     DebugLevel::Debug,
                     "SCRIPT",
-                    "World script reloading not yet implemented"
+                    "World script reloading not yet implemented",
                 );
             }
         }

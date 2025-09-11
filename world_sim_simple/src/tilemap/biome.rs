@@ -1,6 +1,6 @@
+use super::terrain::TerrainType;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use super::terrain::TerrainType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BiomeType {
@@ -21,11 +21,11 @@ impl BiomeType {
         if elevation < 0.1 {
             return BiomeType::Ocean;
         }
-        
+
         if elevation > 0.7 {
             return BiomeType::Mountain;
         }
-        
+
         match (temperature, moisture) {
             (t, m) if t < 0.2 && m < 0.3 => BiomeType::Tundra,
             (t, m) if t < 0.3 && m > 0.5 => BiomeType::Taiga,
@@ -37,7 +37,7 @@ impl BiomeType {
             _ => BiomeType::Plains,
         }
     }
-    
+
     pub fn get_dominant_terrain(&self) -> Vec<(TerrainType, f32)> {
         match self {
             BiomeType::Plains => vec![
@@ -92,18 +92,18 @@ impl BiomeType {
             ],
         }
     }
-    
+
     pub fn select_terrain(&self, random_value: f32) -> TerrainType {
         let terrains = self.get_dominant_terrain();
         let mut cumulative = 0.0;
-        
+
         for (terrain, probability) in terrains {
             cumulative += probability;
             if random_value <= cumulative {
                 return terrain;
             }
         }
-        
+
         // Fallback
         TerrainType::Grass
     }
@@ -117,21 +117,21 @@ impl BiomeGenerator {
     pub fn new(seed: u64) -> Self {
         Self { seed }
     }
-    
+
     pub fn generate_biome(&self, chunk_x: i32, chunk_y: i32) -> BiomeType {
         // Large-scale biome generation based on chunk coordinates
         let scale = 0.01;
         let x = chunk_x as f32 * scale;
         let y = chunk_y as f32 * scale;
-        
+
         // Generate climate values using simple noise functions
         let temperature = self.noise_2d(x, y, 1.0);
         let moisture = self.noise_2d(x * 1.3, y * 1.3, 2.0);
         let elevation = self.noise_2d(x * 0.7, y * 0.7, 3.0);
-        
+
         BiomeType::from_climate(temperature, moisture, elevation)
     }
-    
+
     fn noise_2d(&self, x: f32, y: f32, offset: f32) -> f32 {
         // Simple pseudo-noise function
         let seed_factor = (self.seed as f32 * 0.001) + offset;

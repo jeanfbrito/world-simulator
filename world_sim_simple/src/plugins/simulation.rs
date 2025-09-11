@@ -1,20 +1,20 @@
+use crate::debug::{DebugLevel, DebugSystem};
+use crate::plugin::PluginManager;
+use crate::SimulationState;
 use bevy::prelude::*;
 use colored::*;
-use crate::SimulationState;
-use crate::plugin::PluginManager;
-use crate::debug::{DebugSystem, DebugLevel};
 
 pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
-        println!("{}", "[SIMULATION] Initializing simulation plugin...".cyan());
-        
+        println!(
+            "{}",
+            "[SIMULATION] Initializing simulation plugin...".cyan()
+        );
+
         app.add_systems(Startup, init_simulation_plugin)
-           .add_systems(Update, (
-               simulation_tick_system,
-               simulation_stats_system,
-           ));
+            .add_systems(Update, (simulation_tick_system, simulation_stats_system));
     }
 }
 
@@ -31,20 +31,20 @@ fn simulation_tick_system(
     if !sim_state.running {
         return;
     }
-    
+
     sim_state.accumulated_time += time.delta_secs() * sim_state.speed;
-    
+
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;
         let old_tick = sim_state.tick;
         sim_state.tick += 1;
-        
+
         // Log every 10 ticks
         if sim_state.tick % 10 == 0 {
             debug.log(
                 DebugLevel::Debug,
                 "SIMULATION",
-                &format!("Tick {} → {}", old_tick, sim_state.tick)
+                &format!("Tick {} → {}", old_tick, sim_state.tick),
             );
         }
     }
@@ -58,12 +58,15 @@ fn simulation_stats_system(
     static mut LAST_STATS: f32 = 0.0;
     unsafe {
         LAST_STATS += time.delta_secs();
-        if LAST_STATS > 10.0 {  // Every 10 seconds
+        if LAST_STATS > 10.0 {
+            // Every 10 seconds
             debug.log(
                 DebugLevel::Info,
                 "STATS",
-                &format!("Tick: {}, Speed: {:.1}x, Running: {}", 
-                    sim_state.tick, sim_state.speed, sim_state.running)
+                &format!(
+                    "Tick: {}, Speed: {:.1}x, Running: {}",
+                    sim_state.tick, sim_state.speed, sim_state.running
+                ),
             );
             LAST_STATS = 0.0;
         }

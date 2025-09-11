@@ -1,5 +1,5 @@
-pub mod world;
 pub mod simulation;
+pub mod world;
 
-pub use world::WorldPlugin;
 pub use simulation::SimulationPlugin;
+pub use world::WorldPlugin;

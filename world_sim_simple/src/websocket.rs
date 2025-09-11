@@ -1,25 +1,42 @@
 use bevy::prelude::*;
+use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
-use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
-use futures_util::{StreamExt, SinkExt};
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 // Messages from client to server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
-    Connect { client_id: String },
-    Disconnect { client_id: String },
-    Command { action: String, data: serde_json::Value },
-    SetTile { x: usize, y: usize, tile_type: String },
-    SpawnWorker { x: usize, y: usize },
+    Connect {
+        client_id: String,
+    },
+    Disconnect {
+        client_id: String,
+    },
+    Command {
+        action: String,
+        data: serde_json::Value,
+    },
+    SetTile {
+        x: usize,
+        y: usize,
+        tile_type: String,
+    },
+    SpawnWorker {
+        x: usize,
+        y: usize,
+    },
     PlayPause,
-    SetSpeed { speed: f32 },
-    GenerateMap { map_type: String },
+    SetSpeed {
+        speed: f32,
+    },
+    GenerateMap {
+        map_type: String,
+    },
     RequestState,
     Ping,
     // Debug messages
@@ -32,15 +49,34 @@ pub enum ClientMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
-    Welcome { client_id: String },
-    GameState { state: GameStateSnapshot },
-    TileUpdate { x: usize, y: usize, tile_type: String },
-    EntityUpdate { entities: Vec<EntityData> },
-    TickUpdate { tick: u32 },
-    Error { message: String },
+    Welcome {
+        client_id: String,
+    },
+    GameState {
+        state: GameStateSnapshot,
+    },
+    TileUpdate {
+        x: usize,
+        y: usize,
+        tile_type: String,
+    },
+    EntityUpdate {
+        entities: Vec<EntityData>,
+    },
+    TickUpdate {
+        tick: u32,
+    },
+    Error {
+        message: String,
+    },
     // Debug responses
-    DebugInfo { info: serde_json::Value },
-    ValidationResult { valid: bool, details: String },
+    DebugInfo {
+        info: serde_json::Value,
+    },
+    ValidationResult {
+        valid: bool,
+        details: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,15 +125,18 @@ impl Plugin for WebSocketPlugin {
     fn build(&self, app: &mut App) {
         let (tx, rx) = mpsc::unbounded_channel::<ServerMessage>();
         let message_queue = ClientMessageQueue::default();
-        
+
         app.insert_resource(WebSocketConnections { sender: tx.clone() })
-           .insert_resource(message_queue.clone())
-           .add_systems(Startup, start_websocket_server)
-           .add_systems(Update, (
-               process_client_messages,
-               broadcast_game_state.run_if(should_broadcast),
-           ));
-        
+            .insert_resource(message_queue.clone())
+            .add_systems(Startup, start_websocket_server)
+            .add_systems(
+                Update,
+                (
+                    process_client_messages,
+                    broadcast_game_state.run_if(should_broadcast),
+                ),
+            );
+
         // Start WebSocket server in background
         let msg_queue = message_queue.messages.clone();
         let tx_clone = tx.clone();
@@ -121,28 +160,29 @@ async fn run_websocket_server(
 ) {
     let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
     println!("WebSocket server listening on ws://localhost:8080");
-    
-    let clients: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<Message>>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    let clients: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<Message>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
     let clients_clone = clients.clone();
-    
+
     // Broadcast task
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             let clients = clients_clone.lock().unwrap();
             let msg_json = serde_json::to_string(&msg).unwrap();
-            
+
             for (_, client_tx) in clients.iter() {
                 let _ = client_tx.send(Message::Text(msg_json.clone()));
             }
         }
     });
-    
+
     // Accept connections
     while let Ok((stream, addr)) = listener.accept().await {
         let clients = clients.clone();
         let message_queue = message_queue.clone();
         let tx = tx.clone();
-        
+
         tokio::spawn(async move {
             if let Err(e) = handle_connection(stream, addr, clients, message_queue, tx).await {
                 eprintln!("Error handling connection: {}", e);
@@ -161,26 +201,33 @@ async fn handle_connection(
     let ws_stream = accept_async(stream).await?;
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let (client_tx, mut client_rx) = mpsc::unbounded_channel::<Message>();
-    
+
     let client_id = format!("client_{}", uuid::Uuid::new_v4());
-    println!("New WebSocket connection from {} with id {}", addr, client_id);
-    
+    println!(
+        "New WebSocket connection from {} with id {}",
+        addr, client_id
+    );
+
     // Store client sender
     {
         let mut clients = clients.lock().unwrap();
         clients.insert(client_id.clone(), client_tx);
     }
-    
+
     // Send welcome message
-    let welcome = ServerMessage::Welcome { client_id: client_id.clone() };
-    ws_sender.send(Message::Text(serde_json::to_string(&welcome)?)).await?;
-    
+    let welcome = ServerMessage::Welcome {
+        client_id: client_id.clone(),
+    };
+    ws_sender
+        .send(Message::Text(serde_json::to_string(&welcome)?))
+        .await?;
+
     // Send initial game state
     {
         let mut queue = message_queue.lock().unwrap();
         queue.push(ClientMessage::RequestState);
     }
-    
+
     // Spawn task to send messages to client
     let send_task = tokio::spawn(async move {
         while let Some(msg) = client_rx.recv().await {
@@ -189,7 +236,7 @@ async fn handle_connection(
             }
         }
     });
-    
+
     // Receive messages from client
     while let Some(msg) = ws_receiver.next().await {
         match msg {
@@ -199,7 +246,7 @@ async fn handle_connection(
                         ClientMessage::Ping => {
                             // Respond to ping immediately to keep connection alive
                             // No need to process ping in game loop
-                        },
+                        }
                         _ => {
                             let mut queue = message_queue.lock().unwrap();
                             queue.push(client_msg);
@@ -212,28 +259,28 @@ async fn handle_connection(
             _ => {}
         }
     }
-    
+
     // Clean up
     send_task.abort();
     {
         let mut clients = clients.lock().unwrap();
         clients.remove(&client_id);
     }
-    
+
     println!("Client {} disconnected", client_id);
     Ok(())
 }
 
 // System to process client messages
 fn process_client_messages(
-    mut message_queue: ResMut<ClientMessageQueue>,
+    message_queue: ResMut<ClientMessageQueue>,
     mut sim_state: ResMut<crate::SimulationState>,
     mut world_map: ResMut<crate::WorldMap>,
-    mut commands: Commands,
+    commands: Commands,
     connections: Res<WebSocketConnections>,
 ) {
     let mut messages = message_queue.messages.lock().unwrap();
-    
+
     for msg in messages.drain(..) {
         match msg {
             ClientMessage::PlayPause => {
@@ -278,12 +325,12 @@ fn process_client_messages(
                 // Validate system state
                 let mut valid = true;
                 let mut details = Vec::new();
-                
+
                 if world_map.tiles.len() != crate::MAP_SIZE {
                     valid = false;
                     details.push("Invalid map height");
                 }
-                
+
                 for row in world_map.tiles.iter() {
                     if row.len() != crate::MAP_SIZE {
                         valid = false;
@@ -291,7 +338,7 @@ fn process_client_messages(
                         break;
                     }
                 }
-                
+
                 let msg = ServerMessage::ValidationResult {
                     valid,
                     details: details.join(", "),
@@ -330,10 +377,11 @@ fn generate_map(world_map: &mut crate::WorldMap, map_type: &str) {
             let center = crate::MAP_SIZE / 2;
             for y in 0..crate::MAP_SIZE {
                 for x in 0..crate::MAP_SIZE {
-                    let dist = ((x as f32 - center as f32).powi(2) + 
-                               (y as f32 - center as f32).powi(2)).sqrt();
+                    let dist = ((x as f32 - center as f32).powi(2)
+                        + (y as f32 - center as f32).powi(2))
+                    .sqrt();
                     let max_dist = center as f32;
-                    
+
                     if dist > max_dist * 0.9 {
                         world_map.tiles[y][x] = crate::TileType::DeepWater;
                     } else if dist > max_dist * 0.75 {
@@ -380,21 +428,24 @@ fn broadcast_game_state(
     connections: Res<WebSocketConnections>,
     mut sim_state: ResMut<crate::SimulationState>,
     world_map: Res<crate::WorldMap>,
-    workers: Query<(
-        &crate::components::NameComponent,
-        &crate::components::HealthComponent,
-        &crate::components::EnergyComponent,
-        &crate::TileEntity
-    ), With<crate::components::WorkerTag>>,
+    workers: Query<
+        (
+            &crate::components::NameComponent,
+            &crate::components::HealthComponent,
+            &crate::components::EnergyComponent,
+            &crate::TileEntity,
+        ),
+        With<crate::components::WorkerTag>,
+    >,
 ) {
     let mut entities = Vec::new();
-    
+
     for (name, health, energy, tile) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
         data.insert("energy".to_string(), serde_json::json!(energy.current));
-        
+
         entities.push(EntityData {
             id: format!("worker_{}", name.name),
             entity_type: "worker".to_string(),
@@ -403,11 +454,17 @@ fn broadcast_game_state(
             data,
         });
     }
-    
-    let tiles: Vec<Vec<String>> = world_map.tiles.iter()
-        .map(|row| row.iter().map(|t| format!("{:?}", t).to_lowercase()).collect())
+
+    let tiles: Vec<Vec<String>> = world_map
+        .tiles
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|t| format!("{:?}", t).to_lowercase())
+                .collect()
+        })
         .collect();
-    
+
     let snapshot = GameStateSnapshot {
         tick: sim_state.tick,
         running: sim_state.running,
@@ -416,10 +473,10 @@ fn broadcast_game_state(
         tiles,
         entities,
     };
-    
+
     let msg = ServerMessage::GameState { state: snapshot };
     let _ = connections.sender.send(msg);
-    
+
     // Clear changed flag after broadcasting
     sim_state.clear_changed();
 }
@@ -428,10 +485,10 @@ fn should_broadcast(time: Res<Time>, sim_state: Res<crate::SimulationState>) -> 
     // Broadcast every 100ms or when simulation state changes
     use std::sync::atomic::{AtomicU32, Ordering};
     static LAST_BROADCAST_MS: AtomicU32 = AtomicU32::new(0);
-    
+
     let elapsed_ms = (time.elapsed_secs() * 1000.0) as u32;
     let last_ms = LAST_BROADCAST_MS.load(Ordering::Relaxed);
-    
+
     if elapsed_ms - last_ms > 100 || sim_state.is_changed() {
         LAST_BROADCAST_MS.store(elapsed_ms, Ordering::Relaxed);
         true

@@ -1,67 +1,61 @@
-use bevy::prelude::*;
 use bevy::asset::AssetPlugin;
+use bevy::prelude::*;
 // Removed bevy_egui import for headless operation
 // use bevy_dogoap::prelude::*; // Temporarily disabled for testing
 use crate::components::UnitTag;
+use colored::Colorize;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use rand::Rng;
-use colored::Colorize;
 
-mod websocket;
-mod legacy_simulation;
-mod simulation;
-mod debug;
 #[path = "debug/ai_monitor.rs"]
 mod ai_monitor;
+mod debug;
+mod legacy_simulation;
+mod simulation;
+mod websocket;
 // // mod debug_cli; // Disabled for headless operation
+mod ai;
+mod buildings;
 mod components;
+mod crafting;
+mod performance;
 mod plugin;
 mod plugins;
-mod tilemap;
 mod resources;
-mod buildings;
-mod crafting;
-mod ai;
 mod save_load;
-mod performance;
 mod scripting;
 mod spawning;
 mod systems;
+mod tilemap;
 
-use websocket::WebSocketPlugin;
 use debug::DebugPlugin;
 // use debug_cli::DebugCLI; // Disabled for headless operation
-use components::{
-    ComponentsPlugin, PositionComponent, 
-    NameComponent, WorkerTag
-};
-use plugin::{PluginManager, plugin_init_system};
-use plugins::{WorldPlugin, SimulationPlugin as SimPlugin};
-use tilemap::TilemapPlugin;
-use resources::ResourcesPlugin;
-use buildings::{BuildingsPlugin, BuildingComponent, BuildingType};
-use crafting::CraftingPlugin;
 use ai::AIPlugin;
-use save_load::SaveLoadPlugin;
+use buildings::{BuildingComponent, BuildingType, BuildingsPlugin};
+use components::{ComponentsPlugin, NameComponent, PositionComponent};
+use crafting::CraftingPlugin;
 use performance::PerformancePlugin;
-use scripting::ScriptingPlugin;
+use plugin::{plugin_init_system, PluginManager};
+use plugins::{SimulationPlugin as SimPlugin, WorldPlugin};
+use resources::ResourcesPlugin;
+use save_load::SaveLoadPlugin;
 use spawning::SpawningPlugin;
 use systems::SystemsPlugin;
+use tilemap::TilemapPlugin;
 
 // Import the new tick-based simulation module
-use simulation::TickSimulationPlugin;
 
 pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
 
 fn main() {
     println!("🚀 Starting World Simulator (Headless Mode)");
-    
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
-    
+
     println!("📦 Initializing Bevy App...");
 
     App::new()
@@ -139,15 +133,16 @@ impl TileType {
             TileType::Blocked => Color::srgb(0.13, 0.13, 0.13),
         }
     }
-    
+
     fn is_walkable(&self) -> bool {
-        !matches!(self, 
-            TileType::Water | 
-            TileType::DeepWater | 
-            TileType::Wall | 
-            TileType::Blocked |
-            TileType::Tree |
-            TileType::Ore
+        !matches!(
+            self,
+            TileType::Water
+                | TileType::DeepWater
+                | TileType::Wall
+                | TileType::Blocked
+                | TileType::Tree
+                | TileType::Ore
         )
     }
 }
@@ -161,15 +156,16 @@ pub struct WorldMap {
 impl Default for WorldMap {
     fn default() -> Self {
         let mut tiles = vec![vec![TileType::Grass; MAP_SIZE]; MAP_SIZE];
-        
+
         // Generate simple island
         let center = MAP_SIZE / 2;
         for y in 0..MAP_SIZE {
             for x in 0..MAP_SIZE {
-                let dist = ((x as f32 - center as f32).powi(2) + 
-                           (y as f32 - center as f32).powi(2)).sqrt();
+                let dist = ((x as f32 - center as f32).powi(2)
+                    + (y as f32 - center as f32).powi(2))
+                .sqrt();
                 let max_dist = center as f32;
-                
+
                 if dist > max_dist * 0.9 {
                     tiles[y][x] = TileType::DeepWater;
                 } else if dist > max_dist * 0.75 {
@@ -179,17 +175,21 @@ impl Default for WorldMap {
                 }
             }
         }
-        
+
         // Add some random features
         let mut rng = rand::thread_rng();
         for _ in 0..50 {
-            let x = rng.gen_range(10..MAP_SIZE-10);
-            let y = rng.gen_range(10..MAP_SIZE-10);
+            let x = rng.gen_range(10..MAP_SIZE - 10);
+            let y = rng.gen_range(10..MAP_SIZE - 10);
             if tiles[y][x] == TileType::Grass {
-                tiles[y][x] = if rng.gen_bool(0.5) { TileType::Tree } else { TileType::Ore };
+                tiles[y][x] = if rng.gen_bool(0.5) {
+                    TileType::Tree
+                } else {
+                    TileType::Ore
+                };
             }
         }
-        
+
         Self {
             tiles,
             entities: HashMap::new(),
@@ -210,7 +210,7 @@ pub struct SimulationState {
 impl Default for SimulationState {
     fn default() -> Self {
         Self {
-            running: true,  // Start simulation running automatically
+            running: true, // Start simulation running automatically
             tick: 0,
             speed: 1.0,
             accumulated_time: 0.0,
@@ -224,11 +224,11 @@ impl SimulationState {
     pub fn set_changed(&mut self) {
         self.changed = true;
     }
-    
+
     pub fn is_changed(&self) -> bool {
         self.changed
     }
-    
+
     pub fn clear_changed(&mut self) {
         self.changed = false;
     }
@@ -246,20 +246,20 @@ pub struct TileEntity {
 
 fn setup(mut commands: Commands) {
     // Removed Camera2d for headless operation
-    
+
     // Initialize world map for headless operation (no tile sprites)
     let world_map = WorldMap::default();
-    
+
     // Peasant spawning is now handled by SpawningPlugin
     let mut rng = rand::thread_rng();
-    
+
     // Spawn stockpile (for wood/stone storage) at center of map
     {
         let x = 32;
         let y = 32;
         let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
         let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-        
+
         commands.spawn((
             Sprite {
                 color: Color::srgb(0.5, 0.3, 0.1), // Brown for stockpile
@@ -272,140 +272,162 @@ fn setup(mut commands: Commands) {
             PositionComponent::from_tile(x, y),
             TileEntity { x, y },
         ));
-        
+
         // Mark it as complete (pre-built)
-        commands.spawn((
-            BuildingComponent {
-                building_type: BuildingType::Stockpile,
-                health: 200.0,
-                max_health: 200.0,
-                construction_progress: 1.0,
-                is_active: true,
-                position: (x as i32, y as i32),
-            },
-        ));
-        
+        commands.spawn((BuildingComponent {
+            building_type: BuildingType::Stockpile,
+            health: 200.0,
+            max_health: 200.0,
+            construction_progress: 1.0,
+            is_active: true,
+            position: (x as i32, y as i32),
+        },));
+
         println!("{}", format!("[SPAWN] Stockpile at ({}, {})", x, y).cyan());
     }
-    
+
     // Spawn granary (for food storage) near stockpile
     {
         let x = 35;
         let y = 32;
         let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
         let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-        
+
         commands.spawn((
             BuildingComponent::new(BuildingType::Granary, (x as i32, y as i32)),
             NameComponent::new("Central Granary".to_string()),
             PositionComponent::from_tile(x, y),
             TileEntity { x, y },
         ));
-        
+
         // Mark it as complete (pre-built)
-        commands.spawn((
-            BuildingComponent {
-                building_type: BuildingType::Granary,
-                health: 200.0,
-                max_health: 200.0,
-                construction_progress: 1.0,
-                is_active: true,
-                position: (x as i32, y as i32),
-            },
-        ));
-        
+        commands.spawn((BuildingComponent {
+            building_type: BuildingType::Granary,
+            health: 200.0,
+            max_health: 200.0,
+            construction_progress: 1.0,
+            is_active: true,
+            position: (x as i32, y as i32),
+        },));
+
         println!("{}", format!("[SPAWN] Granary at ({}, {})", x, y).cyan());
     }
-    
+
     // Spawn trees as entities (for wood harvesting)
     for _ in 0..15 {
         let x = rng.gen_range(10..54);
         let y = rng.gen_range(10..54);
-        
+
         if world_map.tiles[y][x] == TileType::Grass {
             let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            
+
             commands.spawn((
                 NameComponent::new("Tree".to_string()),
                 PositionComponent::from_tile(x, y),
                 TileEntity { x, y },
-                ai::TreeTag,  // Marker for AI to find trees
+                ai::TreeTag, // Marker for AI to find trees
             ));
-            
+
             println!("{}", format!("[SPAWN] Tree at ({}, {})", x, y).green());
         }
     }
-    
+
     // Rocks removed - focusing on food resources only for Phase 3.5
-    
+
     // Add many berry bushes spread across the map to encourage exploration
     // Spawn berry bushes in clusters for more realistic distribution
-    
+
     // Spawn scattered berry bushes across the whole map
     let mut spawned_bushes = 0;
     let target_bushes = 25;
     let mut attempts = 0;
     const MAX_ATTEMPTS: u32 = 500; // Prevent infinite loop
-    
+
     while spawned_bushes < target_bushes && attempts < MAX_ATTEMPTS {
         attempts += 1;
-        let x = rng.gen_range(5..59);  // Expanded range to cover more of the map
+        let x = rng.gen_range(5..59); // Expanded range to cover more of the map
         let y = rng.gen_range(5..59);
-        
+
         if world_map.tiles[y][x] == TileType::Grass {
             let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            
+
             commands.spawn((
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
-                components::ResourceNode::fruit_bush(rng.gen_range(1..4)),  // Start with 1-3 berries so there's something to gather
+                components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries so there's something to gather
                 components::ResourceRegenerationTag,
-                components::GridPosition { x: x as u32, y: y as u32 },
+                components::GridPosition {
+                    x: x as u32,
+                    y: y as u32,
+                },
                 TileEntity { x, y },
-                ai::BerryBushTag,  // Add marker for AI to find berries
+                ai::BerryBushTag, // Add marker for AI to find berries
             ));
-            
-            println!("{}", format!("[SPAWN] Berry Bush at ({}, {}) with berries", x, y).magenta());
+
+            println!(
+                "{}",
+                format!("[SPAWN] Berry Bush at ({}, {}) with berries", x, y).magenta()
+            );
             spawned_bushes += 1;
         }
     }
-    
+
     if spawned_bushes < target_bushes {
-        println!("{}", format!("[SPAWN] Only spawned {} of {} berry bushes (terrain limited)", spawned_bushes, target_bushes).yellow());
+        println!(
+            "{}",
+            format!(
+                "[SPAWN] Only spawned {} of {} berry bushes (terrain limited)",
+                spawned_bushes, target_bushes
+            )
+            .yellow()
+        );
     }
-    
+
     // Add berry bush clusters in corners to encourage long-distance travel
     let corners = [(8, 8), (8, 56), (56, 8), (56, 56)];
     for (corner_x, corner_y) in corners.iter() {
         let mut corner_spawned = 0;
         let target_per_corner = 3;
         let mut corner_attempts = 0;
-        
+
         while corner_spawned < target_per_corner && corner_attempts < 50 {
             corner_attempts += 1;
             let x = corner_x + rng.gen_range(0..5) as usize;
             let y = corner_y + rng.gen_range(0..5) as usize;
-            
+
             if x < MAP_SIZE && y < MAP_SIZE && world_map.tiles[y][x] == TileType::Grass {
                 commands.spawn((
                     NameComponent::new("Berry Bush (Corner)".to_string()),
                     PositionComponent::from_tile(x, y),
-                    components::ResourceNode::fruit_bush(rng.gen_range(1..4)),  // Start with 1-3 berries even in corners
+                    components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries even in corners
                     components::ResourceRegenerationTag,
-                    components::GridPosition { x: x as u32, y: y as u32 },
+                    components::GridPosition {
+                        x: x as u32,
+                        y: y as u32,
+                    },
                     TileEntity { x, y },
                     ai::BerryBushTag,
                 ));
-                
-                println!("{}", format!("[SPAWN] Corner Berry Bush at ({}, {})", x, y).bright_magenta());
+
+                println!(
+                    "{}",
+                    format!("[SPAWN] Corner Berry Bush at ({}, {})", x, y).bright_magenta()
+                );
                 corner_spawned += 1;
             }
         }
-        
+
         if corner_spawned < target_per_corner {
-            println!("{}", format!("[SPAWN] Corner ({}, {}) only spawned {} of {} bushes", corner_x, corner_y, corner_spawned, target_per_corner).yellow());
+            println!(
+                "{}",
+                format!(
+                    "[SPAWN] Corner ({}, {}) only spawned {} of {} bushes",
+                    corner_x, corner_y, corner_spawned, target_per_corner
+                )
+                .yellow()
+            );
         }
     }
 }
@@ -423,25 +445,30 @@ fn simulation_system(
     if !sim_state.running {
         return;
     }
-    
+
     // Reset the just_ticked flag at the beginning of each frame
     sim_state.just_ticked = false;
-    
+
     let delta = time.delta_secs();
     sim_state.accumulated_time += delta * sim_state.speed;
-    
+
     // Debug: Show that the system is running
-    println!("Simulation system called, delta: {}, accumulated: {}, tick: {}", 
-        delta, sim_state.accumulated_time, sim_state.tick);
-    
+    println!(
+        "Simulation system called, delta: {}, accumulated: {}, tick: {}",
+        delta, sim_state.accumulated_time, sim_state.tick
+    );
+
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;
         sim_state.tick += 1;
         sim_state.just_ticked = true; // Set the flag when a tick occurs
-        
+
         // Log tick for easy reading
-        println!("{}", format!("\n=== TICK {} === (just_ticked = true)", sim_state.tick).bright_blue());
-        
+        println!(
+            "{}",
+            format!("\n=== TICK {} === (just_ticked = true)", sim_state.tick).bright_blue()
+        );
+
         // Movement is now handled by the AI task execution system
         // Workers will move according to their GOAP plans
     }

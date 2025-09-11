@@ -1,14 +1,13 @@
+use crate::resources::ResourceType;
 /// Growth and lifecycle system for various resources
-/// 
+///
 /// Supports different growth patterns:
 /// - Trees: grow from saplings to mature, regrow after cutting
 /// - Fruits: ripen over time on bushes/trees
 /// - Crops: grow through defined stages
 /// - Ores: can optionally replenish based on game settings
 /// - Animals: reproduce and maintain populations
-
 use bevy::prelude::*;
-use crate::resources::ResourceType;
 
 /// Different growth behaviors for resources
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
@@ -19,31 +18,31 @@ pub enum GrowthPattern {
         ticks_in_stage: u32,
         growth_time_per_stage: u32,
     },
-    
+
     /// Fruits/berries that ripen on plants
     FruitRipening {
         ripe_amount: u32,
         unripe_amount: u32,
-        ripening_rate: u32,  // How many ripen per interval
-        ripening_interval: u32,  // Ticks between ripening
+        ripening_rate: u32,     // How many ripen per interval
+        ripening_interval: u32, // Ticks between ripening
         ticks_since_ripening: u32,
     },
-    
+
     /// Crops that grow through stages
     CropGrowth {
         current_stage: CropStage,
         ticks_in_stage: u32,
-        stage_durations: Vec<u32>,  // Ticks per stage
+        stage_durations: Vec<u32>, // Ticks per stage
     },
-    
+
     /// Rocks/ores that may respawn
     MineralRespawn {
-        respawns: bool,  // Game config: do minerals respawn?
-        respawn_chance: f32,  // 0.0 to 1.0
-        respawn_check_interval: u32,  // How often to check
+        respawns: bool,              // Game config: do minerals respawn?
+        respawn_chance: f32,         // 0.0 to 1.0
+        respawn_check_interval: u32, // How often to check
         ticks_since_check: u32,
     },
-    
+
     /// Simple regeneration (backwards compatibility)
     SimpleRegeneration {
         regeneration_rate: u32,
@@ -58,7 +57,7 @@ pub enum TreeStage {
     Young,
     Mature,
     Old,
-    Stump,  // After being cut
+    Stump, // After being cut
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq)]
@@ -77,32 +76,32 @@ pub struct GrowingResource {
     pub resource_type: ResourceType,
     pub current_amount: u32,
     pub max_amount: u32,
-    pub harvestable_amount: u32,  // How much can be harvested right now
+    pub harvestable_amount: u32, // How much can be harvested right now
     pub growth_pattern: GrowthPattern,
-    
+
     // When depleted, how does it recover?
     pub depletion_behavior: DepletionBehavior,
     pub ticks_since_depletion: u32,
-    
+
     // Environmental factors
-    pub growth_multiplier: f32,  // Affected by soil, weather, etc.
-    pub seasonal_factor: f32,  // Some things don't grow in winter
+    pub growth_multiplier: f32, // Affected by soil, weather, etc.
+    pub seasonal_factor: f32,   // Some things don't grow in winter
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq)]
 pub enum DepletionBehavior {
     /// Regrows from stump/roots (trees)
     RegrowFromBase { regrow_time: u32 },
-    
+
     /// Dies and needs replanting (crops)
     RequiresReplanting,
-    
+
     /// Slowly replenishes (berry bushes)
     GradualReplenishment { rate: u32, interval: u32 },
-    
+
     /// May or may not respawn (ores)
     ChanceRespawn { chance: f32, check_interval: u32 },
-    
+
     /// Never regenerates (non-renewable)
     NonRenewable,
 }
@@ -118,21 +117,21 @@ impl GrowingResource {
             growth_pattern: GrowthPattern::TreeGrowth {
                 current_stage: TreeStage::Mature,
                 ticks_in_stage: 0,
-                growth_time_per_stage: 500,  // 50 seconds per stage
+                growth_time_per_stage: 500, // 50 seconds per stage
             },
-            depletion_behavior: DepletionBehavior::RegrowFromBase { 
-                regrow_time: 3000  // 5 minutes to regrow
+            depletion_behavior: DepletionBehavior::RegrowFromBase {
+                regrow_time: 3000, // 5 minutes to regrow
             },
             ticks_since_depletion: 0,
             growth_multiplier: 1.0,
             seasonal_factor: 1.0,
         }
     }
-    
+
     /// Create a fruit bush that ripens berries
     pub fn fruit_bush(initial_ripe: u32, max_fruit: u32) -> Self {
         Self {
-            resource_type: ResourceType::Berries,  // Default to berries for fruit
+            resource_type: ResourceType::Berries, // Default to berries for fruit
             current_amount: initial_ripe,
             max_amount: max_fruit,
             harvestable_amount: initial_ripe,
@@ -140,7 +139,7 @@ impl GrowingResource {
                 ripe_amount: initial_ripe,
                 unripe_amount: 0,
                 ripening_rate: 2,
-                ripening_interval: 100,  // Every 10 seconds
+                ripening_interval: 100, // Every 10 seconds
                 ticks_since_ripening: 0,
             },
             depletion_behavior: DepletionBehavior::GradualReplenishment {
@@ -152,7 +151,7 @@ impl GrowingResource {
             seasonal_factor: 1.0,
         }
     }
-    
+
     /// Create a stone deposit (may or may not regenerate based on config)
     pub fn stone_deposit(amount: u32, regenerates: bool) -> Self {
         Self {
@@ -163,39 +162,41 @@ impl GrowingResource {
             growth_pattern: GrowthPattern::MineralRespawn {
                 respawns: regenerates,
                 respawn_chance: if regenerates { 0.1 } else { 0.0 },
-                respawn_check_interval: 6000,  // Check every 10 minutes
+                respawn_check_interval: 6000, // Check every 10 minutes
                 ticks_since_check: 0,
             },
             depletion_behavior: if regenerates {
-                DepletionBehavior::ChanceRespawn { 
-                    chance: 0.1, 
-                    check_interval: 6000 
+                DepletionBehavior::ChanceRespawn {
+                    chance: 0.1,
+                    check_interval: 6000,
                 }
             } else {
                 DepletionBehavior::NonRenewable
             },
             ticks_since_depletion: 0,
             growth_multiplier: 1.0,
-            seasonal_factor: 1.0,  // Stones don't care about seasons
+            seasonal_factor: 1.0, // Stones don't care about seasons
         }
     }
-    
+
     /// Update growth for one tick
     pub fn tick_update(&mut self) -> GrowthUpdate {
         let mut update = GrowthUpdate::NoChange;
-        
+
         // Handle depletion recovery first
         if self.current_amount == 0 {
             self.ticks_since_depletion += 1;
-            
+
             match &self.depletion_behavior {
                 DepletionBehavior::RegrowFromBase { regrow_time } => {
                     if self.ticks_since_depletion >= *regrow_time {
                         // Tree regrows from stump
-                        if let GrowthPattern::TreeGrowth { current_stage, .. } = &mut self.growth_pattern {
+                        if let GrowthPattern::TreeGrowth { current_stage, .. } =
+                            &mut self.growth_pattern
+                        {
                             *current_stage = TreeStage::Sapling;
-                            self.current_amount = self.max_amount / 4;  // Young tree has less wood
-                            self.harvestable_amount = 0;  // Can't harvest saplings
+                            self.current_amount = self.max_amount / 4; // Young tree has less wood
+                            self.harvestable_amount = 0; // Can't harvest saplings
                             self.ticks_since_depletion = 0;
                             update = GrowthUpdate::Regrown;
                         }
@@ -212,13 +213,17 @@ impl GrowingResource {
                 }
                 _ => {}
             }
-            
+
             return update;
         }
-        
+
         // Handle normal growth patterns
         match &mut self.growth_pattern {
-            GrowthPattern::TreeGrowth { current_stage, ticks_in_stage, growth_time_per_stage } => {
+            GrowthPattern::TreeGrowth {
+                current_stage,
+                ticks_in_stage,
+                growth_time_per_stage,
+            } => {
                 *ticks_in_stage += 1;
                 if *ticks_in_stage >= *growth_time_per_stage {
                     *ticks_in_stage = 0;
@@ -229,7 +234,7 @@ impl GrowingResource {
                         _ => return update,
                     };
                     *current_stage = new_stage.clone();
-                    
+
                     // Update harvestable amount based on stage
                     self.harvestable_amount = match &new_stage {
                         TreeStage::Sapling => 0,
@@ -238,17 +243,17 @@ impl GrowingResource {
                         TreeStage::Old => self.max_amount,
                         TreeStage::Stump => 0,
                     };
-                    
+
                     update = GrowthUpdate::StageChanged(format!("{:?}", new_stage));
                 }
             }
-            
-            GrowthPattern::FruitRipening { 
-                ripe_amount, 
-                unripe_amount, 
-                ripening_rate, 
-                ripening_interval, 
-                ticks_since_ripening 
+
+            GrowthPattern::FruitRipening {
+                ripe_amount,
+                unripe_amount,
+                ripening_rate,
+                ripening_interval,
+                ticks_since_ripening,
             } => {
                 *ticks_since_ripening += 1;
                 if *ticks_since_ripening >= *ripening_interval && *ripe_amount < self.max_amount {
@@ -260,44 +265,47 @@ impl GrowingResource {
                     update = GrowthUpdate::Ripened(ripened);
                 }
             }
-            
-            GrowthPattern::SimpleRegeneration { 
-                regeneration_rate, 
-                regeneration_interval, 
-                ticks_since_regen 
+
+            GrowthPattern::SimpleRegeneration {
+                regeneration_rate,
+                regeneration_interval,
+                ticks_since_regen,
             } => {
                 *ticks_since_regen += 1;
-                if *ticks_since_regen >= *regeneration_interval && self.current_amount < self.max_amount {
+                if *ticks_since_regen >= *regeneration_interval
+                    && self.current_amount < self.max_amount
+                {
                     *ticks_since_regen = 0;
-                    let regenerated = (*regeneration_rate).min(self.max_amount - self.current_amount);
+                    let regenerated =
+                        (*regeneration_rate).min(self.max_amount - self.current_amount);
                     self.current_amount += regenerated;
                     self.harvestable_amount = self.current_amount;
                     update = GrowthUpdate::Regenerated(regenerated);
                 }
             }
-            
+
             _ => {}
         }
-        
+
         update
     }
-    
+
     /// Harvest resources from this node
     pub fn harvest(&mut self, amount: u32) -> u32 {
         let harvested = amount.min(self.harvestable_amount);
         self.harvestable_amount -= harvested;
         self.current_amount -= harvested;
-        
+
         // Mark as depleted if empty
         if self.current_amount == 0 {
             self.ticks_since_depletion = 0;
-            
+
             // Trees become stumps
             if let GrowthPattern::TreeGrowth { current_stage, .. } = &mut self.growth_pattern {
                 *current_stage = TreeStage::Stump;
             }
         }
-        
+
         harvested
     }
 }

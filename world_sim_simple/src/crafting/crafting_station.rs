@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CraftingStationType {
-    None,        // Hand crafting
-    Workbench,   // Basic crafting
-    Furnace,     // Smelting and cooking
-    Anvil,       // Advanced metalworking
-    Kitchen,     // Food preparation
+    None,         // Hand crafting
+    Workbench,    // Basic crafting
+    Furnace,      // Smelting and cooking
+    Anvil,        // Advanced metalworking
+    Kitchen,      // Food preparation
     AlchemyTable, // Potions and magic
 }
 
@@ -22,7 +22,7 @@ impl CraftingStationType {
             Self::AlchemyTable => "Alchemy Table",
         }
     }
-    
+
     pub fn speed_multiplier(&self) -> f32 {
         match self {
             Self::None => 1.0,
@@ -33,7 +33,7 @@ impl CraftingStationType {
             Self::AlchemyTable => 1.1,
         }
     }
-    
+
     pub fn quality_bonus(&self) -> f32 {
         match self {
             Self::None => 0.0,
@@ -65,7 +65,7 @@ impl CraftingStation {
             CraftingStationType::Kitchen => 4,
             CraftingStationType::AlchemyTable => 2,
         };
-        
+
         Self {
             station_type,
             position,
@@ -74,26 +74,34 @@ impl CraftingStation {
             queue_capacity: capacity,
         }
     }
-    
+
     pub fn start_use(&mut self, user: Entity) -> bool {
         if !self.in_use {
             self.in_use = true;
             self.user = Some(user);
-            info!("[STATION] {} now in use at {:?}", self.station_type.name(), self.position);
+            info!(
+                "[STATION] {} now in use at {:?}",
+                self.station_type.name(),
+                self.position
+            );
             true
         } else {
             false
         }
     }
-    
+
     pub fn stop_use(&mut self) {
         if self.in_use {
-            info!("[STATION] {} no longer in use at {:?}", self.station_type.name(), self.position);
+            info!(
+                "[STATION] {} no longer in use at {:?}",
+                self.station_type.name(),
+                self.position
+            );
             self.in_use = false;
             self.user = None;
         }
     }
-    
+
     pub fn is_available(&self) -> bool {
         !self.in_use
     }

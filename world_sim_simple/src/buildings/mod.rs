@@ -1,13 +1,13 @@
 mod building_types;
-mod placement;
 mod construction;
+mod placement;
 
-pub use building_types::{BuildingType, BuildingComponent, BuildingSize, BuildingRequirements};
-pub use placement::{BuildingPlacementSystem, PlacementValidation, can_place_building};
-pub use construction::{ConstructionQueue, ConstructionTask, ConstructionStatus};
+pub use building_types::{BuildingComponent, BuildingSize, BuildingType};
+pub use construction::ConstructionQueue;
+pub use placement::BuildingPlacementSystem;
 
+use crate::debug::{DebugLevel, DebugSystem};
 use bevy::prelude::*;
-use crate::debug::{DebugSystem, DebugLevel};
 
 pub struct BuildingsPlugin;
 
@@ -16,10 +16,10 @@ impl Plugin for BuildingsPlugin {
         app.init_resource::<ConstructionQueue>()
             .init_resource::<BuildingPlacementSystem>()
             .add_systems(Startup, buildings_init_system)
-            .add_systems(Update, (
-                construction_update_system,
-                building_placement_update_system,
-            ));
+            .add_systems(
+                Update,
+                (construction_update_system, building_placement_update_system),
+            );
     }
 }
 
@@ -27,7 +27,7 @@ fn buildings_init_system(debug: Res<DebugSystem>) {
     debug.log(
         DebugLevel::Info,
         "BUILDINGS",
-        "Building systems initialized"
+        "Building systems initialized",
     );
 }
 
@@ -48,7 +48,7 @@ fn building_placement_update_system(
         debug.log(
             DebugLevel::Debug,
             "PLACEMENT",
-            "Building placement system updated"
+            "Building placement system updated",
         );
     }
 }

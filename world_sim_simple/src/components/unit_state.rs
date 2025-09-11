@@ -1,45 +1,45 @@
+use crate::resources::ResourceType;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use crate::resources::ResourceType;
 
 /// Consolidated unit needs (replaces IsHungry, HasEnergy, etc.)
 #[derive(Component, Clone, Debug, Default, Reflect)]
 pub struct UnitNeeds {
-    pub hunger: f32,      // 0.0 = full, 1.0 = starving
-    pub energy: f32,      // 0.0 = exhausted, 1.0 = full energy
-    pub morale: f32,      // 0.0 = demoralized, 1.0 = happy
-    pub shelter: bool,    // Has a house/shelter
+    pub hunger: f32,   // 0.0 = full, 1.0 = starving
+    pub energy: f32,   // 0.0 = exhausted, 1.0 = full energy
+    pub morale: f32,   // 0.0 = demoralized, 1.0 = happy
+    pub shelter: bool, // Has a house/shelter
 }
 
 impl UnitNeeds {
     pub fn new() -> Self {
         Self {
-            hunger: 0.3,  // Start slightly hungry
-            energy: 1.0,  // Full energy
-            morale: 0.7,  // Good morale
+            hunger: 0.3,    // Start slightly hungry
+            energy: 1.0,    // Full energy
+            morale: 0.7,    // Good morale
             shelter: false, // No initial shelter
         }
     }
-    
+
     pub fn is_hungry(&self) -> bool {
         self.hunger > 0.5
     }
-    
+
     pub fn is_tired(&self) -> bool {
         self.energy < 0.3
     }
-    
+
     pub fn needs_shelter(&self) -> bool {
         !self.shelter
     }
-    
+
     pub fn update(&mut self, delta_time: f32) {
         // Hunger increases over time
         self.hunger = (self.hunger + 0.05 * delta_time).min(1.0);
-        
+
         // Energy decreases over time (slower if resting)
         self.energy = (self.energy - 0.03 * delta_time).max(0.0);
-        
+
         // Morale affected by needs
         if self.hunger > 0.7 || self.energy < 0.2 {
             self.morale = (self.morale - 0.02 * delta_time).max(0.0);
@@ -65,12 +65,12 @@ impl UnitInventory {
             current_weight: 0.0,
         }
     }
-    
+
     pub fn with_starting_items() -> Self {
         // Start with absolutely nothing - must forage to survive
         Self::new()
     }
-    
+
     pub fn add_item(&mut self, resource: ResourceType, amount: u32) -> bool {
         let weight = resource.weight() * amount as f32;
         if self.current_weight + weight <= self.max_weight {
@@ -81,7 +81,7 @@ impl UnitInventory {
             false
         }
     }
-    
+
     pub fn remove_item(&mut self, resource: ResourceType, amount: u32) -> bool {
         if let Some(current) = self.items.get_mut(&resource) {
             if *current >= amount {
@@ -95,30 +95,28 @@ impl UnitInventory {
         }
         false
     }
-    
+
     pub fn has_item(&self, resource: ResourceType, amount: u32) -> bool {
         self.items.get(&resource).copied().unwrap_or(0) >= amount
     }
-    
+
     pub fn get_amount(&self, resource: ResourceType) -> u32 {
         self.items.get(&resource).copied().unwrap_or(0)
     }
-    
+
     pub fn is_full(&self) -> bool {
         self.current_weight >= self.max_weight * 0.9
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
-    
+
     /// Get all resources in inventory
     pub fn get_all_resources(&self) -> Vec<(ResourceType, u32)> {
-        self.items.iter()
-            .map(|(k, v)| (*k, *v))
-            .collect()
+        self.items.iter().map(|(k, v)| (*k, *v)).collect()
     }
-    
+
     /// Get remaining weight capacity
     pub fn remaining_capacity(&self) -> u32 {
         ((self.max_weight - self.current_weight) / 1.0).max(0.0) as u32
@@ -165,27 +163,27 @@ impl UnitLocation {
             location_type: LocationType::Wilderness,
         }
     }
-    
+
     pub fn is_at_storage(&self) -> bool {
         matches!(self.location_type, LocationType::Storage)
     }
-    
+
     pub fn is_at_home(&self) -> bool {
         matches!(self.location_type, LocationType::Home)
     }
-    
+
     pub fn is_at_resource(&self) -> bool {
         matches!(self.location_type, LocationType::Resource(_))
     }
-    
+
     pub fn set_destination(&mut self, x: usize, y: usize) {
         self.destination = Some((x, y));
     }
-    
+
     pub fn clear_destination(&mut self) {
         self.destination = None;
     }
-    
+
     pub fn has_arrived(&self) -> bool {
         if let Some((dest_x, dest_y)) = self.destination {
             self.current_tile == (dest_x, dest_y)
@@ -211,7 +209,7 @@ impl UnitWorkState {
         self.task_progress = 0.0;
         self.task_target = target;
     }
-    
+
     pub fn update_progress(&mut self, delta: f32) -> bool {
         if self.is_working {
             self.task_progress += delta;
@@ -222,14 +220,14 @@ impl UnitWorkState {
         }
         false
     }
-    
+
     pub fn complete_task(&mut self) {
         self.is_working = false;
         self.current_task = None;
         self.task_progress = 0.0;
         self.task_target = None;
     }
-    
+
     pub fn cancel_task(&mut self) {
         self.complete_task();
     }
@@ -247,11 +245,11 @@ impl UnitOwnership {
     pub fn has_house(&self) -> bool {
         self.house.is_some()
     }
-    
+
     pub fn assign_house(&mut self, entity: Entity) {
         self.house = Some(entity);
     }
-    
+
     pub fn assign_workplace(&mut self, entity: Entity) {
         self.workplace = Some(entity);
     }

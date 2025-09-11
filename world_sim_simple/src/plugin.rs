@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub trait SimulationPlugin {
     /// Plugin name for debug output
     fn name(&self) -> &str;
-    
+
     /// Initialize the plugin
     fn build(&self, app: &mut App);
 }
@@ -25,7 +25,7 @@ impl PluginManager {
             load_order: Vec::new(),
         }
     }
-    
+
     pub fn register(&mut self, name: &str) {
         if !self.plugins.contains_key(name) {
             self.plugins.insert(name.to_string(), true);
@@ -33,11 +33,11 @@ impl PluginManager {
             println!("{}", format!("[PLUGIN] ✓ {} registered", name).green());
         }
     }
-    
+
     pub fn is_loaded(&self, name: &str) -> bool {
         self.plugins.get(name).copied().unwrap_or(false)
     }
-    
+
     pub fn list_plugins(&self) {
         println!("{}", "[PLUGIN] Loaded plugins:".cyan().bold());
         for name in &self.load_order {
@@ -48,6 +48,6 @@ impl PluginManager {
 }
 
 /// System to track plugin initialization
-pub fn plugin_init_system(mut manager: ResMut<PluginManager>) {
+pub fn plugin_init_system(manager: ResMut<PluginManager>) {
     manager.list_plugins();
 }

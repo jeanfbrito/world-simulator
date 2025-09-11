@@ -1,9 +1,8 @@
 /// Configuration for tick-based simulation
-/// 
+///
 /// This module defines all constants related to the tick-based simulation engine.
 /// Following the Factorio/Dwarf Fortress model where simulation runs at fixed
 /// tick rate independent of rendering framerate.
-
 use bevy::prelude::*;
 
 /// Base tick rate - how many simulation ticks per second at 1x speed
@@ -23,18 +22,18 @@ pub const MAX_ENERGY: u32 = 100_000;
 pub const MAX_MORALE: u32 = 100_000;
 
 /// Per-tick increments for needs
-pub const HUNGER_PER_TICK: u32 = 500;      // At 10 TPS: 5000/sec, ~200 ticks to starve
+pub const HUNGER_PER_TICK: u32 = 500; // At 10 TPS: 5000/sec, ~200 ticks to starve
 pub const ENERGY_LOSS_PER_TICK: u32 = 300; // At 10 TPS: 3000/sec, ~333 ticks to exhaust
 pub const MORALE_LOSS_PER_TICK: u32 = 200; // When unhappy
 
 /// Thresholds for need states
-pub const HUNGER_THRESHOLD_HUNGRY: u32 = 50_000;     // 50% = hungry
-pub const HUNGER_THRESHOLD_STARVING: u32 = 80_000;   // 80% = starving
-pub const ENERGY_THRESHOLD_TIRED: u32 = 30_000;      // 30% = tired  
-pub const ENERGY_THRESHOLD_EXHAUSTED: u32 = 10_000;  // 10% = exhausted
+pub const HUNGER_THRESHOLD_HUNGRY: u32 = 50_000; // 50% = hungry
+pub const HUNGER_THRESHOLD_STARVING: u32 = 80_000; // 80% = starving
+pub const ENERGY_THRESHOLD_TIRED: u32 = 30_000; // 30% = tired
+pub const ENERGY_THRESHOLD_EXHAUSTED: u32 = 10_000; // 10% = exhausted
 
 /// Recovery rates when resting/eating
-pub const ENERGY_RECOVERY_PER_TICK: u32 = 2000;  // When resting
+pub const ENERGY_RECOVERY_PER_TICK: u32 = 2000; // When resting
 pub const HUNGER_REDUCTION_PER_FOOD: u32 = 20_000; // Per food item consumed
 
 // ============================================================================
@@ -45,9 +44,9 @@ pub const HUNGER_REDUCTION_PER_FOOD: u32 = 20_000; // Per food item consumed
 pub const MAX_WORK_PROGRESS: u32 = 10_000;
 
 /// Per-tick work rates for different activities
-pub const GATHER_PROGRESS_PER_TICK: u32 = 1000;  // 10 ticks to gather
-pub const BUILD_PROGRESS_PER_TICK: u32 = 500;    // 20 ticks to build
-pub const CRAFT_PROGRESS_PER_TICK: u32 = 750;    // ~13 ticks to craft
+pub const GATHER_PROGRESS_PER_TICK: u32 = 1000; // 10 ticks to gather
+pub const BUILD_PROGRESS_PER_TICK: u32 = 500; // 20 ticks to build
+pub const CRAFT_PROGRESS_PER_TICK: u32 = 750; // ~13 ticks to craft
 pub const HARVEST_PROGRESS_PER_TICK: u32 = 1500; // ~7 ticks to harvest
 
 // ============================================================================
@@ -55,7 +54,7 @@ pub const HARVEST_PROGRESS_PER_TICK: u32 = 1500; // ~7 ticks to harvest
 // ============================================================================
 
 /// Movement is grid-based at simulation level
-pub const MOVE_TICKS_PER_TILE: u32 = 3;  // Takes 3 ticks to move one tile
+pub const MOVE_TICKS_PER_TILE: u32 = 3; // Takes 3 ticks to move one tile
 pub const MOVE_PROGRESS_PER_TICK: u32 = MAX_WORK_PROGRESS / MOVE_TICKS_PER_TILE;
 
 // ============================================================================
@@ -66,7 +65,7 @@ pub const MOVE_PROGRESS_PER_TICK: u32 = MAX_WORK_PROGRESS / MOVE_TICKS_PER_TILE;
 pub enum SimulationSpeed {
     Paused,
     Slow,      // 0.5x speed
-    Normal,    // 1.0x speed  
+    Normal,    // 1.0x speed
     Fast,      // 2.0x speed
     VeryFast,  // 5.0x speed
     UltraFast, // 10.0x speed (may not achieve if CPU-bound)
@@ -83,7 +82,7 @@ impl SimulationSpeed {
             SimulationSpeed::UltraFast => 10.0,
         }
     }
-    
+
     pub fn name(&self) -> &str {
         match self {
             SimulationSpeed::Paused => "Paused",
@@ -136,47 +135,47 @@ impl TickAccumulator {
             self.pending_ticks = 0;
             return 0;
         }
-        
+
         // Accumulate time based on speed multiplier
         self.accumulated += delta_seconds * self.speed.multiplier();
-        
+
         // Calculate how many ticks to run
         let ticks = (self.accumulated / TICK_DURATION) as u32;
-        
+
         // Remove the consumed time
         self.accumulated -= ticks as f32 * TICK_DURATION;
-        
+
         // Cap accumulated time to prevent spiral of death
         // (when simulation can't keep up, don't accumulate infinite ticks)
         if self.accumulated > TICK_DURATION * 3.0 {
             self.accumulated = TICK_DURATION * 3.0;
         }
-        
+
         // Track performance
         if ticks > 0 {
             let now = delta_seconds;
             self.actual_tps = ticks as f32 / (now - self.last_tick_time);
             self.last_tick_time = now;
         }
-        
+
         self.pending_ticks = ticks;
         ticks
     }
-    
+
     pub fn set_speed(&mut self, speed: SimulationSpeed) {
         self.speed = speed;
         // Reset accumulator when changing speed to prevent jumps
         self.accumulated = 0.0;
     }
-    
+
     pub fn get_speed(&self) -> SimulationSpeed {
         self.speed
     }
-    
+
     pub fn get_actual_tps(&self) -> f32 {
         self.actual_tps
     }
-    
+
     pub fn should_tick(&self) -> bool {
         self.pending_ticks > 0
     }

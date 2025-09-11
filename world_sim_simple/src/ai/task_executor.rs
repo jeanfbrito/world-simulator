@@ -1,11 +1,11 @@
-use bevy::prelude::*;
-use crate::components::*;
-use crate::components::work_progress::{WorkProgress, WorkType, ResourceWork};
-use crate::ai::{Task, TaskType, TaskStatus, ActionPlan};
-use crate::debug::{DebugSystem, DebugLevel};
+use crate::ai::ActionPlan;
 use crate::buildings::BuildingComponent;
-use crate::{MAP_SIZE, TileEntity};
+use crate::components::work_progress::{ResourceWork, WorkProgress, WorkType};
+use crate::components::*;
+use crate::debug::{DebugLevel, DebugSystem};
 use crate::resources::ResourceType;
+use crate::{TileEntity, MAP_SIZE};
+use bevy::prelude::*;
 
 const TILE_SIZE: f32 = 10.0;
 const TILES_PER_TICK: f32 = 0.5; // Move half a tile per tick (at 10 TPS = 5 tiles/second)
@@ -13,26 +13,40 @@ const TILES_PER_TICK: f32 = 0.5; // Move half a tile per tick (at 10 TPS = 5 til
 /// System to execute tasks based on GOAP actions
 pub fn task_execution_system(
     mut commands: Commands,
-    mut workers: Query<(
-        Entity,
-        &mut Transform,
-        &mut TileEntity,
-        &mut ActionPlan,
-        &mut IsWorking,
-        &mut HasWood,
-        &mut HasStone,
-        &mut HasFood,
-        &mut IsHungry,
-        &mut HasEnergy,
-        &mut PositionComponent,
-        &mut TilesWalked,
-        &crate::components::NameComponent,
-    ), With<UnitTag>>,
+    mut workers: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut TileEntity,
+            &mut ActionPlan,
+            &mut IsWorking,
+            &mut HasWood,
+            &mut HasStone,
+            &mut HasFood,
+            &mut IsHungry,
+            &mut HasEnergy,
+            &mut PositionComponent,
+            &mut TilesWalked,
+            &crate::components::NameComponent,
+        ),
+        With<UnitTag>,
+    >,
     mut work_progress_query: Query<&mut WorkProgress>,
-    buildings: Query<(&BuildingComponent, &PositionComponent), (Without<UnitTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
+    buildings: Query<
+        (&BuildingComponent, &PositionComponent),
+        (
+            Without<UnitTag>,
+            Without<TreeTag>,
+            Without<RockTag>,
+            Without<BerryBushTag>,
+        ),
+    >,
     trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<UnitTag>)>,
     rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<UnitTag>)>,
-    mut berries: Query<(Entity, &PositionComponent, &mut ResourceNode), (With<BerryBushTag>, Without<UnitTag>)>,
+    berries: Query<
+        (Entity, &PositionComponent, &mut ResourceNode),
+        (With<BerryBushTag>, Without<UnitTag>),
+    >,
     sim_state: Res<crate::SimulationState>,
     debug: Res<DebugSystem>,
 ) {
@@ -40,30 +54,45 @@ pub fn task_execution_system(
     if !sim_state.just_ticked {
         return;
     }
-    
+
     // Debug: Count workers with plans
     let worker_count = workers.iter().count();
     if worker_count > 0 && sim_state.tick % 10 == 0 {
-        println!("📋 Task executor: {} workers, tick {}", worker_count, sim_state.tick);
+        println!(
+            "📋 Task executor: {} workers, tick {}",
+            worker_count, sim_state.tick
+        );
     }
-    
-    for (entity, mut transform, mut tile_entity, mut plan, mut is_working, 
-         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy,
-         mut worker_pos, mut tiles_walked, name) in workers.iter_mut() {
-        
+
+    for (
+        entity,
+        mut transform,
+        mut tile_entity,
+        mut plan,
+        mut is_working,
+        mut has_wood,
+        mut has_stone,
+        mut has_food,
+        mut is_hungry,
+        mut has_energy,
+        mut worker_pos,
+        mut tiles_walked,
+        name,
+    ) in workers.iter_mut()
+    {
         // Get current action from plan
         if let Some(action) = plan.current_action() {
             is_working.0 = true;
-            
+
             // Debug specific actions
             if action.name == "gather_food" {
                 println!("🎯 {} executing action: {}", name.name, action.name);
             }
-            
+
             match action.name.as_str() {
                 "cut_wood" => {
                     // Find nearest tree
-                    if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, &*worker_pos) {
+                    if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, &worker_pos) {
                         // Move towards tree (tick-based)
                         if tick_move_towards(
                             &mut transform,
@@ -79,15 +108,15 @@ pub fn task_execution_system(
                             debug.log(
                                 DebugLevel::Info,
                                 "TASK_EXEC",
-                                &format!("Worker harvested tree, now has {} wood", has_wood.0)
+                                &format!("Worker harvested tree, now has {} wood", has_wood.0),
                             );
                         }
                     }
                 }
-                
+
                 "quarry_stone" => {
                     // Find nearest rock
-                    if let Some((rock_entity, rock_pos)) = find_nearest_rock(&rocks, &*worker_pos) {
+                    if let Some((rock_entity, rock_pos)) = find_nearest_rock(&rocks, &worker_pos) {
                         // Move towards rock (tick-based)
                         if tick_move_towards(
                             &mut transform,
@@ -103,12 +132,12 @@ pub fn task_execution_system(
                             debug.log(
                                 DebugLevel::Info,
                                 "TASK_EXEC",
-                                &format!("Worker mined rock, now has {} stone", has_stone.0)
+                                &format!("Worker mined rock, now has {} stone", has_stone.0),
                             );
                         }
                     }
                 }
-                
+
                 "gather_food" => {
                     // Check if work is already in progress
                     if let Ok(work_progress) = work_progress_query.get(entity) {
@@ -117,21 +146,30 @@ pub fn task_execution_system(
                             continue;
                         }
                     }
-                    
+
                     debug.log(
                         DebugLevel::Info,
                         "TASK_EXEC",
-                        &format!("Executing gather_food for entity at ({}, {})", worker_pos.x, worker_pos.y)
+                        &format!(
+                            "Executing gather_food for entity at ({}, {})",
+                            worker_pos.x, worker_pos.y
+                        ),
                     );
                     // Find nearest berry bush with berries available
-                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &*worker_pos) {
-                        println!("🫐 Found berry bush at ({}, {}) for peasant at ({}, {})", 
-                            berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y);
+                    if let Some((berry_entity, berry_pos)) =
+                        find_nearest_berry(&berries, &worker_pos)
+                    {
+                        println!(
+                            "🫐 Found berry bush at ({}, {}) for peasant at ({}, {})",
+                            berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y
+                        );
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
-                            &format!("Found berry at ({}, {}), moving from ({}, {})", 
-                                berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y)
+                            &format!(
+                                "Found berry at ({}, {}), moving from ({}, {})",
+                                berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y
+                            ),
                         );
                         // Move towards berries (tick-based)
                         if tick_move_towards(
@@ -144,7 +182,7 @@ pub fn task_execution_system(
                         ) {
                             // Reached berries - start gathering work
                             println!("🍓 {} reached berry bush! Starting work...", name.name);
-                            
+
                             // Get the existing WorkProgress component and update it
                             if let Ok(mut work_progress) = work_progress_query.get_mut(entity) {
                                 work_progress.start_work(
@@ -172,26 +210,31 @@ pub fn task_execution_system(
                                 );
                                 commands.entity(entity).insert(new_work_progress);
                             }
-                            
+
                             debug.log(
                                 DebugLevel::Info,
                                 "TASK_EXEC",
-                                "Worker started gathering berries"
+                                "Worker started gathering berries",
                             );
-                            
+
                             // Don't add food yet - let the work system handle it when complete
                         }
                     } else {
-                        println!("❌ No berry bushes with berries found for peasant at ({}, {})", 
-                            worker_pos.x, worker_pos.y);
+                        println!(
+                            "❌ No berry bushes with berries found for peasant at ({}, {})",
+                            worker_pos.x, worker_pos.y
+                        );
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
-                            &format!("No berries found from position ({}, {})", worker_pos.x, worker_pos.y)
+                            &format!(
+                                "No berries found from position ({}, {})",
+                                worker_pos.x, worker_pos.y
+                            ),
                         );
                     }
                 }
-                
+
                 "move_to_storage" | "get_wood_from_stockpile" | "get_stone_from_stockpile" => {
                     // Find stockpile
                     if let Some(stockpile_pos) = find_stockpile(&buildings) {
@@ -204,15 +247,11 @@ pub fn task_execution_system(
                             &mut tiles_walked,
                             &debug,
                         ) {
-                            debug.log(
-                                DebugLevel::Info,
-                                "TASK_EXEC",
-                                "Worker reached stockpile"
-                            );
+                            debug.log(DebugLevel::Info, "TASK_EXEC", "Worker reached stockpile");
                         }
                     }
                 }
-                
+
                 "store_resources" => {
                     // At stockpile, store resources
                     if let Some(_stockpile_pos) = find_stockpile(&buildings) {
@@ -220,37 +259,44 @@ pub fn task_execution_system(
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
-                            &format!("Worker stored {} wood, {} stone at stockpile", has_wood.0, has_stone.0)
+                            &format!(
+                                "Worker stored {} wood, {} stone at stockpile",
+                                has_wood.0, has_stone.0
+                            ),
                         );
                         has_wood.0 = 0;
                         has_stone.0 = 0;
                     }
                 }
-                
+
                 "eat_food" => {
                     if has_food.0 > 0 {
                         has_food.0 = has_food.0.saturating_sub(1);
-                        is_hungry.0 = (is_hungry.0 - 0.5).max(0.0);  // Eating reduces hunger by 50%
+                        is_hungry.0 = (is_hungry.0 - 0.5).max(0.0); // Eating reduces hunger by 50%
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
-                            &format!("Worker ate food (hunger: {:.0}%), {} food remaining", is_hungry.0 * 100.0, has_food.0)
+                            &format!(
+                                "Worker ate food (hunger: {:.0}%), {} food remaining",
+                                is_hungry.0 * 100.0,
+                                has_food.0
+                            ),
                         );
                     }
                     // Eating is instant, advance to next action
                     plan.advance();
                 }
-                
+
                 "rest" => {
                     is_working.0 = false;
-                    has_energy.0 = (has_energy.0 + 0.02).min(1.0);  // Resting restores 2% energy per tick
+                    has_energy.0 = (has_energy.0 + 0.02).min(1.0); // Resting restores 2% energy per tick
                     debug.log(
                         DebugLevel::Debug,
                         "TASK_EXEC",
-                        &format!("Worker is resting (energy: {:.0}%)", has_energy.0 * 100.0)
+                        &format!("Worker is resting (energy: {:.0}%)", has_energy.0 * 100.0),
                     );
                 }
-                
+
                 "build_house" => {
                     // Find a good spot for house (near center for now)
                     let house_pos = PositionComponent::from_tile(32, 28);
@@ -265,21 +311,17 @@ pub fn task_execution_system(
                         // Build house (consume resources)
                         has_wood.0 = has_wood.0.saturating_sub(15);
                         has_stone.0 = has_stone.0.saturating_sub(10);
-                        
+
                         // TODO: Actually spawn house entity
-                        debug.log(
-                            DebugLevel::Info,
-                            "TASK_EXEC",
-                            "Worker built a house!"
-                        );
+                        debug.log(DebugLevel::Info, "TASK_EXEC", "Worker built a house!");
                     }
                 }
-                
+
                 _ => {
                     debug.log(
                         DebugLevel::Debug,
                         "TASK_EXEC",
-                        &format!("Unknown action: {}", action.name)
+                        &format!("Unknown action: {}", action.name),
                     );
                 }
             }
@@ -303,45 +345,49 @@ fn tick_move_towards(
     let current_tile_y = position_comp.y;
     let target_tile_x = target_pos.x;
     let target_tile_y = target_pos.y;
-    
+
     let dx = target_tile_x - current_tile_x;
     let dy = target_tile_y - current_tile_y;
     let distance = (dx * dx + dy * dy).sqrt();
-    
+
     // Check if we're close enough (within 1 tile)
     if distance < 1.0 {
         return true;
     }
-    
+
     // Move TILES_PER_TICK tiles towards the target
     let move_distance = TILES_PER_TICK.min(distance);
     let move_x = (dx / distance) * move_distance;
     let move_y = (dy / distance) * move_distance;
-    
+
     // Update position in tile coordinates
     position_comp.x += move_x;
     position_comp.y += move_y;
-    
+
     // Track tiles walked
     tiles_walked.add(move_distance);
-    
+
     // Update tile entity (integer tile position)
     tile_entity.x = position_comp.x.round() as usize;
     tile_entity.y = position_comp.y.round() as usize;
-    
+
     // Update world transform for rendering (if we had rendering)
     let world_x = (position_comp.x - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
     let world_y = (position_comp.y - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
     transform.translation.x = world_x;
     transform.translation.y = world_y;
-    
+
     debug.log(
         DebugLevel::Debug,
         "MOVEMENT",
-        &format!("Moved to tile ({:.1}, {:.1}), distance remaining: {:.1}",
-            position_comp.x, position_comp.y, distance - move_distance)
+        &format!(
+            "Moved to tile ({:.1}, {:.1}), distance remaining: {:.1}",
+            position_comp.x,
+            position_comp.y,
+            distance - move_distance
+        ),
     );
-    
+
     false
 }
 
@@ -351,7 +397,7 @@ fn find_nearest_tree(
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
     let mut min_distance = f32::MAX;
-    
+
     for (entity, tree_pos) in trees.iter() {
         let distance = worker_pos.distance_squared(tree_pos);
         if distance < min_distance {
@@ -359,7 +405,7 @@ fn find_nearest_tree(
             nearest = Some((entity, tree_pos.clone()));
         }
     }
-    
+
     nearest
 }
 
@@ -369,7 +415,7 @@ fn find_nearest_rock(
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
     let mut min_distance = f32::MAX;
-    
+
     for (entity, rock_pos) in rocks.iter() {
         let distance = worker_pos.distance_squared(rock_pos);
         if distance < min_distance {
@@ -377,17 +423,20 @@ fn find_nearest_rock(
             nearest = Some((entity, rock_pos.clone()));
         }
     }
-    
+
     nearest
 }
 
 fn find_nearest_berry(
-    berries: &Query<(Entity, &PositionComponent, &mut ResourceNode), (With<BerryBushTag>, Without<UnitTag>)>,
+    berries: &Query<
+        (Entity, &PositionComponent, &mut ResourceNode),
+        (With<BerryBushTag>, Without<UnitTag>),
+    >,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
     let mut min_distance = f32::MAX;
-    
+
     for (entity, berry_pos, resource_node) in berries.iter() {
         // Only consider bushes that have berries available
         if resource_node.can_harvest() {
@@ -398,12 +447,20 @@ fn find_nearest_berry(
             }
         }
     }
-    
+
     nearest
 }
 
 fn find_stockpile(
-    buildings: &Query<(&BuildingComponent, &PositionComponent), (Without<UnitTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
+    buildings: &Query<
+        (&BuildingComponent, &PositionComponent),
+        (
+            Without<UnitTag>,
+            Without<TreeTag>,
+            Without<RockTag>,
+            Without<BerryBushTag>,
+        ),
+    >,
 ) -> Option<PositionComponent> {
     for (building, pos) in buildings.iter() {
         if building.building_type == crate::buildings::BuildingType::Stockpile {
