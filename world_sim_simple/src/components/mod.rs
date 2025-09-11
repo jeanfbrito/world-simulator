@@ -27,7 +27,11 @@ pub use energy::EnergyComponent;
 pub use worker::{WorkerTag, WorkerStats};
 pub use peasant::{PeasantTag, PeasantConfig};
 pub use goap_states::*;
-pub use resource::ResourceNode;
+pub use resource::{
+    ResourceNode, ResourceRegenerationTag,
+    ResourceRegeneratedEvent, ResourceDepletedEvent,
+    ScriptedResourceNode, ResourceNodeConfig
+};
 
 // Re-export new consolidated components
 pub use unit_state::{

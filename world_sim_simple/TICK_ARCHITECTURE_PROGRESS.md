@@ -46,11 +46,11 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - [ ] 4.5 Chunk-based pathfinding cache
 
 ### Phase 5: Enhanced Economy & Resources 🔲
-**Status**: IN PROGRESS
+**Status**: IN PROGRESS (1/5 complete)
 - [ ] 5.1 Tick-based resource regeneration (via Lua scripts)
 - [ ] 5.2 Market/trading with integer prices (defined in pack data)
 - [ ] 5.3 Supply/demand simulation (configurable in Lua)
-- [x] 5.4 Resource storage buildings (Lua-defined, data-driven)
+- [x] 5.4 Resource storage buildings (Lua-defined, data-driven) ✅ Commit: ca53ad5
 - [ ] 5.5 Production chains (recipe scripts in packs)
 
 ### Phase 6: Advanced Building System 🔲

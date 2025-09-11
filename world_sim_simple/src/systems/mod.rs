@@ -8,6 +8,7 @@ pub mod movement;
 pub mod movement_effects;
 pub mod work;
 pub mod storage;
+pub mod resource_regeneration;
 
 pub use needs_update::*;
 pub use needs_update_v2::*;
@@ -15,6 +16,7 @@ pub use movement::*;
 pub use movement_effects::*;
 pub use work::*;
 pub use storage::*;
+pub use resource_regeneration::*;
 
 use bevy::prelude::*;
 
@@ -24,7 +26,9 @@ pub struct SystemsPlugin;
 impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
         // Register events
-        app.add_event::<crate::components::StorageChangedEvent>();
+        app.add_event::<crate::components::StorageChangedEvent>()
+            .add_event::<crate::components::ResourceRegeneratedEvent>()
+            .add_event::<crate::components::ResourceDepletedEvent>();
         
         // Add migration systems to run once at startup
         app.add_systems(PostStartup, (
@@ -34,6 +38,8 @@ impl Plugin for SystemsPlugin {
             configure_unit_speeds_system,
             add_work_components_system,
             spawn_storage_buildings_system,
+            spawn_regenerating_resources_system,
+            add_regeneration_to_trees_system,
         ));
         
         // Add tick-based systems (simulation) - split into smaller groups
@@ -73,6 +79,16 @@ impl Plugin for SystemsPlugin {
         app.add_systems(
             Update,
             (
+                // Resource systems (tick-based)
+                resource_regeneration_system,
+                resource_harvest_system,
+                resource_status_display_system,
+            ).chain().run_if(crate::simulation::on_simulation_tick_legacy)
+        );
+        
+        app.add_systems(
+            Update,
+            (
                 // Storage systems (tick-based)
                 storage_task_assignment_system,
                 storage_task_update_system,
@@ -90,6 +106,7 @@ impl Plugin for SystemsPlugin {
                 movement_performance_monitor_system,
                 work_performance_monitor_system,
                 storage_performance_monitor_system,
+                resource_performance_monitor_system,
             ).chain().run_if(crate::simulation::on_simulation_tick_legacy)
         );
         

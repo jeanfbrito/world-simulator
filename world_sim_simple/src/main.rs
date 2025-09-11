@@ -367,14 +367,8 @@ fn setup(mut commands: Commands) {
             commands.spawn((
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
-                components::ResourceNode {
-                    resource_type: resources::ResourceType::Berries,
-                    amount: 10,
-                    max_amount: 10,
-                    yield_amount: 3,
-                    respawn_time: 30.0,
-                    time_since_depletion: 0.0,
-                },
+                components::ResourceNode::fruit_bush(10),  // Use new tick-based constructor
+                components::ResourceRegenerationTag,
                 components::GridPosition { x: x as u32, y: y as u32 },
                 TileEntity { x, y },
                 ai::BerryBushTag,  // Add marker for AI to find berries
