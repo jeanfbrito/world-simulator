@@ -10,6 +10,7 @@ pub mod worker;
 pub mod peasant;
 pub mod goap_states;
 pub mod resource;
+pub mod growth;
 
 // New consolidated modules
 pub mod unit_state;
@@ -31,6 +32,11 @@ pub use resource::{
     ResourceNode, ResourceRegenerationTag,
     ResourceRegeneratedEvent, ResourceDepletedEvent,
     ScriptedResourceNode, ResourceNodeConfig
+};
+pub use growth::{
+    GrowingResource, GrowthPattern, GrowthEnabledTag,
+    TreeStage, CropStage, DepletionBehavior, GrowthUpdate,
+    ResourceGrowthEvent
 };
 
 // Re-export new consolidated components
