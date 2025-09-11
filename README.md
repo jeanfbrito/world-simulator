@@ -1,15 +1,18 @@
-# World Simulator - Headless Medieval Economy Engine
+# World Simulator - Medieval Economy & AI Simulation Engine
 
-A pure headless simulation engine for medieval economy and fortress games, built with Rust and Bevy ECS. The engine has **zero rendering dependencies** and can be visualized with any frontend (Unity, Godot, Terminal, Web).
+A sophisticated medieval economy simulation engine with intelligent AI agents, built with Rust and Bevy ECS. Features advanced AI behaviors using GOAP (Goal-Oriented Action Planning) and Utility AI systems for realistic peasant simulation.
 
 ## Features
 
-- 🎮 **Headless Core**: Pure simulation, no graphics dependencies
-- 🔌 **Pluggable Visualizers**: Connect any frontend via events/commands
-- ⚡ **High Performance**: Handle 10,000+ entities at 60 ticks/second
-- 🏰 **Medieval Economy**: Resource gathering, crafting, building, population
-- 🔄 **Deterministic**: Same inputs always produce same outputs
-- 🎯 **Event-Driven**: Clean API for observation and control
+- 🎮 **Headless Simulation**: Pure simulation engine with optional visualization
+- 🤖 **Advanced AI**: GOAP planning + Utility AI for intelligent agent behaviors
+- ⚡ **High Performance**: Optimized ECS architecture with spatial indexing
+- 🏰 **Medieval Economy**: Resource gathering, crafting, building, storage management
+- 🌍 **Dynamic World**: Procedural terrain generation with biomes and resources
+- 🔌 **WebSocket API**: Real-time frontend communication for custom visualizers
+- 📊 **Debug Monitoring**: Built-in ASCII world visualization and AI decision tracking
+- 💾 **Save/Load System**: Persistent world state with bincode serialization
+- 🎯 **Event-Driven**: Clean command/event API for external control
 
 ## Quick Start
 
@@ -18,51 +21,141 @@ A pure headless simulation engine for medieval economy and fortress games, built
 git clone https://github.com/jeanfbrito/world-simulator.git
 cd world-simulator
 
-# Run the simple simulation with GUI and GOAP AI
+# Run the simulation with AI agents
 cargo run -p world_sim_simple
 
-# Run with debug output to see AI decisions
-RUST_LOG=info cargo run -p world_sim_simple
+# Monitor the living world (recommended - shows peasant behaviors)
+./monitor_world.sh
 
-# Run headless simulation (no graphics)
-cargo run --example headless
+# Run with detailed AI debug output
+RUST_LOG=debug cargo run -p world_sim_simple
 
-# Run with ASCII terminal display
-cargo run --example terminal
+# Run with minimal output
+RUST_LOG=error cargo run -p world_sim_simple
 
-# Run with simple 2D graphics (optional)
-cargo run --example with_graphics
+# Run headless simulation examples
+cargo run --example headless      # Basic headless mode
+cargo run --example terminal      # ASCII visualization
+cargo run --example goap_workers  # GOAP AI demonstration
+```
+
+### Web Frontend
+
+```bash
+# Start the simulation with WebSocket server
+cargo run -p world_sim_simple
+
+# Open frontend in browser
+open frontend/index.html
+# Or serve with Python
+cd frontend && python -m http.server 8000
 ```
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
-│        HEADLESS ENGINE CORE             │
-│     (Pure Simulation, No Graphics)      │
-│                                         │
-│  ECS Systems → Events → Commands        │
+│          SIMULATION CORE                │
+│         (Bevy ECS Engine)               │
+├─────────────────────────────────────────┤
+│ • AI Systems (GOAP + Utility)           │
+│ • Resource Management                   │
+│ • Crafting & Building                   │
+│ • Tilemap & Spatial Index               │
+│ • Save/Load System                      │
 └─────────────────────────────────────────┘
                     ↕
+         ┌──────────────────┐
+         │  WebSocket API    │
+         └──────────────────┘
+                    ↕
     ┌──────────────────────────────┐
-    │      PLUGGABLE FRONTENDS      │
+    │      VISUALIZATION OPTIONS     │
     ├──────────────────────────────┤
-    │ • Terminal ASCII              │
-    │ • Bevy 2D/3D                  │
-    │ • Unity (via FFI)             │
-    │ • Godot (via GDNative)        │
-    │ • Web (via WASM)              │
+    │ • Terminal Monitor (ASCII)     │
+    │ • Web Frontend (HTML5/JS)      │
+    │ • Debug CLI (Built-in)         │
+    │ • Custom Clients via WebSocket │
     └──────────────────────────────┘
 ```
 
+### AI System Architecture
+
+The simulation features a sophisticated dual-AI system:
+
+- **GOAP (Goal-Oriented Action Planning)**: Strategic planning for long-term goals
+  - Dynamic goal selection based on needs
+  - A* planning for optimal action sequences
+  - Actions: GatherWood, GatherFood, BuildHouse, Eat, Rest
+  
+- **Utility AI**: Reactive behaviors for immediate needs
+  - Real-time scoring of available actions
+  - Smooth transitions between behaviors
+  - Handles interruptions and emergencies
+
+### Component System
+
+- **Unit Components**: Position, Needs (hunger/energy), Inventory, Work state
+- **Building Components**: Type, ownership, storage capacity
+- **Resource Components**: Type (wood/food/stone), regeneration rates
+- **AI Components**: Behavior state, current plan, task queue
+
 ## Project Structure
 
-- `world_sim_core/` - Headless simulation engine
-- `world_sim_interface/` - Shared types and API
-- `world_sim_bevy_viz/` - Optional Bevy 2D renderer
-- `world_sim_terminal/` - Optional ASCII display
-- `examples/` - Usage examples
-- `specs/` - Design documentation
+```
+world-simulator/
+├── world_sim_simple/       # Main simulation implementation
+│   ├── src/
+│   │   ├── ai/            # AI systems (GOAP, Utility, Pathfinding)
+│   │   ├── buildings/     # Building types and construction
+│   │   ├── components/    # ECS components
+│   │   ├── crafting/      # Crafting recipes and stations
+│   │   ├── performance/   # Metrics and spatial indexing
+│   │   ├── resources/     # Resource types and inventory
+│   │   ├── save_load/     # Persistence system
+│   │   ├── scripting/     # Lua configuration loading
+│   │   ├── systems/       # Core game systems
+│   │   ├── tilemap/       # World generation and chunks
+│   │   └── websocket.rs   # WebSocket server for frontends
+│   └── Cargo.toml
+├── world_sim_core/         # Original core engine (legacy)
+├── world_sim_interface/    # Shared types and API
+├── frontend/              # Web-based visualization
+│   ├── index.html
+│   ├── js/               # Game client and WebSocket handling
+│   └── css/              # Styling
+├── examples/              # Usage examples
+├── assets/               # Game assets and configurations
+└── scripts/              # Development and utility scripts
+```
+
+## Key Features in Detail
+
+### Intelligent Peasant AI
+- Peasants autonomously manage hunger and energy needs
+- Plan efficient paths to resources using A* pathfinding
+- Gather wood from trees and food from berry bushes
+- Build houses when resources are available
+- Store excess resources in buildings
+- Make decisions based on current needs and available actions
+
+### Resource System
+- **Trees**: Provide wood, regenerate over time
+- **Berry Bushes**: Provide food, seasonal growth
+- **Stone Deposits**: Mining resources (planned)
+- **Inventory Management**: Slot-based system with stacking
+
+### Building System
+- **Houses**: Provide shelter and storage
+- **Stockpiles**: Dedicated storage buildings
+- **Workshops**: Crafting stations (planned)
+- **Construction**: Multi-step building process with material requirements
+
+### World Generation
+- 64x64 tile worlds with multiple biomes
+- Procedural placement of resources
+- Chunk-based management for performance
+- Configurable terrain types (grass, forest, water, mountains)
 
 ## Development
 
@@ -70,16 +163,41 @@ cargo run --example with_graphics
 # Run tests
 cargo test
 
-# Run benchmarks
-cargo bench
+# Run with specific log levels
+RUST_LOG=error cargo run -p world_sim_simple   # Minimal output
+RUST_LOG=info cargo run -p world_sim_simple    # Standard output
+RUST_LOG=debug cargo run -p world_sim_simple   # Detailed debugging
+
+# Monitor running simulation
+./monitor_world.sh
+
+# Build optimized release version
+cargo build --release -p world_sim_simple
 
 # Check code quality
 cargo clippy
 cargo fmt --check
 
-# Build release version
-cargo build --release
+# Run specific examples
+cargo run --example goap_workers    # Test GOAP AI
+cargo run --example headless        # Headless simulation
 ```
+
+## Performance
+
+- Handles 100+ AI agents at 60 FPS
+- Spatial indexing for efficient queries
+- Chunk-based world management
+- Optimized pathfinding with caching
+- Minimal memory footprint per entity
+
+## Configuration
+
+The simulation can be configured through:
+- Lua scripts in `assets/` for AI behaviors and recipes
+- JSON files for resource and building definitions
+- Runtime parameters via environment variables
+- WebSocket commands for dynamic control
 
 ## License
 
