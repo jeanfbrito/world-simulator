@@ -5,6 +5,7 @@ use crate::debug::{DebugSystem, DebugLevel};
 pub mod lua_api;
 pub mod recipe_scripts;
 pub mod tree_generation;
+// pub mod storage_loader; // TODO: Enable when mlua is configured
 
 // Re-export key types for easier use
 pub use recipe_scripts::{RecipeScript, ReloadRecipeScriptsCommand};

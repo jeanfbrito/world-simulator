@@ -46,20 +46,21 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - [ ] 4.5 Chunk-based pathfinding cache
 
 ### Phase 5: Enhanced Economy & Resources 🔲
-**Status**: NOT STARTED
-- [ ] 5.1 Tick-based resource regeneration
-- [ ] 5.2 Market/trading with integer prices
-- [ ] 5.3 Supply/demand simulation
-- [ ] 5.4 Resource storage buildings
-- [ ] 5.5 Production chains
+**Status**: IN PROGRESS
+- [ ] 5.1 Tick-based resource regeneration (via Lua scripts)
+- [ ] 5.2 Market/trading with integer prices (defined in pack data)
+- [ ] 5.3 Supply/demand simulation (configurable in Lua)
+- [x] 5.4 Resource storage buildings (Lua-defined, data-driven)
+- [ ] 5.5 Production chains (recipe scripts in packs)
 
 ### Phase 6: Advanced Building System 🔲
-**Status**: NOT STARTED
-- [ ] 6.1 Multi-stage construction with ticks
-- [ ] 6.2 Building placement validation
-- [ ] 6.3 Multi-tile building support
-- [ ] 6.4 Building upgrades and requirements
-- [ ] 6.5 Maintenance/decay system
+**Status**: NOT STARTED  
+**Note**: All building definitions must come from pack scripts!
+- [ ] 6.1 Multi-stage construction with ticks (stages in Lua)
+- [ ] 6.2 Building placement validation (rules in scripts)
+- [ ] 6.3 Multi-tile building support (sizes in Lua data)
+- [ ] 6.4 Building upgrades and requirements (tech tree in packs)
+- [ ] 6.5 Maintenance/decay system (rates configurable in Lua)
 
 ### Phase 7: Advanced AI Systems 🔲
 **Status**: NOT STARTED
@@ -94,6 +95,13 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - [ ] 10.5 Lag compensation
 
 ## Key Architecture Decisions
+
+### Data-Driven Design (IMPORTANT!)
+- **All game content must be defined in Lua scripts within packs**
+- **NO hardcoded game content in Rust systems**
+- Buildings, items, recipes, AI behaviors - all loaded from pack scripts
+- Rust provides the engine, Lua provides the content
+- Example: Storage buildings defined in `assets/packs/stronghold/scripts/buildings/`
 
 ### Integer Counters
 - All progress uses integers (0-100,000) instead of floats

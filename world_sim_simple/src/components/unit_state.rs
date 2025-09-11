@@ -114,6 +114,18 @@ impl UnitInventory {
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
+    
+    /// Get all resources in inventory
+    pub fn get_all_resources(&self) -> Vec<(ResourceType, u32)> {
+        self.items.iter()
+            .map(|(k, v)| (*k, *v))
+            .collect()
+    }
+    
+    /// Get remaining weight capacity
+    pub fn remaining_capacity(&self) -> u32 {
+        ((self.max_weight - self.current_weight) / 1.0).max(0.0) as u32
+    }
 }
 
 /// Consolidated location state (replaces AtResource, AtStorage, AtHome, etc.)
