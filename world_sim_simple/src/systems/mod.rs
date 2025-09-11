@@ -53,6 +53,7 @@ impl Plugin for SystemsPlugin {
                 // Needs systems
                 update_unit_needs_tick_system,
                 sync_needs_v2_to_worldstate_system,
+                sync_has_energy_to_needs_system,
                 eating_action_system,
             )
                 .chain()

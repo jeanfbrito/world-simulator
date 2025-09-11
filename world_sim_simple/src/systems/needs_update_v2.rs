@@ -233,6 +233,41 @@ pub fn eating_action_system(
     }
 }
 
+/// Sync HasEnergy component back to UnitNeedsV2 when modified by actions
+pub fn sync_has_energy_to_needs_system(
+    sim_state: Res<SimulationState>,
+    mut query: Query<
+        (
+            &mut UnitNeedsV2,
+            &crate::components::HasEnergy,
+        ),
+        With<UnitTag>,
+    >,
+) {
+    // Only sync on ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (mut needs, has_energy) in query.iter_mut() {
+        // Convert HasEnergy (0.0-1.0) to energy_counter (0-100,000)
+        let new_energy_counter = (has_energy.0 * 100_000.0) as u32;
+        
+        // Get current values
+        let current_energy = needs.energy();
+        let current_energy_counter = (current_energy * 100_000.0) as u32;
+        
+        // Only update if significantly different (avoid tiny floating point differences)
+        if (current_energy_counter as i32 - new_energy_counter as i32).abs() > 100 {
+            // Keep hunger and morale the same, only update energy
+            let hunger_counter = (needs.hunger() * 100_000.0) as u32;
+            let morale_counter = (needs.morale() * 100_000.0) as u32;
+            
+            needs.set_counters(hunger_counter, new_energy_counter, morale_counter);
+        }
+    }
+}
+
 /// Performance monitoring for the needs system
 pub fn needs_performance_monitor_system(
     sim_state: Res<SimulationState>,

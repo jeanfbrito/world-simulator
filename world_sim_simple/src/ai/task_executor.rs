@@ -415,11 +415,23 @@ pub fn task_execution_system(
                 "rest" => {
                     is_working.0 = false;
                     has_energy.0 = (has_energy.0 + 0.02).min(1.0); // Resting restores 2% energy per tick
-                    debug.log(
-                        DebugLevel::Debug,
-                        "TASK_EXEC",
-                        &format!("Worker is resting (energy: {:.0}%)", has_energy.0 * 100.0),
-                    );
+                    
+                    // Check if fully rested (energy >= 90%)
+                    if has_energy.0 >= 0.9 {
+                        debug.log(
+                            DebugLevel::Info,
+                            "TASK_EXEC",
+                            &format!("{} fully rested (energy: {:.0}%)", name.name, has_energy.0 * 100.0),
+                        );
+                        // Advance to next action when sufficiently rested
+                        plan.advance();
+                    } else {
+                        debug.log(
+                            DebugLevel::Debug,
+                            "TASK_EXEC",
+                            &format!("{} is resting (energy: {:.0}%)", name.name, has_energy.0 * 100.0),
+                        );
+                    }
                 }
 
                 "build_house" => {
