@@ -26,7 +26,7 @@ pub fn task_execution_system(
         &mut PositionComponent,
         &mut TilesWalked,
     ), With<WorkerTag>>,
-    buildings: Query<(&BuildingComponent, &PositionComponent), Without<WorkerTag>>,
+    buildings: Query<(&BuildingComponent, &PositionComponent), (Without<WorkerTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
     trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
     rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<WorkerTag>)>,
     berries: Query<(Entity, &PositionComponent), (With<BerryBushTag>, Without<WorkerTag>)>,
