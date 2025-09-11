@@ -138,13 +138,13 @@ impl GrowingResource {
             growth_pattern: GrowthPattern::FruitRipening {
                 ripe_amount: initial_ripe,
                 unripe_amount: 0,
-                ripening_rate: 2,
-                ripening_interval: 100, // Every 10 seconds
+                ripening_rate: 1,        // Slower ripening - 1 berry at a time
+                ripening_interval: 200,  // Every 20 seconds (slower regrowth)
                 ticks_since_ripening: 0,
             },
             depletion_behavior: DepletionBehavior::GradualReplenishment {
                 rate: 1,
-                interval: 50,
+                interval: 150,  // Slower replenishment - every 15 seconds
             },
             ticks_since_depletion: 0,
             growth_multiplier: 1.0,

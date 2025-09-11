@@ -4,6 +4,34 @@
 
 **MANDATORY**: Every code modification MUST follow this debug validation workflow before moving to the next step:
 
+### 0. Log Analysis - The DEFAULT Debugging Method
+
+**ALWAYS analyze logs by comparing sequential ticks** to identify stuck behavior:
+
+```bash
+# Look at 10 sequential ticks to see what each unit is doing
+tail -n 5000 /tmp/world_sim_*.log | grep -E "^\[196\.[6-8]" | head -50
+
+# Track specific peasant behavior across ticks
+tail -n 10000 /tmp/world_sim_*.log | grep "Peasant 1" | head -20
+
+# Monitor work progress to spot overflow issues
+tail -n 1000 /tmp/world_sim_*.log | grep "progress:" | head -20
+```
+
+**Key patterns to identify stuck behavior:**
+- Same action repeating without state change
+- Progress counters exceeding limits (e.g., 9990/30)
+- Units at same position for many ticks
+- No variation in behavior between different units
+- Actions completing but not triggering replanning
+
+When asked to analyze logs:
+1. Compare multiple sequential ticks (not spaced out)
+2. Track individual unit behavior changes
+3. Look for progress/counter anomalies
+4. Identify when behavior becomes repetitive
+
 ### 1. Terminal Debug is PRIMARY Method
 Always use terminal debugging as the primary debugging method. It's faster and more efficient than HTML visualization.
 

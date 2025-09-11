@@ -254,3 +254,45 @@ impl UnitOwnership {
         self.workplace = Some(entity);
     }
 }
+
+/// Tracks idle time to detect stuck units
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct IdleTracker {
+    pub idle_ticks: u32,
+    pub last_position: Option<(u32, u32)>,
+    pub last_action: Option<String>,
+    pub stuck_threshold: u32,
+}
+
+impl IdleTracker {
+    pub fn new() -> Self {
+        Self {
+            idle_ticks: 0,
+            last_position: None,
+            last_action: None,
+            stuck_threshold: 50, // 5 seconds at 10 TPS
+        }
+    }
+
+    pub fn update(&mut self, current_pos: (u32, u32), current_action: Option<String>) {
+        // Check if position or action changed
+        let position_changed = self.last_position != Some(current_pos);
+        let action_changed = self.last_action != current_action;
+
+        if position_changed || action_changed {
+            self.idle_ticks = 0;
+            self.last_position = Some(current_pos);
+            self.last_action = current_action;
+        } else {
+            self.idle_ticks += 1;
+        }
+    }
+
+    pub fn is_stuck(&self) -> bool {
+        self.idle_ticks >= self.stuck_threshold
+    }
+
+    pub fn reset(&mut self) {
+        self.idle_ticks = 0;
+    }
+}

@@ -64,10 +64,14 @@ impl WorkProgress {
         let base_increment = MAX_WORK_PROGRESS / self.required_ticks.max(1);
         let actual_increment = (base_increment as f32 * self.speed_modifier) as u32;
 
-        self.progress_counter += actual_increment;
+        // Prevent overflow - cap at MAX_WORK_PROGRESS
+        let new_progress = self.progress_counter.saturating_add(actual_increment);
+        self.progress_counter = new_progress.min(MAX_WORK_PROGRESS);
 
         // Check if work is complete
         if self.progress_counter >= MAX_WORK_PROGRESS {
+            // Ensure counter is exactly at max when complete
+            self.progress_counter = MAX_WORK_PROGRESS;
             // Don't clear work_type yet - the work system needs to read it first!
             // Just mark as not working
             self.is_working = false;

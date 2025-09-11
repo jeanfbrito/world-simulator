@@ -47,7 +47,7 @@ pub fn task_execution_system(
     trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<UnitTag>)>,
     rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<UnitTag>)>,
     berries: Query<
-        (Entity, &PositionComponent, &mut ResourceNode),
+        (Entity, &PositionComponent, &mut ResourceNode, Option<&GrowingResource>),
         (With<BerryBushTag>, Without<UnitTag>),
     >,
     world_map: Res<WorldMap>,
@@ -516,7 +516,7 @@ fn find_nearest_rock(
 
 fn find_nearest_berry(
     berries: &Query<
-        (Entity, &PositionComponent, &mut ResourceNode),
+        (Entity, &PositionComponent, &mut ResourceNode, Option<&GrowingResource>),
         (With<BerryBushTag>, Without<UnitTag>),
     >,
     worker_pos: &PositionComponent,
@@ -524,9 +524,17 @@ fn find_nearest_berry(
     let mut nearest = None;
     let mut min_distance = f32::MAX;
 
-    for (entity, berry_pos, resource_node) in berries.iter() {
-        // Only consider bushes that have berries available
-        if resource_node.can_harvest() {
+    for (entity, berry_pos, resource_node, growing_resource) in berries.iter() {
+        // Check if bush has berries available
+        let has_berries = if let Some(growing) = growing_resource {
+            // Use GrowingResource if available (more accurate)
+            growing.harvestable_amount > 0
+        } else {
+            // Fall back to ResourceNode
+            resource_node.can_harvest()
+        };
+        
+        if has_berries {
             let distance = worker_pos.distance_squared(berry_pos);
             if distance < min_distance {
                 min_distance = distance;
