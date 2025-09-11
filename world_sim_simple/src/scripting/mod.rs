@@ -53,7 +53,7 @@ fn scripting_init_system(
     );
     
     // Automatically load recipe scripts on startup
-    reload_events.send(ReloadRecipeScriptsCommand);
+    reload_events.send(ReloadRecipeScriptsCommand {});
     
     debug.log(
         DebugLevel::Info,
@@ -88,7 +88,7 @@ fn script_reload_system(
         
         match event.script_type {
             ScriptType::Recipe => {
-                recipe_reload_events.send(ReloadRecipeScriptsCommand);
+                recipe_reload_events.send(ReloadRecipeScriptsCommand {});
             }
             ScriptType::Worker => {
                 debug.log(

@@ -6,6 +6,7 @@ pub struct ResourceNode {
     pub resource_type: ResourceType,
     pub amount: u32,
     pub max_amount: u32,
+    pub yield_amount: u32,  // Amount gained per gathering action
     pub respawn_time: f32,
     pub time_since_depletion: f32,
 }
@@ -16,6 +17,7 @@ impl ResourceNode {
             resource_type,
             amount,
             max_amount: amount,
+            yield_amount: 5,  // Default yield per gathering
             respawn_time: 30.0,
             time_since_depletion: 0.0,
         }

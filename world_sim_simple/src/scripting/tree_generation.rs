@@ -307,6 +307,20 @@ fn spawn_tree_entity(commands: &mut Commands, tree_data: TreeData, debug: &Debug
             harvestable: tree_data.harvestable,
             respawn_time: tree_data.respawn_time,
         },
+        // Add resource node for work system
+        crate::components::ResourceNode {
+            resource_type: crate::resources::ResourceType::Wood,
+            amount: tree_data.wood_yield,
+            max_amount: tree_data.wood_yield,
+            yield_amount: 5,
+            respawn_time: tree_data.respawn_time,
+            time_since_depletion: 0.0,
+        },
+        // Add grid position for work system
+        crate::components::GridPosition {
+            x: tree_data.x as u32,
+            y: tree_data.y as u32,
+        },
     ));
     
     debug.log(

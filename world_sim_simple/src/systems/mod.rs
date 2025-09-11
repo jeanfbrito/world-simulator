@@ -6,11 +6,13 @@ pub mod needs_update;
 pub mod needs_update_v2;
 pub mod movement;
 pub mod movement_effects;
+pub mod work;
 
 pub use needs_update::*;
 pub use needs_update_v2::*;
 pub use movement::*;
 pub use movement_effects::*;
+pub use work::*;
 
 use bevy::prelude::*;
 
@@ -25,6 +27,7 @@ impl Plugin for SystemsPlugin {
             crate::components::migrate_positions_system,
             add_movement_components_system,
             configure_unit_speeds_system,
+            add_work_components_system,
         ));
         
         // Add tick-based systems (simulation)
@@ -43,9 +46,16 @@ impl Plugin for SystemsPlugin {
                 sync_tile_entity_system,
                 sync_position_component_system,
                 
+                // Work systems (tick-based)
+                work_assignment_system,
+                tick_work_system,
+                auto_gather_system,
+                work_effects_system,
+                
                 // Performance monitoring
                 needs_performance_monitor_system,
                 movement_performance_monitor_system,
+                work_performance_monitor_system,
             ).chain().run_if(crate::simulation::on_simulation_tick_legacy)
         );
         

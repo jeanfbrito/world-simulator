@@ -16,6 +16,7 @@ pub mod unit_state;
 pub mod unit_needs_v2;
 pub mod grid_position;
 pub mod movement_config;
+pub mod work_progress;
 
 // Re-export existing components
 pub use position::PositionComponent;
@@ -35,6 +36,7 @@ pub use unit_state::{
 pub use unit_needs_v2::{UnitNeedsV2, migrate_needs_system};
 pub use grid_position::{GridPosition, VisualPosition, GridMovement, migrate_positions_system};
 pub use movement_config::{MovementSpeed, MovementType, MovementEffects, TerrainType};
+pub use work_progress::*;
 
 /// Plugin to register all components
 pub struct ComponentsPlugin;
