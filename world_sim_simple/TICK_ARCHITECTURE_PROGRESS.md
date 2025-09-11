@@ -37,6 +37,16 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - [x] Integrated with ResourceNode components
 - [x] Added skill progression system
 
+### Phase 3.5: Resource Harvesting Integration 🚨
+**Status**: CRITICAL - BLOCKS PEASANT SURVIVAL
+**Note**: Emerged after Phase 5.1 changed resource system
+- [ ] Fix ResourceType mismatch (Food vs Berries)
+- [ ] Connect work completion to resource depletion
+- [ ] Integrate GrowingResource with work system
+- [ ] Fix GOAP harvest_resource preconditions
+- [ ] Test full survival loop (hungry → harvest → eat → survive)
+**See**: PHASE_3_5_HARVESTING.md for details
+
 ## Remaining Phases 📋
 
 ### Phase 4: Chunk-Based World Management 🔲
