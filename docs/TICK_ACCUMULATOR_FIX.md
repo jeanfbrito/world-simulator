@@ -1,5 +1,7 @@
 # Critical Fix: Tick Accumulator Time Remainder Handling
 
+> **Note:** This article is also available in the [project wiki](https://github.com/jeanfbrito/world-simulator/wiki/Tick-Accumulator-Time-Remainder-Fix)
+
 ## Problem Discovered
 
 During debugging of the world simulator, we discovered the simulation was running at 1 tick per second instead of the intended 10 ticks per second. Investigation revealed two critical issues in the tick accumulator implementation.
