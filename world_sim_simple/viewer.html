@@ -73,6 +73,79 @@
             backdrop-filter: blur(10px);
         }
         
+        .right-sidebar {
+            width: 350px;
+        }
+        
+        .peasant-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        
+        .peasant-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+        
+        .peasant-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-2px);
+        }
+        
+        .peasant-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .peasant-status {
+            font-size: 1.2rem;
+        }
+        
+        .peasant-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.3rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        .peasant-label {
+            opacity: 0.7;
+        }
+        
+        .peasant-value {
+            font-family: monospace;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        
+        .progress-hunger {
+            background: linear-gradient(90deg, #ef4444, #f97316);
+        }
+        
+        .progress-energy {
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+        
         .map-container {
             flex: 1;
             display: flex;
@@ -271,6 +344,13 @@
             <canvas id="mapCanvas"></canvas>
             <div class="tooltip" id="tooltip"></div>
         </div>
+        
+        <div class="sidebar right-sidebar">
+            <h2>👥 Peasant Details</h2>
+            <div id="peasantList" class="peasant-list">
+                <!-- Peasant details will be populated here -->
+            </div>
+        </div>
     </div>
     
     <script>
@@ -389,6 +469,7 @@
             if (state.entities) {
                 entities = state.entities;
                 updateStats();
+                updatePeasantDetails();
                 console.log('Entities:', entities.length);
             }
             
@@ -407,6 +488,7 @@
         function updateEntities(newEntities) {
             entities = newEntities;
             updateStats();
+            updatePeasantDetails();
         }
         
         function updateStats() {
@@ -719,6 +801,88 @@
             }
             
             requestAnimationFrame(animate);
+        }
+        
+        function updatePeasantDetails() {
+            const peasantList = document.getElementById('peasantList');
+            const peasants = entities.filter(e => 
+                e.entity_type === 'Unit' || 
+                e.entity_type === 'unit' || 
+                e.entity_type === 'worker'
+            );
+            
+            if (peasants.length === 0) {
+                peasantList.innerHTML = '<div style="text-align: center; opacity: 0.7;">No peasants active</div>';
+                return;
+            }
+            
+            peasantList.innerHTML = peasants.map((peasant, index) => {
+                // Determine movement state for display
+                const moveState = entityMovementStates[peasant.id];
+                const statusEmoji = moveState && moveState.state === 'walking' ? '🚶' : '🧍';
+                const statusText = moveState && moveState.state === 'walking' ? 'Walking' : 'Standing';
+                
+                // Extract additional data from server
+                const peasantData = peasant.data || {};
+                const hunger = peasantData.hunger !== undefined ? peasantData.hunger : 50;
+                const energy = peasantData.energy !== undefined ? peasantData.energy : 50;
+                const inventory = peasantData.inventory || [];
+                const currentAction = peasantData.current_action || 'Idle';
+                const morale = peasantData.morale !== undefined ? peasantData.morale : 70;
+                const health = peasantData.health !== undefined ? peasantData.health : 100;
+                
+                return `
+                    <div class="peasant-card">
+                        <div class="peasant-header">
+                            <span class="peasant-status">${statusEmoji}</span>
+                            <span>Peasant ${peasant.id || (index + 1)}</span>
+                        </div>
+                        <div class="peasant-info">
+                            <span class="peasant-label">Position:</span>
+                            <span class="peasant-value">(${peasant.x}, ${peasant.y})</span>
+                            
+                            <span class="peasant-label">Status:</span>
+                            <span class="peasant-value">${statusText}</span>
+                            
+                            <span class="peasant-label">Action:</span>
+                            <span class="peasant-value">${currentAction}</span>
+                            
+                            <span class="peasant-label">Hunger:</span>
+                            <div>
+                                <span class="peasant-value">${Math.round(hunger)}%</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill progress-hunger" style="width: ${hunger}%"></div>
+                                </div>
+                            </div>
+                            
+                            <span class="peasant-label">Energy:</span>
+                            <div>
+                                <span class="peasant-value">${Math.round(energy)}%</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill progress-energy" style="width: ${energy}%"></div>
+                                </div>
+                            </div>
+                            
+                            <span class="peasant-label">Inventory:</span>
+                            <span class="peasant-value">${inventory.length > 0 ? 
+                                inventory.map(item => {
+                                    // Parse "ResourceType:count" format
+                                    const parts = item.split(':');
+                                    if (parts.length === 2) {
+                                        const resource = parts[0];
+                                        const count = parts[1];
+                                        // Add emojis for resources
+                                        const emoji = resource.includes('Wood') ? '🪵' : 
+                                                     resource.includes('Food') ? '🍖' : 
+                                                     resource.includes('Stone') ? '⛏️' : '';
+                                        return `${emoji} ${count}`;
+                                    }
+                                    return item;
+                                }).join(' ') : 'Empty'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         // Initialize

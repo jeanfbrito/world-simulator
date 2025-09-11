@@ -464,6 +464,8 @@ fn broadcast_game_state(
             &crate::components::HealthComponent,
             &crate::components::EnergyComponent,
             &crate::TileEntity,
+            Option<&crate::components::UnitNeeds>,
+            Option<&crate::components::UnitInventory>,
         ),
         With<crate::components::UnitTag>,
     >,
@@ -478,11 +480,27 @@ fn broadcast_game_state(
 ) {
     let mut entities = Vec::new();
 
-    for (name, health, energy, tile) in workers.iter() {
+    for (name, health, energy, tile, needs, inventory) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
         data.insert("energy".to_string(), serde_json::json!(energy.current));
+        
+        // Add needs data if available
+        if let Some(needs) = needs {
+            data.insert("hunger".to_string(), serde_json::json!(needs.hunger * 100.0)); // Convert to percentage
+            data.insert("morale".to_string(), serde_json::json!(needs.morale * 100.0));
+            data.insert("shelter".to_string(), serde_json::json!(needs.shelter));
+        }
+        
+        // Add inventory data if available
+        if let Some(inv) = inventory {
+            let inventory_items: Vec<String> = inv.items.iter()
+                .map(|(resource, count)| format!("{:?}:{}", resource, count))
+                .collect();
+            data.insert("inventory".to_string(), serde_json::json!(inventory_items));
+            data.insert("inventory_weight".to_string(), serde_json::json!(inv.current_weight));
+        }
 
         entities.push(EntityData {
             id: format!("worker_{}", name.name),
