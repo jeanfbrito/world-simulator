@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ World Simulator Map Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .status-item {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        #connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .connected { color: #4ade80; }
+        .disconnected { color: #f87171; }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+        
+        .map-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            position: relative;
+        }
+        
+        canvas {
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            background: #2a4a2a;
+            cursor: crosshair;
+        }
+        
+        .controls {
+            margin-bottom: 1.5rem;
+        }
+        
+        .controls h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 0.25rem;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .legend {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .legend h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🗺️ World Simulator Map Viewer</h1>
+        <div class="status">
+            <div id="connection-status" class="status-item disconnected">
+                <span class="status-dot">⚫</span>
+                <span>Disconnected</span>
+            </div>
+            <div class="status-item">
+                <span>Tick: <span id="tick-count">0</span></span>
+            </div>
+            <div class="status-item">
+                <span>FPS: <span id="fps">0</span></span>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="controls">
+                <h2>🎮 Simulation Controls</h2>
+                <button onclick="toggleSimulation()">⏯️ Play/Pause</button>
+                <button onclick="setSpeed(1)">1x Speed</button>
+                <button onclick="setSpeed(2)">2x Speed</button>
+                <button onclick="setSpeed(5)">5x Speed</button>
+            </div>
+            
+            <div class="controls">
+                <h2>🔍 View Controls</h2>
+                <button onclick="zoomIn()">🔍+ Zoom In</button>
+                <button onclick="zoomOut()">🔍- Zoom Out</button>
+                <button onclick="resetView()">🔄 Reset View</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="unit-count">0</div>
+                    <div class="stat-label">👥 Units</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="tree-count">0</div>
+                    <div class="stat-label">🌲 Trees</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="berry-count">0</div>
+                    <div class="stat-label">🫐 Berries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="building-count">0</div>
+                    <div class="stat-label">🏠 Buildings</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <h3>📋 Map Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3a5f3a;"></div>
+                    <span>🌱 Grass</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4a90e2;"></div>
+                    <span>💧 Water</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2c5aa0;"></div>
+                    <span>🌊 Deep Water</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f4e4bc;"></div>
+                    <span>🏖️ Sand</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8b8680;"></div>
+                    <span>🪨 Stone</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2d4a2b;"></div>
+                    <span>🌲 Tree</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8b7355;"></div>
+                    <span>🧱 Wall</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <canvas id="mapCanvas"></canvas>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Configuration
+        const TILE_SIZE = 12;
+        const MAP_SIZE = 64;
+        
+        // Tile configuration with colors and emojis (lowercase keys to match server)
+        const TILE_CONFIG = {
+            grass: { color: '#3a5f3a', emoji: '🌱' },
+            water: { color: '#4a90e2', emoji: '💧' },
+            deepwater: { color: '#2c5aa0', emoji: '🌊' },
+            sand: { color: '#f4e4bc', emoji: '🏖️' },
+            stone: { color: '#8b8680', emoji: '🪨' },
+            tree: { color: '#2d4a2b', emoji: '🌲' },
+            berry: { color: '#3a5f3a', emoji: '🫐' },
+            wall: { color: '#8b7355', emoji: '🧱' },
+            floor: { color: '#a0826d', emoji: '🟫' },
+            door: { color: '#8b6f47', emoji: '🚪' },
+            storage: { color: '#696969', emoji: '📦' },
+            workshop: { color: '#696969', emoji: '🔨' },
+            empty: { color: '#1a1a1a', emoji: '⬛' },
+            blocked: { color: '#8b0000', emoji: '🚫' },
+            ore: { color: '#696969', emoji: '⛏️' }
+        };
+        
+        // Canvas setup
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = MAP_SIZE * TILE_SIZE;
+        canvas.height = MAP_SIZE * TILE_SIZE;
+        
+        // State
+        let ws = null;
+        let mapData = [];
+        let entities = [];
+        let zoom = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        
+        // Initialize map with empty tiles
+        for (let y = 0; y < MAP_SIZE; y++) {
+            mapData[y] = [];
+            for (let x = 0; x < MAP_SIZE; x++) {
+                mapData[y][x] = 'grass';
+            }
+        }
+        
+        // WebSocket connection
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8080');
+            
+            ws.onopen = () => {
+                console.log('Connected to simulation');
+                updateConnectionStatus(true);
+                ws.send(JSON.stringify({ type: 'Connect', client_id: 'web-viewer' }));
+                ws.send(JSON.stringify({ type: 'RequestState' }));
+            };
+            
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleMessage(msg);
+            };
+            
+            ws.onclose = () => {
+                console.log('Disconnected from simulation');
+                updateConnectionStatus(false);
+                setTimeout(connectWebSocket, 3000); // Reconnect after 3 seconds
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function handleMessage(msg) {
+            switch(msg.type) {
+                case 'Welcome':
+                    console.log('Welcome message received:', msg.client_id);
+                    break;
+                    
+                case 'GameState':
+                    updateGameState(msg.state);
+                    break;
+                    
+                case 'TileUpdate':
+                    updateTile(msg.x, msg.y, msg.tile_type);
+                    break;
+                    
+                case 'EntityUpdate':
+                    updateEntities(msg.entities);
+                    break;
+                    
+                case 'TickUpdate':
+                    document.getElementById('tick-count').textContent = msg.tick;
+                    break;
+                    
+                case 'Error':
+                    console.error('Server error:', msg.message);
+                    break;
+            }
+        }
+        
+        function updateGameState(state) {
+            console.log('Received game state:', state);
+            
+            // Update map
+            if (state.tiles) {
+                mapData = state.tiles;
+                console.log('Map data updated, first row:', mapData[0]);
+            }
+            
+            // Update entities
+            if (state.entities) {
+                entities = state.entities;
+                updateStats();
+                console.log('Entities:', entities.length);
+            }
+            
+            // Update tick
+            if (state.tick !== undefined) {
+                document.getElementById('tick-count').textContent = state.tick;
+            }
+            
+            render();
+        }
+        
+        function updateTile(x, y, tileType) {
+            if (mapData[y] && mapData[y][x] !== undefined) {
+                mapData[y][x] = tileType;
+                render();
+            }
+        }
+        
+        function updateEntities(newEntities) {
+            entities = newEntities;
+            updateStats();
+            render();
+        }
+        
+        function updateStats() {
+            const units = entities.filter(e => e.entity_type === 'Unit').length;
+            const trees = entities.filter(e => e.entity_type === 'Tree').length;
+            const berries = entities.filter(e => e.entity_type === 'Berry').length;
+            const buildings = entities.filter(e => e.entity_type === 'Building').length;
+            
+            document.getElementById('unit-count').textContent = units;
+            document.getElementById('tree-count').textContent = trees;
+            document.getElementById('berry-count').textContent = berries;
+            document.getElementById('building-count').textContent = buildings;
+        }
+        
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // First pass: Draw all tile backgrounds
+            for (let y = 0; y < MAP_SIZE; y++) {
+                for (let x = 0; x < MAP_SIZE; x++) {
+                    const tileType = mapData[y][x];
+                    const config = TILE_CONFIG[tileType] || TILE_CONFIG.empty || { color: '#3a5f3a' };
+                    
+                    // Draw tile background color
+                    ctx.fillStyle = config.color;
+                    ctx.fillRect(
+                        x * TILE_SIZE + offsetX,
+                        y * TILE_SIZE + offsetY,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                    
+                    // Draw subtle grid lines
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(
+                        x * TILE_SIZE + offsetX,
+                        y * TILE_SIZE + offsetY,
+                        TILE_SIZE,
+                        TILE_SIZE
+                    );
+                }
+            }
+            
+            // Second pass: Draw feature tiles (trees, berries, etc.) as emojis
+            ctx.font = `${TILE_SIZE - 2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (let y = 0; y < MAP_SIZE; y++) {
+                for (let x = 0; x < MAP_SIZE; x++) {
+                    const tileType = mapData[y][x];
+                    
+                    // Only draw emojis for actual features, not terrain
+                    let emoji = null;
+                    switch(tileType) {
+                        case 'tree':
+                            emoji = '🌲';
+                            break;
+                        case 'berry':
+                            emoji = '🫐';
+                            break;
+                        case 'ore':
+                            emoji = '⛏️';
+                            break;
+                        case 'wall':
+                            emoji = '🧱';
+                            break;
+                        case 'door':
+                            emoji = '🚪';
+                            break;
+                        case 'storage':
+                            emoji = '📦';
+                            break;
+                        case 'workshop':
+                            emoji = '🔨';
+                            break;
+                        // Don't draw emojis for grass, water, sand, stone - just colors
+                    }
+                    
+                    if (emoji) {
+                        ctx.fillStyle = 'black';
+                        ctx.fillText(
+                            emoji,
+                            x * TILE_SIZE + TILE_SIZE / 2 + offsetX,
+                            y * TILE_SIZE + TILE_SIZE / 2 + offsetY
+                        );
+                    }
+                }
+            }
+            
+            // Third pass: Draw entities (units, etc.) on top
+            ctx.font = `${TILE_SIZE - 1}px Arial`;
+            entities.forEach(entity => {
+                const x = entity.x * TILE_SIZE + TILE_SIZE / 2 + offsetX;
+                const y = entity.y * TILE_SIZE + TILE_SIZE / 2 + offsetY;
+                
+                let emoji = null;
+                switch(entity.entity_type) {
+                    case 'Unit':
+                    case 'unit':
+                    case 'worker':
+                        emoji = '👤';
+                        break;
+                    case 'Tree':
+                    case 'tree':
+                        emoji = '🌲';
+                        break;
+                    case 'Berry':
+                    case 'berry':
+                        emoji = '🫐';
+                        break;
+                    case 'Building':
+                    case 'building':
+                        emoji = '🏠';
+                        break;
+                }
+                
+                if (emoji) {
+                    // Add a subtle shadow for entities to stand out
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.shadowBlur = 2;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(emoji, x, y);
+                    ctx.shadowBlur = 0;
+                }
+            });
+            
+            // Update FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFrameTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+        }
+        
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connection-status');
+            if (connected) {
+                status.className = 'status-item connected';
+                status.innerHTML = '<span class="status-dot">🟢</span><span>Connected</span>';
+            } else {
+                status.className = 'status-item disconnected';
+                status.innerHTML = '<span class="status-dot">🔴</span><span>Disconnected</span>';
+            }
+        }
+        
+        // Control functions
+        function toggleSimulation() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'PlayPause' }));
+            }
+        }
+        
+        function setSpeed(speed) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'SetSpeed', speed: speed }));
+            }
+        }
+        
+        function zoomIn() {
+            zoom *= 1.2;
+            canvas.style.transform = `scale(${zoom})`;
+        }
+        
+        function zoomOut() {
+            zoom /= 1.2;
+            canvas.style.transform = `scale(${zoom})`;
+        }
+        
+        function resetView() {
+            zoom = 1;
+            offsetX = 0;
+            offsetY = 0;
+            canvas.style.transform = `scale(${zoom})`;
+        }
+        
+        // Mouse interaction
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / (TILE_SIZE * zoom));
+            const y = Math.floor((e.clientY - rect.top) / (TILE_SIZE * zoom));
+            
+            if (x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE) {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.style.display = 'block';
+                tooltip.style.left = e.clientX + 10 + 'px';
+                tooltip.style.top = e.clientY + 10 + 'px';
+                tooltip.innerHTML = `Position: (${x}, ${y})<br>Tile: ${mapData[y][x]}`;
+            }
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            document.getElementById('tooltip').style.display = 'none';
+        });
+        
+        // Start animation loop
+        function animate() {
+            render();
+            requestAnimationFrame(animate);
+        }
+        
+        // Initialize
+        connectWebSocket();
+        animate();
+    </script>
+</body>
+</html>

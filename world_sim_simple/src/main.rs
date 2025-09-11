@@ -43,6 +43,7 @@ use save_load::SaveLoadPlugin;
 use spawning::SpawningPlugin;
 use systems::SystemsPlugin;
 use tilemap::TilemapPlugin;
+use websocket::WebSocketPlugin;
 
 // Import the new tick-based simulation module
 
@@ -67,7 +68,7 @@ fn main() {
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         .add_plugins(simulation::TickSimulationPlugin) // Enable the new tick event system
-        // .add_plugins(WebSocketPlugin) // Disabled - blocking startup
+        .add_plugins(WebSocketPlugin) // Re-enabled for web viewer
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
         .init_resource::<PluginManager>()
