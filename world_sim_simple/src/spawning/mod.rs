@@ -3,7 +3,8 @@ use colored::Colorize;
 use crate::components::{
     PositionComponent, HealthComponent, NameComponent, EnergyComponent,
     WorkerTag, WorkerStats, PeasantTag, PeasantConfig,
-    UnitNeeds, UnitInventory, UnitLocation, UnitWorkState, UnitOwnership
+    UnitNeeds, UnitInventory, UnitLocation, UnitWorkState, UnitOwnership,
+    TilesWalked
 };
 use crate::ai::{WorkerAI, WorldState, StateValue};
 use crate::TileEntity;
@@ -71,6 +72,7 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         WorkerTag,
         WorkerStats::default(),
         PeasantTag::with_config(peasant_config.clone()),
+        TilesWalked::new(), // Track total tiles walked
     )).id();
     
     // Add additional components separately to avoid bundle size limit

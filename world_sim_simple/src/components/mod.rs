@@ -17,6 +17,7 @@ pub mod unit_state;
 pub mod unit_needs_v2;
 pub mod grid_position;
 pub mod movement_config;
+pub mod movement_tracker;
 pub mod work_progress;
 pub mod storage;
 
@@ -47,6 +48,7 @@ pub use unit_state::{
 pub use unit_needs_v2::{UnitNeedsV2, migrate_needs_system};
 pub use grid_position::{GridPosition, VisualPosition, GridMovement, migrate_positions_system};
 pub use movement_config::{MovementSpeed, MovementType, MovementEffects, TerrainType};
+pub use movement_tracker::{MovementTracker, TilesWalked};
 pub use work_progress::*;
 pub use storage::{
     StorageBuilding, Stockpile, Warehouse, Silo,

@@ -24,6 +24,7 @@ pub fn task_execution_system(
         &mut IsHungry,
         &mut HasEnergy,
         &mut PositionComponent,
+        &mut TilesWalked,
     ), With<WorkerTag>>,
     buildings: Query<(&BuildingComponent, &PositionComponent), Without<WorkerTag>>,
     trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
@@ -38,7 +39,7 @@ pub fn task_execution_system(
     }
     
     for (entity, mut transform, mut tile_entity, mut plan, mut is_working, 
-         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy, mut worker_pos) in workers.iter_mut() {
+         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy, mut worker_pos, mut tiles_walked) in workers.iter_mut() {
         
         // Get current action from plan
         if let Some(action) = plan.current_action() {
@@ -54,6 +55,7 @@ pub fn task_execution_system(
                             &mut tile_entity,
                             &mut worker_pos,
                             &tree_pos,
+                            &mut tiles_walked,
                             &debug,
                         ) {
                             // Reached tree, harvest it
@@ -77,6 +79,7 @@ pub fn task_execution_system(
                             &mut tile_entity,
                             &mut worker_pos,
                             &rock_pos,
+                            &mut tiles_walked,
                             &debug,
                         ) {
                             // Reached rock, mine it
@@ -111,6 +114,7 @@ pub fn task_execution_system(
                             &mut tile_entity,
                             &mut worker_pos,
                             &berry_pos,
+                            &mut tiles_walked,
                             &debug,
                         ) {
                             // Reached berries - start gathering work
@@ -154,6 +158,7 @@ pub fn task_execution_system(
                             &mut tile_entity,
                             &mut worker_pos,
                             &stockpile_pos,
+                            &mut tiles_walked,
                             &debug,
                         ) {
                             debug.log(
@@ -211,6 +216,7 @@ pub fn task_execution_system(
                         &mut tile_entity,
                         &mut worker_pos,
                         &house_pos,
+                        &mut tiles_walked,
                         &debug,
                     ) {
                         // Build house (consume resources)
@@ -246,6 +252,7 @@ fn tick_move_towards(
     tile_entity: &mut TileEntity,
     position_comp: &mut PositionComponent,
     target_pos: &PositionComponent,
+    tiles_walked: &mut TilesWalked,
     debug: &DebugSystem,
 ) -> bool {
     // Work in tile coordinates for simplicity
@@ -271,6 +278,9 @@ fn tick_move_towards(
     // Update position in tile coordinates
     position_comp.x += move_x;
     position_comp.y += move_y;
+    
+    // Track tiles walked
+    tiles_walked.add(move_distance);
     
     // Update tile entity (integer tile position)
     tile_entity.x = position_comp.x.round() as usize;

@@ -19,6 +19,7 @@ pub fn simple_ai_monitor_system(
         &UnitLocation,
         &TileEntity,
         &PositionComponent,
+        &TilesWalked,
         Option<&ActionPlan>,
     ), With<PeasantTag>>,
     trees: Query<Entity, With<crate::ai::TreeTag>>,
@@ -48,7 +49,7 @@ pub fn simple_ai_monitor_system(
     println!("   🫐 {} berry bushes available", berry_count);
     
     // Show each peasant's status
-    for (entity, name, needs, inventory, location, tile, position, plan) in peasants.iter() {
+    for (entity, name, needs, inventory, location, tile, position, tiles_walked, plan) in peasants.iter() {
         // Check if peasant moved
         let current_pos = (tile.x, tile.y);
         let moved = unsafe {
@@ -83,12 +84,13 @@ pub fn simple_ai_monitor_system(
             LocationType::Resource(_) => "🌲 Resource",
         };
         
-        println!("👤 {} {} @ ({},{}) {}", 
+        println!("👤 {} {} @ ({},{}) {} | {}", 
             name.name.cyan(), 
             movement_indicator,
             tile.x, 
             tile.y,
-            format!("({:?})", entity).bright_black()
+            format!("({:?})", entity).bright_black(),
+            tiles_walked.display().bright_magenta()
         );
         println!("   {} | Hunger {} ({:.2}) | Energy {} ({:.2})", 
             status,
