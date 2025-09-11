@@ -6,6 +6,7 @@ pub mod movement_effects;
 pub mod needs_update;
 pub mod needs_update_v2;
 pub mod resource_regeneration;
+pub mod resource_growth;
 pub mod storage;
 pub mod work;
 
@@ -13,6 +14,7 @@ pub use movement::*;
 pub use movement_effects::*;
 pub use needs_update_v2::*;
 pub use resource_regeneration::*;
+pub use resource_growth::*;
 pub use storage::*;
 pub use work::*;
 
@@ -26,7 +28,8 @@ impl Plugin for SystemsPlugin {
         // Register events
         app.add_event::<crate::components::StorageChangedEvent>()
             .add_event::<crate::components::ResourceRegeneratedEvent>()
-            .add_event::<crate::components::ResourceDepletedEvent>();
+            .add_event::<crate::components::ResourceDepletedEvent>()
+            .add_event::<crate::components::ResourceGrowthEvent>();
 
         // Add migration systems to run once at startup
         app.add_systems(
@@ -87,6 +90,8 @@ impl Plugin for SystemsPlugin {
             Update,
             (
                 // Resource systems (tick-based)
+                resource_growth_system,
+                harvest_growing_resource_system,
                 resource_regeneration_system,
                 resource_harvest_system,
                 resource_status_display_system,

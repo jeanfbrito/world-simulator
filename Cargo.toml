@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "world_sim_core",
     "world_sim_interface", 
     "world_sim_bevy_viz",
     "world_sim_terminal",

@@ -360,6 +360,7 @@ fn setup(mut commands: Commands) {
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
                 components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries so there's something to gather
+                components::GrowingResource::fruit_bush(rng.gen_range(1..4), 10), // GrowingResource for berry growth
                 components::ResourceRegenerationTag,
                 components::GridPosition {
                     x: x as u32,
@@ -405,6 +406,7 @@ fn setup(mut commands: Commands) {
                     NameComponent::new("Berry Bush (Corner)".to_string()),
                     PositionComponent::from_tile(x, y),
                     components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries even in corners
+                    components::GrowingResource::fruit_bush(rng.gen_range(1..4), 10), // GrowingResource for berry growth
                     components::ResourceRegenerationTag,
                     components::GridPosition {
                         x: x as u32,

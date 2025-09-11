@@ -29,6 +29,10 @@ pub use health::HealthComponent;
 pub use name::NameComponent;
 pub use peasant::{PeasantConfig, PeasantTag};
 pub use position::PositionComponent;
+pub use growth::{
+    DepletionBehavior, GrowingResource, GrowthPattern, GrowthUpdate, ResourceGrowthEvent,
+    TreeStage, CropStage, GrowthEnabledTag,
+};
 pub use resource::{
     ResourceDepletedEvent, ResourceNode, ResourceRegeneratedEvent, ResourceRegenerationTag,
 };

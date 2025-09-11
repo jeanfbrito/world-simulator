@@ -321,6 +321,7 @@ fn spawn_tree_entity(commands: &mut Commands, tree_data: TreeData, debug: &Debug
         },
         // Add resource node for work system with tick-based regeneration
         crate::components::ResourceNode::tree(tree_data.wood_yield),
+        crate::components::GrowingResource::tree(tree_data.wood_yield),
         crate::components::ResourceRegenerationTag,
         // Add grid position for work system
         crate::components::GridPosition {
