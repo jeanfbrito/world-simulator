@@ -1,10 +1,12 @@
 mod resource_types;
 mod item_system;
 mod inventory;
+pub mod plant_growth;
 
 pub use resource_types::{ResourceType, ResourceCategory, ResourceProperties};
 pub use item_system::{Item, ItemStack, ItemType, ItemRarity, ToolType, WeaponType, ArmorType};
 pub use inventory::{Inventory, InventorySlot, create_starter_inventory};
+pub use plant_growth::{PlantGrowth, PlantProduce, PlantYield, ProcessingType, ProduceQuality, Season};
 
 use bevy::prelude::*;
 

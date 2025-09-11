@@ -159,15 +159,16 @@ pub fn eating_action_system(
     
     for (mut needs, mut inventory, behavior, name) in query.iter_mut() {
         if *behavior == BehaviorState::Eating {
-            // Check if we have food
-            let food_amount = inventory.get_amount(crate::resources::ResourceType::Berries);
+            // Check if we have any edible plant produce
+            // For now, check for generic Food type (will be replaced with PlantProduce)
+            let food_amount = inventory.get_amount(crate::resources::ResourceType::Food);
             if food_amount > 0 && needs.is_hungry() {
                 // Consume one food item
-                if inventory.remove_item(crate::resources::ResourceType::Berries, 1) {
+                if inventory.remove_item(crate::resources::ResourceType::Food, 1) {
                     needs.eat_food(1);
                     
                     println!("{} {} ate food (hunger: {:.0}% → {:.0}%)",
-                        "🍖".green(),
+                        "🍽️".green(),
                         name.name.cyan(),
                         needs.hunger() * 100.0 + 20.0, // Before (approximate)
                         needs.hunger() * 100.0  // After
@@ -181,6 +182,11 @@ pub fn eating_action_system(
                     );
                 }
             }
+            // TODO: When PlantProduce is integrated, check for any edible produce:
+            // - Fruits (raw edible)
+            // - Cooked vegetables
+            // - Processed grains (bread)
+            // Each with different nutrition values
         }
     }
 }
