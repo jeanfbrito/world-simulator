@@ -205,6 +205,7 @@
                 <button onclick="setSpeed(1)">1x Speed</button>
                 <button onclick="setSpeed(2)">2x Speed</button>
                 <button onclick="setSpeed(5)">5x Speed</button>
+                <button onclick="respawnPeasants()" style="background: #dc2626;">🔄 Reset Peasants</button>
             </div>
             
             <div class="controls">
@@ -409,10 +410,23 @@
         }
         
         function updateStats() {
-            const units = entities.filter(e => e.entity_type === 'Unit').length;
-            const trees = entities.filter(e => e.entity_type === 'Tree').length;
-            const berries = entities.filter(e => e.entity_type === 'Berry').length;
-            const buildings = entities.filter(e => e.entity_type === 'Building').length;
+            const units = entities.filter(e => 
+                e.entity_type === 'Unit' || 
+                e.entity_type === 'unit' || 
+                e.entity_type === 'worker'
+            ).length;
+            const trees = entities.filter(e => 
+                e.entity_type === 'Tree' || 
+                e.entity_type === 'tree'
+            ).length;
+            const berries = entities.filter(e => 
+                e.entity_type === 'Berry' || 
+                e.entity_type === 'berry'
+            ).length;
+            const buildings = entities.filter(e => 
+                e.entity_type === 'Building' || 
+                e.entity_type === 'building'
+            ).length;
             
             document.getElementById('unit-count').textContent = units;
             document.getElementById('tree-count').textContent = trees;
@@ -629,6 +643,15 @@
         function setSpeed(speed) {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'SetSpeed', speed: speed }));
+            }
+        }
+        
+        function respawnPeasants() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                if (confirm('Reset all peasants? This will respawn them with fresh state.')) {
+                    ws.send(JSON.stringify({ type: 'RespawnPeasants' }));
+                    console.log('Sent respawn peasants request');
+                }
             }
         }
         
