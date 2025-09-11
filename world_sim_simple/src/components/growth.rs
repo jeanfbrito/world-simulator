@@ -132,7 +132,7 @@ impl GrowingResource {
     /// Create a fruit bush that ripens berries
     pub fn fruit_bush(initial_ripe: u32, max_fruit: u32) -> Self {
         Self {
-            resource_type: ResourceType::Food,
+            resource_type: ResourceType::Berries,  // Default to berries for fruit
             current_amount: initial_ripe,
             max_amount: max_fruit,
             harvestable_amount: initial_ripe,

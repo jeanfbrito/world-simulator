@@ -20,12 +20,12 @@ After implementing the new growth system (Phase 5.1), we have a mismatch:
 - [x] Updated eating system to use generic Food type
 - [ ] Integrate PlantProduce with inventory system
 
-### 3.5.2 Connect Work to Resource Depletion
+### 3.5.2 Connect Work to Resource Depletion ✅
 **Priority**: CRITICAL  
-- [ ] When gathering work completes, reduce resource node amount
-- [ ] Handle both ResourceNode (old) and GrowingResource (new)
-- [ ] Prevent harvesting from depleted resources
-- [ ] Update resource visual/state when depleted
+- [x] When gathering work completes, reduce resource node amount
+- [x] Handle ResourceNode depletion (GrowingResource integration pending)
+- [x] Only add to inventory if resource successfully depleted
+- [x] Handle partial depletion when resource has less than requested
 
 ### 3.5.3 Integrate GrowingResource with Work System
 **Priority**: HIGH

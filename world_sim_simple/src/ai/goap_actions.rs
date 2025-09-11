@@ -275,7 +275,7 @@ impl ActionSet {
         actions.push(
             GoapAction::new("gather_food", 1.5)
                 .with_precondition("has_energy", StateValue::Float(0.3)) // Need some energy to gather
-                .with_precondition("has_food", StateValue::Int(0)) // Only gather if we don't have food
+                // Note: removed has_food precondition - peasants can gather more food anytime
                 .with_effect("has_food", StateValue::Int(3)) // Gather 3 food items
         );
         

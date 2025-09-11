@@ -4,6 +4,7 @@ use crate::ai::{Task, TaskType, TaskStatus, ActionPlan};
 use crate::debug::{DebugSystem, DebugLevel};
 use crate::buildings::BuildingComponent;
 use crate::{MAP_SIZE, TileEntity};
+use crate::resources::ResourceType;
 
 const TILE_SIZE: f32 = 10.0;
 const MOVE_SPEED: f32 = 20.0; // World units per second
@@ -86,7 +87,7 @@ pub fn task_execution_system(
                 }
                 
                 "gather_food" => {
-                    // Find nearest berry bush
+                    // Find nearest berry bush with berries available
                     if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, worker_pos) {
                         // Move towards berries
                         if move_towards(
@@ -96,14 +97,28 @@ pub fn task_execution_system(
                             time.delta_secs(),
                             &debug,
                         ) {
-                            // Reached berries, gather them
-                            has_food.0 = has_food.0.saturating_add(3);
-                            commands.entity(berry_entity).despawn();
+                            // Reached berries - start gathering work
+                            let mut work_progress = WorkProgress::new();
+                            work_progress.start_work(
+                                WorkType::Gathering(ResourceWork {
+                                    resource_type: ResourceType::Berries,
+                                    amount: 3,
+                                    tool_bonus: 1.0,
+                                }),
+                                30, // 3 seconds at 10 TPS
+                                Some(berry_entity),
+                            );
+                            
+                            commands.entity(entity).insert(work_progress);
+                            
                             debug.log(
                                 DebugLevel::Info,
                                 "TASK_EXEC",
-                                &format!("Worker gathered berries, now has {} food", has_food.0)
+                                "Worker started gathering berries"
                             );
+                            
+                            // Update old GOAP state for compatibility
+                            has_food.0 = has_food.0.saturating_add(3);
                         }
                     }
                 }
