@@ -41,7 +41,7 @@ pub fn load_goap_actions_from_file(path: &Path) -> Result<Vec<GoapAction>, Strin
     // Iterate through the actions table
     for pair in actions_table.pairs::<LuaString, LuaTable>() {
         let (name, action_data) = pair.map_err(|e| format!("Failed to iterate actions: {}", e))?;
-        let action_name = name.to_str()?.to_string();
+        let action_name = name.to_str().map_err(|e| format!("Failed to convert name: {}", e))?.to_string();
         
         // Extract action properties
         let cost: f32 = action_data.get("cost")
@@ -50,10 +50,10 @@ pub fn load_goap_actions_from_file(path: &Path) -> Result<Vec<GoapAction>, Strin
         let mut goap_action = GoapAction::new(&action_name, cost);
         
         // Load preconditions
-        if let Ok(preconditions) = action_data.get::<_, LuaTable>("preconditions") {
+        if let Ok(preconditions) = action_data.get::<LuaTable>("preconditions") {
             for pair in preconditions.pairs::<LuaString, LuaTable>() {
                 let (key, value_data) = pair.map_err(|e| format!("Failed to parse precondition: {}", e))?;
-                let key_str = key.to_str()?.to_string();
+                let key_str = key.to_str().map_err(|e| format!("Failed to convert key: {}", e))?.to_string();
                 
                 let state_value = parse_state_value(&value_data)?;
                 goap_action = goap_action.with_precondition(&key_str, state_value);
@@ -61,10 +61,10 @@ pub fn load_goap_actions_from_file(path: &Path) -> Result<Vec<GoapAction>, Strin
         }
         
         // Load effects
-        if let Ok(effects) = action_data.get::<_, LuaTable>("effects") {
+        if let Ok(effects) = action_data.get::<LuaTable>("effects") {
             for pair in effects.pairs::<LuaString, LuaTable>() {
                 let (key, value_data) = pair.map_err(|e| format!("Failed to parse effect: {}", e))?;
-                let key_str = key.to_str()?.to_string();
+                let key_str = key.to_str().map_err(|e| format!("Failed to convert key: {}", e))?.to_string();
                 
                 let state_value = parse_state_value(&value_data)?;
                 goap_action = goap_action.with_effect(&key_str, state_value);
@@ -150,7 +150,7 @@ pub fn load_goap_actions_system(
             }
             Err(e) => {
                 debug.log(
-                    DebugLevel::Warning,
+                    DebugLevel::Info,  // Warning level doesn't exist, use Info
                     "GOAP_LOADER",
                     &format!("Failed to load GOAP actions: {}", e)
                 );
