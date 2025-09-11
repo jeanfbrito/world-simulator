@@ -3,8 +3,8 @@
 This document preserves the valuable concepts and ideas from the deleted `world_sim_core` module.
 The code never compiled but contained interesting architectural patterns worth remembering.
 
-**Deletion Commit**: This document was created right before deleting world_sim_core.
-Look for the commit with message "chore: Remove world_sim_core legacy code" to access the full source.
+**Deletion Commit**: `ca66702` - "chore: Remove world_sim_core legacy code and preserve concepts"  
+To access the deleted source code, use: `git checkout ca66702^ -- world_sim_core/`
 
 ## Table of Contents
 1. [Level of Detail (LOD) AI System](#level-of-detail-lod-ai-system)
