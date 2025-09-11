@@ -578,12 +578,20 @@ pub fn goap_execution_system(
                         if inventory.remove_item(crate::resources::ResourceType::Berries, 1) {
                             needs.hunger = 0.0; // Reset hunger
                             needs.energy = 1.0; // Restore energy
+                            // Update the world state to reflect the change
+                            world_state.set("is_hungry", StateValue::Float(0.0));
+                            world_state.set("has_energy", StateValue::Float(1.0));
+                            // Update food count in world state
+                            let food_count = inventory.get_amount(crate::resources::ResourceType::Berries);
+                            world_state.set("has_food", StateValue::Int(food_count));
                             println!("🍎 {} ate food! Hunger reset to 0", name.name.green());
                         }
                         true // Instant action, advance immediately
                     }
                     "rest" => {
                         needs.energy = 1.0; // Restore energy
+                        // Update the world state to reflect the change
+                        world_state.set("has_energy", StateValue::Float(1.0));
                         println!("😴 {} rested! Energy restored", name.name.blue());
                         true // Instant action, advance immediately
                     }
@@ -598,13 +606,15 @@ pub fn goap_execution_system(
                     }
                 };
 
-                // Apply the action's effects to world state
-                world_state.apply_action(action);
-
-                // Only advance for instant actions
+                // Only apply effects and advance for instant actions
+                // Actions that require work (gather_food, cut_wood, etc.) 
+                // should have their effects applied by the task execution system
                 if should_advance {
+                    // Apply the action's effects to world state immediately
+                    world_state.apply_action(action);
                     plan.advance();
                 }
+                // For non-instant actions, effects will be applied when work completes
             } else {
                 debug.log(
                     DebugLevel::Info,

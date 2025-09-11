@@ -387,6 +387,8 @@
         let ws = null;
         let mapData = [];
         let entities = [];
+        let cachedEntities = []; // Cache to prevent units from disappearing
+        let lastEntityUpdate = 0; // Track when we last got valid entity data
         let previousEntityPositions = {}; // Track previous positions for movement detection
         let entityMovementStates = {}; // Track movement state over time to prevent flickering
         let zoom = 1;
@@ -465,12 +467,20 @@
                 console.log('Map data updated, first row:', mapData[0]);
             }
             
-            // Update entities
-            if (state.entities) {
+            // Update entities with caching to prevent disappearing
+            if (state.entities && state.entities.length > 0) {
                 entities = state.entities;
+                // Cache valid entity data to prevent units from disappearing
+                cachedEntities = [...state.entities];
+                lastEntityUpdate = Date.now();
                 updateStats();
                 updatePeasantDetails();
                 console.log('Entities:', entities.length);
+            } else if (Date.now() - lastEntityUpdate < 5000) {
+                // Use cached entities if we haven't received valid data recently
+                // This prevents units from disappearing during network hiccups
+                entities = [...cachedEntities];
+                console.log('Using cached entities:', cachedEntities.length);
             }
             
             // Update tick
@@ -486,7 +496,15 @@
         }
         
         function updateEntities(newEntities) {
-            entities = newEntities;
+            if (newEntities && newEntities.length > 0) {
+                entities = newEntities;
+                // Cache valid entity data
+                cachedEntities = [...newEntities];
+                lastEntityUpdate = Date.now();
+            } else if (Date.now() - lastEntityUpdate < 5000) {
+                // Use cached entities if we haven't received valid data recently
+                entities = [...cachedEntities];
+            }
             updateStats();
             updatePeasantDetails();
         }
@@ -517,6 +535,8 @@
         }
         
         function render() {
+            // Store current canvas state to prevent flicker
+            ctx.save();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // First pass: Draw all tile backgrounds
@@ -596,8 +616,11 @@
             // Third pass: Draw entities (units, etc.) on top
             ctx.font = `${TILE_SIZE - 1}px Arial`;
             
+            // Use entities or cached entities to ensure units always appear
+            const entitiesToDraw = entities.length > 0 ? entities : cachedEntities;
+            
             // Sort entities by y position to ensure proper layering (higher y rendered last)
-            const sortedEntities = [...entities].sort((a, b) => a.y - b.y);
+            const sortedEntities = [...entitiesToDraw].sort((a, b) => a.y - b.y);
             
             sortedEntities.forEach((entity, index) => {
                 const x = entity.x * TILE_SIZE + TILE_SIZE / 2 + offsetX;
@@ -672,8 +695,11 @@
                 }
                 
                 if (emoji) {
-                    // Check if coordinates are valid
-                    if (x >= 0 && x <= canvas.width && y >= 0 && y <= canvas.height) {
+                    // Check if coordinates are valid (ensure we always draw valid units)
+                    if (!isNaN(x) && !isNaN(y) && x >= 0 && x <= canvas.width && y >= 0 && y <= canvas.height) {
+                        // Save context to ensure state doesn't bleed
+                        ctx.save();
+                        
                         // Add a subtle shadow for entities to stand out
                         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                         ctx.shadowBlur = 3;
@@ -696,12 +722,22 @@
                             drawY += (entityIndex % 2) * 2;
                         }
                         
+                        // Ensure text settings are correct
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
                         ctx.fillStyle = 'black';
                         ctx.fillText(emoji, drawX, drawY);
-                        ctx.shadowBlur = 0;
+                        
+                        // Restore context to prevent state issues
+                        ctx.restore();
+                    } else {
+                        console.warn('Invalid entity position:', entity);
                     }
                 }
             });
+            
+            // Restore canvas state to prevent any issues
+            ctx.restore();
         }
         
         function updateConnectionStatus(connected) {
