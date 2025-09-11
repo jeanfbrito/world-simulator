@@ -31,6 +31,38 @@ impl Path {
         }
     }
     
+    // Tick-based movement for consistent simulation
+    pub fn follow_tick(&mut self, transform: &mut Transform, tiles_per_tick: f32) -> bool {
+        if self.current_index >= self.nodes.len() {
+            return true; // Path complete
+        }
+        
+        let current_node = &self.nodes[self.current_index];
+        let to_target = current_node.position - transform.translation;
+        let distance = to_target.length();
+        
+        // Move by fixed amount per tick
+        let move_distance = tiles_per_tick * 10.0; // Convert tiles to world units (10.0 units per tile)
+        
+        if distance <= move_distance {
+            // Reached current node, move to next
+            transform.translation = current_node.position;
+            self.current_index += 1;
+            
+            if self.current_index >= self.nodes.len() {
+                info!("[PATH] Path following completed");
+                return true;
+            }
+        } else {
+            // Move towards current node
+            let direction = to_target.normalize();
+            transform.translation += direction * move_distance;
+        }
+        
+        false
+    }
+    
+    // Legacy delta-time based movement (kept for compatibility)
     pub fn follow(&mut self, delta_time: f32, transform: &mut Transform) -> bool {
         if self.current_index >= self.nodes.len() {
             return true; // Path complete
@@ -176,7 +208,9 @@ fn astar_pathfind(
     frontier.push(State { cost: 0, position: start });
     cost_so_far.insert(start, 0);
     
-    let neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)];
+    // Neighbors: orthogonal first, then diagonal (inspired by bevy_entitiles)
+    let orthogonal = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+    let diagonal = [(1, 1), (-1, 1), (1, -1), (-1, -1)];
     
     while let Some(State { cost: _, position }) = frontier.pop() {
         if position == goal {
@@ -197,14 +231,41 @@ fn astar_pathfind(
         
         let current_cost = cost_so_far[&position];
         
-        for &(dx, dy) in &neighbors {
+        // Check orthogonal neighbors first (cost: 10)
+        for &(dx, dy) in &orthogonal {
             let next = (position.0 + dx, position.1 + dy);
             
             if obstacles.contains(&next) {
                 continue;
             }
             
-            let new_cost = current_cost + if dx.abs() + dy.abs() == 2 { 14 } else { 10 };
+            let new_cost = current_cost + 10;
+            
+            if !cost_so_far.contains_key(&next) || new_cost < cost_so_far[&next] {
+                cost_so_far.insert(next, new_cost);
+                let priority = new_cost + heuristic(next, goal);
+                frontier.push(State { cost: priority, position: next });
+                came_from.insert(next, position);
+            }
+        }
+        
+        // Check diagonal neighbors (cost: 14, approximating sqrt(2) * 10)
+        for &(dx, dy) in &diagonal {
+            let next = (position.0 + dx, position.1 + dy);
+            
+            if obstacles.contains(&next) {
+                continue;
+            }
+            
+            // Check if diagonal movement is blocked by adjacent tiles
+            let blocked_x = obstacles.contains(&(position.0 + dx, position.1));
+            let blocked_y = obstacles.contains(&(position.0, position.1 + dy));
+            
+            if blocked_x || blocked_y {
+                continue; // Can't move diagonally if adjacent tiles are blocked
+            }
+            
+            let new_cost = current_cost + 14; // Diagonal cost
             
             if !cost_so_far.contains_key(&next) || new_cost < cost_so_far[&next] {
                 cost_so_far.insert(next, new_cost);
@@ -221,5 +282,16 @@ fn astar_pathfind(
 
 fn heuristic(a: (i32, i32), b: (i32, i32)) -> i32 {
     // Manhattan distance * 10 for integer math
-    ((a.0 - b.0).abs() + (a.1 - b.1).abs()) * 10
+    manhattan_distance(a, b) * 10
+}
+
+// Utility function inspired by bevy_entitiles for cleaner distance calculations
+fn manhattan_distance(a: (i32, i32), b: (i32, i32)) -> i32 {
+    (a.0 - b.0).abs() + (a.1 - b.1).abs()
+}
+
+fn euclidean_distance_squared(a: (i32, i32), b: (i32, i32)) -> i32 {
+    let dx = a.0 - b.0;
+    let dy = a.1 - b.1;
+    dx * dx + dy * dy
 }
