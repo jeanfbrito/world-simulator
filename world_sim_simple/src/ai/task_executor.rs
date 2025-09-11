@@ -26,6 +26,7 @@ pub fn task_execution_system(
         &mut HasEnergy,
         &mut PositionComponent,
         &mut TilesWalked,
+        &crate::components::NameComponent,
     ), With<UnitTag>>,
     mut work_progress_query: Query<&mut WorkProgress>,
     buildings: Query<(&BuildingComponent, &PositionComponent), (Without<UnitTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
@@ -40,12 +41,24 @@ pub fn task_execution_system(
         return;
     }
     
+    // Debug: Count workers with plans
+    let worker_count = workers.iter().count();
+    if worker_count > 0 && sim_state.tick % 10 == 0 {
+        println!("📋 Task executor: {} workers, tick {}", worker_count, sim_state.tick);
+    }
+    
     for (entity, mut transform, mut tile_entity, mut plan, mut is_working, 
-         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy, mut worker_pos, mut tiles_walked) in workers.iter_mut() {
+         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy,
+         mut worker_pos, mut tiles_walked, name) in workers.iter_mut() {
         
         // Get current action from plan
         if let Some(action) = plan.current_action() {
             is_working.0 = true;
+            
+            // Debug specific actions
+            if action.name == "gather_food" {
+                println!("🎯 {} executing action: {}", name.name, action.name);
+            }
             
             match action.name.as_str() {
                 "cut_wood" => {
@@ -130,6 +143,8 @@ pub fn task_execution_system(
                             &debug,
                         ) {
                             // Reached berries - start gathering work
+                            println!("🍓 {} reached berry bush! Starting work...", name.name);
+                            
                             // Get the existing WorkProgress component and update it
                             if let Ok(mut work_progress) = work_progress_query.get_mut(entity) {
                                 work_progress.start_work(
@@ -141,8 +156,10 @@ pub fn task_execution_system(
                                     30, // 3 seconds at 10 TPS
                                     Some(berry_entity),
                                 );
+                                println!("   ✅ Work started on existing WorkProgress component");
                             } else {
                                 // Create new if somehow missing
+                                println!("   ⚠️ No WorkProgress component, creating new one");
                                 let mut new_work_progress = WorkProgress::new();
                                 new_work_progress.start_work(
                                     WorkType::Gathering(ResourceWork {

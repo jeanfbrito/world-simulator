@@ -21,7 +21,7 @@ pub fn tick_work_system(
     mut units: Query<(
         Entity,
         &mut WorkProgress,
-        &WorkSpeed,
+        Option<&WorkSpeed>,
         &mut UnitInventory,
         &mut UnitNeedsV2,
         &GridPosition,
@@ -36,6 +36,12 @@ pub fn tick_work_system(
     // Only process on ticks
     if !sim_state.just_ticked {
         return;
+    }
+    
+    // Debug: Count working units
+    let working_count = units.iter().filter(|(_, work, _, _, _, _, _, _)| work.is_working).count();
+    if working_count > 0 {
+        println!("⚙️ Tick work system: {} units working", working_count);
     }
     
     for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in units.iter_mut() {

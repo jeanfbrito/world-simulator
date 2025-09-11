@@ -65,11 +65,11 @@ fn main() {
     println!("📦 Initializing Bevy App...");
 
     App::new()
-        .add_plugins(MinimalPlugins) // Headless operation - no window, no rendering
+        .add_plugins(MinimalPlugins) // Headless operation - includes TimePlugin
         .add_plugins(AssetPlugin::default()) // Add asset system for scripting without rendering
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
-        .add_plugins(TickSimulationPlugin) // Core tick-based simulation
+        // .add_plugins(TickSimulationPlugin) // Temporarily disabled - may conflict
         // .add_plugins(WebSocketPlugin) // Disabled - blocking startup
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
@@ -431,9 +431,8 @@ fn simulation_system(
     sim_state.accumulated_time += delta * sim_state.speed;
     
     // Debug: Show that the system is running
-    if sim_state.tick == 0 {
-        println!("Simulation running, delta: {}, accumulated: {}", delta, sim_state.accumulated_time);
-    }
+    println!("Simulation system called, delta: {}, accumulated: {}, tick: {}", 
+        delta, sim_state.accumulated_time, sim_state.tick);
     
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;
@@ -441,7 +440,7 @@ fn simulation_system(
         sim_state.just_ticked = true; // Set the flag when a tick occurs
         
         // Log tick for easy reading
-        println!("{}", format!("\n=== TICK {} ===", sim_state.tick).bright_blue());
+        println!("{}", format!("\n=== TICK {} === (just_ticked = true)", sim_state.tick).bright_blue());
         
         // Movement is now handled by the AI task execution system
         // Workers will move according to their GOAP plans
