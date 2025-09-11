@@ -294,16 +294,10 @@ fn create_tree_data(x: usize, y: usize, tree_type: &str) -> TreeData {
 
 /// Spawn a tree entity from tree data
 fn spawn_tree_entity(commands: &mut Commands, tree_data: TreeData, debug: &DebugSystem) {
-    let world_x = (tree_data.x as f32 - MAP_SIZE as f32 / 2.0) * 10.0; // TILE_SIZE
-    let world_y = (tree_data.y as f32 - MAP_SIZE as f32 / 2.0) * 10.0;
-
+    // No world coordinates needed - using tile coordinates only
+    
     commands.spawn((
-        Sprite {
-            color: Color::srgb(0.18, 0.31, 0.09), // Dark green for trees
-            custom_size: Some(Vec2::new(8.0, 8.0)),
-            ..default()
-        },
-        Transform::from_xyz(world_x, world_y, 0.5),
+        // No rendering components needed - we're not rendering
         NameComponent::new(format!("{} Tree", tree_data.tree_type)),
         PositionComponent::from_tile(tree_data.x, tree_data.y),
         TileEntity {

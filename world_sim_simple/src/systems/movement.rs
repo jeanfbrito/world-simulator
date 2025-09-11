@@ -209,8 +209,9 @@ pub fn sync_position_component_system(
     }
 
     for (grid_pos, mut position) in units.iter_mut() {
-        position.x = grid_pos.x as f32 * TILE_SIZE;
-        position.y = grid_pos.y as f32 * TILE_SIZE;
+        // Keep positions in tile coordinates, not world coordinates
+        position.x = grid_pos.x as f32;
+        position.y = grid_pos.y as f32;
     }
 }
 

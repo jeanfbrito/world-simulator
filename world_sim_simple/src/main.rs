@@ -262,16 +262,9 @@ fn setup(mut commands: Commands) {
     {
         let x = 32;
         let y = 32;
-        let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-        let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-
+        // No rendering components needed - we're not rendering
+        
         commands.spawn((
-            Sprite {
-                color: Color::srgb(0.5, 0.3, 0.1), // Brown for stockpile
-                custom_size: Some(Vec2::new(TILE_SIZE * 2.0, TILE_SIZE * 2.0)),
-                ..default()
-            },
-            Transform::from_xyz(world_x, world_y, 0.5),
             BuildingComponent::new(BuildingType::Stockpile, (x as i32, y as i32)),
             NameComponent::new("Central Stockpile".to_string()),
             PositionComponent::from_tile(x, y),
@@ -447,7 +440,7 @@ fn simulation_system(
     time: Res<Time>,
     mut sim_state: ResMut<SimulationState>,
     mut tick_events: EventWriter<simulation::SimulationTickEvent>,
-    workers: Query<(&mut Transform, &mut TileEntity), With<UnitTag>>,
+    workers: Query<&mut TileEntity, With<UnitTag>>,
     world_map: Res<WorldMap>,
 ) {
     if !sim_state.running {

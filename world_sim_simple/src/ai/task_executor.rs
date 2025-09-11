@@ -17,7 +17,6 @@ pub fn task_execution_system(
     mut workers: Query<
         (
             Entity,
-            &mut Transform,
             &mut TileEntity,
             &mut ActionPlan,
             &mut IsWorking,
@@ -68,7 +67,6 @@ pub fn task_execution_system(
 
     for (
         entity,
-        mut transform,
         mut tile_entity,
         mut plan,
         mut is_working,
@@ -97,7 +95,6 @@ pub fn task_execution_system(
                     if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, &worker_pos) {
                         // Move towards tree (tick-based)
                         if tick_move_towards(
-                            &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &tree_pos,
@@ -121,7 +118,6 @@ pub fn task_execution_system(
                     if let Some((rock_entity, rock_pos)) = find_nearest_rock(&rocks, &worker_pos) {
                         // Move towards rock (tick-based)
                         if tick_move_towards(
-                            &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &rock_pos,
@@ -145,7 +141,6 @@ pub fn task_execution_system(
                     if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos) {
                         // Move towards berry bush (tick-based)
                         if tick_move_towards(
-                            &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &berry_pos,
@@ -191,8 +186,7 @@ pub fn task_execution_system(
                         } else {
                             // Not close enough, move closer
                             tick_move_towards(
-                                &mut transform,
-                                &mut tile_entity,
+                                    &mut tile_entity,
                                 &mut worker_pos,
                                 &berry_pos,
                                 &mut tiles_walked,
@@ -246,7 +240,6 @@ pub fn task_execution_system(
                         let reached = tick_move_with_pathfinding(
                             &mut commands,
                             entity,
-                            &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &berry_pos,
@@ -326,7 +319,6 @@ pub fn task_execution_system(
                     if let Some(stockpile_pos) = find_stockpile(&buildings) {
                         // Move towards stockpile (tick-based)
                         if tick_move_towards(
-                            &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &stockpile_pos,
@@ -387,7 +379,6 @@ pub fn task_execution_system(
                     // Find a good spot for house (near center for now)
                     let house_pos = PositionComponent::from_tile(32, 28);
                     if tick_move_towards(
-                        &mut transform,
                         &mut tile_entity,
                         &mut worker_pos,
                         &house_pos,
@@ -422,7 +413,6 @@ pub fn task_execution_system(
 fn tick_move_with_pathfinding(
     commands: &mut Commands,
     entity: Entity,
-    transform: &mut Transform,
     tile_entity: &mut TileEntity,
     position_comp: &mut PositionComponent,
     target_pos: &PositionComponent,
@@ -488,7 +478,7 @@ fn tick_move_with_pathfinding(
                 "PATHFINDING",
                 &format!("Following waypoint ({}, {}) of {} total", next_waypoint.0, next_waypoint.1, waypoints.len()),
             );
-            return tick_move_towards(transform, tile_entity, position_comp, &waypoint_pos, tiles_walked, debug);
+            return tick_move_towards(tile_entity, position_comp, &waypoint_pos, tiles_walked, debug);
         }
     } else {
         debug.log(
@@ -499,12 +489,11 @@ fn tick_move_with_pathfinding(
     }
     
     // Fallback to direct movement if no path found
-    return tick_move_towards(transform, tile_entity, position_comp, target_pos, tiles_walked, debug);
+    return tick_move_towards(tile_entity, position_comp, target_pos, tiles_walked, debug);
 }
 
 /// Tick-based movement towards a target position (simple direct movement)
 fn tick_move_towards(
-    transform: &mut Transform,
     tile_entity: &mut TileEntity,
     position_comp: &mut PositionComponent,
     target_pos: &PositionComponent,
@@ -542,11 +531,7 @@ fn tick_move_towards(
     tile_entity.x = position_comp.x.round() as usize;
     tile_entity.y = position_comp.y.round() as usize;
 
-    // Update world transform for rendering (if we had rendering)
-    let world_x = (position_comp.x - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-    let world_y = (position_comp.y - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-    transform.translation.x = world_x;
-    transform.translation.y = world_y;
+    // No longer updating Transform - we're not rendering
 
     debug.log(
         DebugLevel::Debug,
