@@ -59,8 +59,11 @@ fn main() {
     println!("📦 Initializing Bevy App...");
 
     App::new()
-        .add_plugins(MinimalPlugins) // Headless operation - includes TimePlugin
-        .add_plugins(AssetPlugin::default()) // Add asset system for scripting without rendering
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: None,
+            exit_condition: bevy::window::ExitCondition::DontExit,
+            close_when_requested: false,
+        })) // Use DefaultPlugins for proper time support but disable window
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         // .add_plugins(TickSimulationPlugin) // Temporarily disabled - may conflict
