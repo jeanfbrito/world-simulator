@@ -1,11 +1,12 @@
-use crate::ai::ActionPlan;
+use crate::ai::{ActionPlan, pathfinding::find_path};
 use crate::buildings::BuildingComponent;
 use crate::components::work_progress::{ResourceWork, WorkProgress, WorkType};
 use crate::components::*;
 use crate::debug::{DebugLevel, DebugSystem};
 use crate::resources::ResourceType;
-use crate::{TileEntity, MAP_SIZE};
+use crate::{TileEntity, WorldMap, MAP_SIZE};
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 const TILE_SIZE: f32 = 10.0;
 const TILES_PER_TICK: f32 = 0.5; // Move half a tile per tick (at 10 TPS = 5 tiles/second)
@@ -47,6 +48,7 @@ pub fn task_execution_system(
         (Entity, &PositionComponent, &mut ResourceNode),
         (With<BerryBushTag>, Without<UnitTag>),
     >,
+    world_map: Res<WorldMap>,
     sim_state: Res<crate::SimulationState>,
     debug: Res<DebugSystem>,
 ) {
@@ -240,13 +242,16 @@ pub fn task_execution_system(
                                 berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y
                             ),
                         );
-                        // Move towards berries (tick-based)
-                        let reached = tick_move_towards(
+                        // Move towards berries using pathfinding
+                        let reached = tick_move_with_pathfinding(
+                            &mut commands,
+                            entity,
                             &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &berry_pos,
                             &mut tiles_walked,
+                            &world_map,
                             &debug,
                         );
                         
@@ -412,7 +417,92 @@ pub fn task_execution_system(
     }
 }
 
-/// Tick-based movement towards a target position
+
+/// Tick-based movement with A* pathfinding around obstacles
+fn tick_move_with_pathfinding(
+    commands: &mut Commands,
+    entity: Entity,
+    transform: &mut Transform,
+    tile_entity: &mut TileEntity,
+    position_comp: &mut PositionComponent,
+    target_pos: &PositionComponent,
+    tiles_walked: &mut TilesWalked,
+    world_map: &WorldMap,
+    debug: &DebugSystem,
+) -> bool {
+    // Check if already at target (within 1 tile)
+    let dx = target_pos.x - position_comp.x;
+    let dy = target_pos.y - position_comp.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+    
+    if distance < 1.0 {
+        return true;
+    }
+    
+    // For now, we'll handle path following differently since we can't query components from commands
+    // We'll need to pass in the path from the system that calls this function
+    // For immediate fix, let's just calculate the path each time (will optimize later)
+    
+    // Check if we're already close enough
+    if distance < 1.0 {
+        return true;
+    }
+    
+    // Calculate path if we don't have one stored (temporary solution)
+    let start_pos = Vec3::new(position_comp.x * 10.0, position_comp.y * 10.0, 0.0);
+    let goal_pos = Vec3::new(target_pos.x * 10.0, target_pos.y * 10.0, 0.0);
+    
+    // Get obstacles from map
+    let mut obstacles = HashSet::new();
+    for y in 0..MAP_SIZE {
+        for x in 0..MAP_SIZE {
+            if !world_map.tiles[y][x].is_walkable() {
+                obstacles.insert((x as i32, y as i32));
+            }
+        }
+    }
+    
+    // Find path
+    if let Some(path) = find_path(start_pos, goal_pos, &obstacles) {
+        let waypoints = path.get_waypoints();
+        
+        if waypoints.len() > 2 {
+            debug.log(
+                DebugLevel::Info,
+                "PATHFINDING",
+                &format!("Path has {} waypoints - navigating around obstacles!", waypoints.len()),
+            );
+        }
+        
+        if !waypoints.is_empty() {
+            // Get next waypoint (skip first as it's current position)
+            let next_waypoint = if waypoints.len() > 1 { waypoints[1] } else { waypoints[0] };
+            let waypoint_pos = PositionComponent::new(
+                next_waypoint.0 as f32,
+                next_waypoint.1 as f32
+            );
+            
+            // Move toward waypoint using simple movement for now
+            debug.log(
+                DebugLevel::Debug,
+                "PATHFINDING",
+                &format!("Following waypoint ({}, {}) of {} total", next_waypoint.0, next_waypoint.1, waypoints.len()),
+            );
+            return tick_move_towards(transform, tile_entity, position_comp, &waypoint_pos, tiles_walked, debug);
+        }
+    } else {
+        debug.log(
+            DebugLevel::Info,
+            "PATHFINDING",
+            "No path found, using direct movement",
+        );
+    }
+    
+    // Fallback to direct movement if no path found
+    return tick_move_towards(transform, tile_entity, position_comp, target_pos, tiles_walked, debug);
+}
+
+/// Tick-based movement towards a target position (simple direct movement)
 fn tick_move_towards(
     transform: &mut Transform,
     tile_entity: &mut TileEntity,

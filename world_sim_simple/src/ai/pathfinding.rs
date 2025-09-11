@@ -111,6 +111,18 @@ impl Path {
     pub fn reset(&mut self) {
         self.current_index = 0;
     }
+    
+    /// Get the waypoints as grid coordinates
+    pub fn get_waypoints(&self) -> Vec<(i32, i32)> {
+        self.nodes
+            .iter()
+            .map(|node| {
+                let x = (node.position.x / 10.0) as i32;
+                let y = (node.position.y / 10.0) as i32;
+                (x, y)
+            })
+            .collect()
+    }
 }
 
 // Simple A* pathfinding implementation

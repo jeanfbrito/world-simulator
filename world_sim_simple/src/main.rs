@@ -137,17 +137,17 @@ impl TileType {
             TileType::Blocked => Color::srgb(0.13, 0.13, 0.13),
         }
     }
-
-    fn is_walkable(&self) -> bool {
-        !matches!(
-            self,
-            TileType::Water
-                | TileType::DeepWater
-                | TileType::Wall
-                | TileType::Blocked
-                | TileType::Tree
-                | TileType::Ore
-        )
+    
+    pub fn is_walkable(&self) -> bool {
+        match self {
+            TileType::Grass | TileType::Sand | TileType::Floor | TileType::Door => true,
+            TileType::Stone => true, // Can walk on stone tiles
+            TileType::Water | TileType::DeepWater => false,
+            TileType::Tree | TileType::Ore | TileType::Berry => false, // Resources block movement
+            TileType::Wall | TileType::Blocked => false,
+            TileType::Storage | TileType::Workshop => false, // Buildings block movement
+            TileType::Empty => true,
+        }
     }
 }
 
