@@ -9,6 +9,7 @@ pub mod energy;
 pub mod worker;
 pub mod peasant;
 pub mod goap_states;
+pub mod unit;  // New unified unit system
 pub mod resource;
 pub mod growth;
 
@@ -28,6 +29,7 @@ pub use name::NameComponent;
 pub use energy::EnergyComponent;
 pub use worker::{WorkerTag, WorkerStats};
 pub use peasant::{PeasantTag, PeasantConfig};
+pub use unit::{UnitTag, UnitType, UnitStats};
 pub use goap_states::*;
 pub use resource::{
     ResourceNode, ResourceRegenerationTag,

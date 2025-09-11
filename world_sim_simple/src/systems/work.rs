@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 use crate::components::{
+    UnitTag,
     WorkProgress, WorkSpeed, WorkQueue, WorkType, QueuedWork,
     ResourceWork, BuildingWork, CraftingWork,
     GridPosition, UnitInventory, UnitNeedsV2,
@@ -26,7 +27,7 @@ pub fn tick_work_system(
         &GridPosition,
         &NameComponent,
         Option<&mut crate::ai::ActionPlan>,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     mut resources: Query<&mut crate::components::ResourceNode>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
@@ -48,7 +49,23 @@ pub fn tick_work_system(
         // Update work progress
         let completed = work.tick_update();
         
+        // Debug log work progress
+        if work.progress_counter % 10 == 0 && work.progress_counter > 0 {
+            debug.log(
+                DebugLevel::Debug,
+                "WORK",
+                &format!("{} working: {}/{} ticks", 
+                    name.name, work.progress_counter, work.required_ticks)
+            );
+        }
+        
         if completed {
+            println!("🔨 {} work completed! Type: {:?}, Target: {:?}",
+                name.name.cyan(),
+                work.work_type,
+                work.target_entity
+            );
+            
             // Handle work completion based on type
             if let Some(work_type) = &work.work_type {
                 handle_work_completion(
@@ -61,14 +78,27 @@ pub fn tick_work_system(
                     &mut resources,
                     &debug,
                 );
+            } else {
+                println!("⚠️ {} work completed but NO WORK TYPE SET!",
+                    name.name.yellow()
+                );
             }
+            
+            let work_type_str = work.work_type.as_ref()
+                .map(|w| format!("{:?}", w))
+                .unwrap_or_else(|| "work (no type)".to_string());
             
             println!("{} {} completed {}",
                 "✅".green(),
                 name.name.cyan(),
-                work.work_type.as_ref()
-                    .map(|w| format!("{:?}", w))
-                    .unwrap_or_else(|| "work".to_string())
+                work_type_str
+            );
+            
+            debug.log(
+                DebugLevel::Info,
+                "WORK_DEBUG",
+                &format!("Work completed - Type: {}, Target: {:?}",
+                    work_type_str, work.target_entity)
             );
             
             debug.log(
@@ -77,6 +107,9 @@ pub fn tick_work_system(
                 &format!("{} completed work at ({},{})",
                     name.name, position.x, position.y)
             );
+            
+            // NOW clear the work after we've handled it
+            work.complete_work();
             
             // Advance GOAP plan when work completes
             if let Some(mut action_plan) = plan {
@@ -107,15 +140,15 @@ fn handle_work_completion(
     match work_type {
         WorkType::Gathering(resource_work) => {
             // First, deplete the resource if we have a target entity
-            let mut resource_depleted = false;
+            let mut resource_harvested = false;
             if let Some(resource_entity) = target_entity {
                 if let Ok(mut resource) = resources.get_mut(resource_entity) {
                     // Check if resource has enough
                     if resource.amount >= resource_work.amount {
                         resource.amount -= resource_work.amount;
-                        resource_depleted = true;
+                        resource_harvested = true;
                         
-                        println!("{} Resource depleted to {} remaining",
+                        println!("{} Resource harvested, {} remaining",
                             "⛏️".yellow(),
                             resource.amount
                         );
@@ -123,25 +156,36 @@ fn handle_work_completion(
                         debug.log(
                             DebugLevel::Debug,
                             "RESOURCE",
-                            &format!("Resource depleted by {}, {} remaining",
+                            &format!("Resource harvested {}, {} remaining",
                                 resource_work.amount, resource.amount)
                         );
                     } else if resource.amount > 0 {
                         // Take what's available
                         let actual_amount = resource.amount;
                         resource.amount = 0;
-                        resource_depleted = true;
+                        resource_harvested = true;
                         
-                        println!("{} Resource fully depleted (took {})",
+                        println!("{} Resource fully harvested (took {})",
                             "⛏️".red(),
                             actual_amount
                         );
                     }
                 }
+            } else {
+                // No target entity means we're harvesting from terrain (berries, etc)
+                resource_harvested = true;
             }
             
-            // Only add to inventory if we actually depleted the resource
-            if resource_depleted {
+            // Add to inventory if we successfully harvested
+            if resource_harvested {
+                // Debug: Check inventory state before adding
+                println!("📦 {} inventory before: weight={}/{}, items={:?}",
+                    name.name.cyan(),
+                    inventory.current_weight,
+                    inventory.max_weight,
+                    inventory.items
+                );
+                
                 let added = inventory.add_item(resource_work.resource_type, resource_work.amount);
                 
                 if added {
@@ -152,6 +196,14 @@ fn handle_work_completion(
                         format!("{:?}", resource_work.resource_type).yellow()
                     );
                     
+                    // Debug: Check inventory state after adding
+                    println!("📦 {} inventory after: weight={}/{}, items={:?}",
+                        name.name.cyan(),
+                        inventory.current_weight,
+                        inventory.max_weight,
+                        inventory.items
+                    );
+                    
                     debug.log(
                         DebugLevel::Info,
                         "GATHER",
@@ -159,11 +211,22 @@ fn handle_work_completion(
                             name.name, resource_work.amount, resource_work.resource_type)
                     );
                 } else {
-                    println!("{} {} inventory full!",
+                    println!("{} {} inventory full! weight={}/{}, trying to add {} of {:?} (weight={})",
                         "⚠️".yellow(),
-                        name.name.yellow()
+                        name.name.yellow(),
+                        inventory.current_weight,
+                        inventory.max_weight,
+                        resource_work.amount,
+                        resource_work.resource_type,
+                        resource_work.resource_type.weight() * resource_work.amount as f32
                     );
                 }
+            } else {
+                println!("⚠️ {} NOT adding to inventory: resource_harvested={}, type={:?}",
+                    name.name.yellow(),
+                    resource_harvested,
+                    resource_work.resource_type
+                );
             }
         }
         
@@ -218,7 +281,7 @@ pub fn work_assignment_system(
         &mut WorkQueue,
         &WorkSpeed,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -258,7 +321,7 @@ pub fn auto_gather_system(
         &mut WorkQueue,
         &UnitInventory,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     resources: Query<(Entity, &GridPosition, &crate::components::ResourceNode)>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
@@ -318,7 +381,7 @@ pub fn work_effects_system(
         &mut UnitNeedsV2,
         &mut WorkSpeed,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -354,7 +417,7 @@ pub fn work_effects_system(
 /// System to add work components to units
 pub fn add_work_components_system(
     mut commands: Commands,
-    query: Query<Entity, (With<PeasantTag>, Without<WorkProgress>)>,
+    query: Query<Entity, (With<UnitTag>, Without<WorkProgress>)>,
 ) {
     for entity in query.iter() {
         commands.entity(entity).insert((
@@ -370,7 +433,7 @@ pub fn add_work_components_system(
 /// Performance monitoring for work systems
 pub fn work_performance_monitor_system(
     sim_state: Res<SimulationState>,
-    working_units: Query<&WorkProgress, With<PeasantTag>>,
+    working_units: Query<&WorkProgress, With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;

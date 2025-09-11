@@ -24,7 +24,8 @@ pub fn sync_goap_states_system(
         Option<&mut InventoryFull>,
         Option<&mut InventoryEmpty>,
         Option<&mut HasHouse>,
-    ), With<WorkerTag>>,
+    ), With<UnitTag>>,
+    unit_inventories: Query<&UnitInventory>,
     mut world_states: Query<&mut WorldState>,
     buildings: Query<(&BuildingComponent, &PositionComponent)>,
     debug_system: Res<DebugSystem>,
@@ -45,7 +46,7 @@ pub fn sync_goap_states_system(
     }
     
     // Update each worker's GOAP states
-    for (entity, pos, energy, stats, inventory, 
+    for (entity, pos, energy, stats, inventory,
          mut is_hungry, mut has_energy, mut is_working, mut is_idle,
          mut has_wood, mut has_food, mut has_stone,
          inventory_full, inventory_empty, has_house) in workers.iter_mut() {
@@ -96,8 +97,36 @@ pub fn sync_goap_states_system(
         let mut is_full = false;
         let mut is_empty = true;
         
-        if let Some(inv) = inventory {
-            // If worker has inventory system, count items from inventory
+        // Check UnitInventory first (most common for peasants)
+        if let Ok(unit_inv) = unit_inventories.get(entity) {
+            // Count items from UnitInventory
+            wood_count = unit_inv.get_amount(crate::resources::ResourceType::Wood);
+            food_count = unit_inv.get_amount(crate::resources::ResourceType::Berries);  // Berries are food!
+            stone_count = unit_inv.get_amount(crate::resources::ResourceType::Stone);
+            
+            is_full = unit_inv.is_full();
+            is_empty = unit_inv.is_empty();
+            
+            // Update component states with inventory counts
+            if let Some(mut wood_state) = has_wood {
+                wood_state.0 = wood_count;
+            } else {
+                commands.entity(entity).insert(HasWood(wood_count));
+            }
+            
+            if let Some(mut food_state) = has_food {
+                food_state.0 = food_count;
+            } else {
+                commands.entity(entity).insert(HasFood(food_count));
+            }
+            
+            if let Some(mut stone_state) = has_stone {
+                stone_state.0 = stone_count;
+            } else {
+                commands.entity(entity).insert(HasStone(stone_count));
+            }
+        } else if let Some(inv) = inventory {
+            // Fallback to slot-based inventory system
             let mut total_items = 0u32;
             
             for slot in &inv.slots {

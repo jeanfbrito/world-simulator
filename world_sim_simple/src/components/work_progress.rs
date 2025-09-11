@@ -74,7 +74,9 @@ impl WorkProgress {
         
         // Check if work is complete
         if self.progress_counter >= MAX_WORK_PROGRESS {
-            self.complete_work();
+            // Don't clear work_type yet - the work system needs to read it first!
+            // Just mark as not working
+            self.is_working = false;
             return true;
         }
         

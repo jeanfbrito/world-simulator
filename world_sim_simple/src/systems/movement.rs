@@ -6,6 +6,7 @@
 
 use bevy::prelude::*;
 use crate::components::{
+    UnitTag,
     GridPosition, VisualPosition, GridMovement,
     NameComponent, PeasantTag, MovementSpeed, MovementEffects
 };
@@ -26,7 +27,7 @@ pub fn tick_movement_system(
         Option<&MovementSpeed>,
         Option<&MovementEffects>,
         Option<&ActionPlan>,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -99,7 +100,7 @@ pub fn tick_movement_system(
 /// System that interpolates visual positions every frame for smooth movement
 pub fn visual_interpolation_system(
     time: Res<Time>,
-    mut units: Query<(&mut Transform, &mut VisualPosition), With<PeasantTag>>,
+    mut units: Query<(&mut Transform, &mut VisualPosition), With<UnitTag>>,
 ) {
     let delta = time.delta_secs();
     
@@ -121,7 +122,7 @@ pub fn movement_request_system(
         &mut GridMovement,
         &ActionPlan,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -244,7 +245,7 @@ fn simple_pathfind(from: &GridPosition, to: &GridPosition) -> Vec<GridPosition> 
 /// Performance monitoring for movement system
 pub fn movement_performance_monitor_system(
     sim_state: Res<SimulationState>,
-    moving_units: Query<&GridMovement, (With<PeasantTag>, With<GridMovement>)>,
+    moving_units: Query<&GridMovement, (With<UnitTag>, With<GridMovement>)>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;

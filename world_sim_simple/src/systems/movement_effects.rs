@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 use crate::components::{
+    UnitTag,
     MovementEffects, MovementSpeed, UnitNeedsV2, UnitInventory,
     PeasantTag, NameComponent
 };
@@ -18,7 +19,7 @@ pub fn update_movement_effects_system(
         &UnitNeedsV2,
         &UnitInventory,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -70,7 +71,7 @@ pub fn update_movement_effects_system(
 /// System to add movement components to units that don't have them
 pub fn add_movement_components_system(
     mut commands: Commands,
-    query: Query<Entity, (With<PeasantTag>, Without<MovementSpeed>)>,
+    query: Query<Entity, (With<UnitTag>, Without<MovementSpeed>)>,
 ) {
     for entity in query.iter() {
         commands.entity(entity).insert((

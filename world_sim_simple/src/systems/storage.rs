@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 use crate::components::{
+    UnitTag,
     StorageBuilding, Stockpile, Warehouse, StorageTask, StorageTaskState,
     StorageChangedEvent, StorageChangeType, StorageUpdateTag,
     GridPosition, UnitInventory, WorkProgress, WorkType, ResourceWork,
@@ -23,7 +24,7 @@ pub fn storage_deposit_system(
         &mut UnitInventory,
         &mut StorageTask,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     mut storages: Query<(
         Entity,
         &GridPosition,
@@ -110,7 +111,7 @@ pub fn storage_withdrawal_system(
         &GridPosition,
         &mut UnitInventory,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     mut storages: Query<(
         Entity,
         &GridPosition,
@@ -193,7 +194,7 @@ pub fn storage_task_assignment_system(
         &mut StorageTask,
         &WorkProgress,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     storages: Query<(
         Entity,
         &GridPosition,
@@ -272,7 +273,7 @@ pub fn storage_task_update_system(
         &mut StorageTask,
         &GridPosition,
         &NameComponent,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     storages: Query<&GridPosition, With<StorageBuilding>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
@@ -446,7 +447,7 @@ pub fn storage_display_system(
 pub fn storage_performance_monitor_system(
     sim_state: Res<SimulationState>,
     storages: Query<&StorageBuilding>,
-    tasks: Query<&StorageTask, With<PeasantTag>>,
+    tasks: Query<&StorageTask, With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::asset::AssetPlugin;
 // Removed bevy_egui import for headless operation
 // use bevy_dogoap::prelude::*; // Temporarily disabled for testing
+use crate::components::UnitTag;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use rand::Rng;
@@ -55,10 +56,13 @@ pub const MAP_SIZE: usize = 64;
 const TILE_SIZE: f32 = 10.0;
 
 fn main() {
-    // Initialize env_logger for terminal output
+    println!("🚀 Starting World Simulator (Headless Mode)");
+    
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
+    
+    println!("📦 Initializing Bevy App...");
 
     App::new()
         .add_plugins(MinimalPlugins) // Headless operation - no window, no rendering
@@ -66,7 +70,7 @@ fn main() {
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
         .add_plugins(TickSimulationPlugin) // Core tick-based simulation
-        .add_plugins(WebSocketPlugin)
+        // .add_plugins(WebSocketPlugin) // Disabled - blocking startup
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
         .init_resource::<PluginManager>()
@@ -80,7 +84,7 @@ fn main() {
         .add_plugins(SaveLoadPlugin)
         .add_plugins(PerformancePlugin)
         .add_plugins(SpawningPlugin)
-        .add_plugins(SystemsPlugin)  // Add the new systems plugin
+        .add_plugins(SystemsPlugin)  // Add the new systems plugin (includes work systems)
         // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
         .init_resource::<WorldMap>()
         .init_resource::<SimulationState>()
@@ -91,8 +95,6 @@ fn main() {
         .add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
             simulation_system,
-            systems::update_unit_needs_system,  // Keep old system for compatibility
-            systems::sync_needs_to_worldstate_system,
             ai_monitor::simple_ai_monitor_system,
         ))
         .run();
@@ -358,7 +360,7 @@ fn setup(mut commands: Commands) {
             commands.spawn((
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
-                components::ResourceNode::fruit_bush(rng.gen_range(5..15)),  // Variable berry amounts
+                components::ResourceNode::fruit_bush(rng.gen_range(1..4)),  // Start with 1-3 berries so there's something to gather
                 components::ResourceRegenerationTag,
                 components::GridPosition { x: x as u32, y: y as u32 },
                 TileEntity { x, y },
@@ -390,7 +392,7 @@ fn setup(mut commands: Commands) {
                 commands.spawn((
                     NameComponent::new("Berry Bush (Corner)".to_string()),
                     PositionComponent::from_tile(x, y),
-                    components::ResourceNode::fruit_bush(15),  // More berries in corner clusters
+                    components::ResourceNode::fruit_bush(rng.gen_range(1..4)),  // Start with 1-3 berries even in corners
                     components::ResourceRegenerationTag,
                     components::GridPosition { x: x as u32, y: y as u32 },
                     TileEntity { x, y },
@@ -415,7 +417,7 @@ fn setup(mut commands: Commands) {
 fn simulation_system(
     time: Res<Time>,
     mut sim_state: ResMut<SimulationState>,
-    workers: Query<(&mut Transform, &mut TileEntity), With<WorkerTag>>,
+    workers: Query<(&mut Transform, &mut TileEntity), With<UnitTag>>,
     world_map: Res<WorldMap>,
 ) {
     if !sim_state.running {
@@ -425,7 +427,13 @@ fn simulation_system(
     // Reset the just_ticked flag at the beginning of each frame
     sim_state.just_ticked = false;
     
-    sim_state.accumulated_time += time.delta_secs() * sim_state.speed;
+    let delta = time.delta_secs();
+    sim_state.accumulated_time += delta * sim_state.speed;
+    
+    // Debug: Show that the system is running
+    if sim_state.tick == 0 {
+        println!("Simulation running, delta: {}, accumulated: {}", delta, sim_state.accumulated_time);
+    }
     
     if sim_state.accumulated_time >= 1.0 {
         sim_state.accumulated_time = 0.0;

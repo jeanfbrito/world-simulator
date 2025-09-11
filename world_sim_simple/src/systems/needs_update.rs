@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use crate::components::{UnitNeeds, UnitInventory, UnitLocation, PeasantTag};
+use crate::components::{
+    UnitTag,UnitNeeds, UnitInventory, UnitLocation, PeasantTag};
 use crate::SimulationState;
 use colored::Colorize;
 
@@ -7,7 +8,7 @@ use colored::Colorize;
 pub fn update_unit_needs_system(
     time: Res<Time>,
     sim_state: Res<SimulationState>,
-    mut units: Query<(Entity, &mut UnitNeeds, &crate::components::NameComponent), With<PeasantTag>>,
+    mut units: Query<(Entity, &mut UnitNeeds, &crate::components::NameComponent), With<UnitTag>>,
 ) {
     // Only update on simulation ticks for consistency
     if !sim_state.running {
@@ -61,7 +62,7 @@ pub fn update_unit_needs_system(
 
 /// System to sync UnitNeeds with the GOAP WorldState
 pub fn sync_needs_to_worldstate_system(
-    mut query: Query<(&UnitNeeds, &UnitInventory, &UnitLocation, &mut crate::ai::WorldState), With<PeasantTag>>,
+    mut query: Query<(&UnitNeeds, &UnitInventory, &UnitLocation, &mut crate::ai::WorldState), With<UnitTag>>,
 ) {
     for (needs, inventory, location, mut world_state) in query.iter_mut() {
         // Sync needs

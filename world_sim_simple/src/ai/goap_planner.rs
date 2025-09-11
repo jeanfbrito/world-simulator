@@ -271,7 +271,7 @@ impl GoapPlanner {
 /// System to create plans for agents that need them
 pub fn goap_planning_system(
     mut commands: Commands,
-    mut agents: Query<(Entity, &WorldState, Option<&ActionPlan>), With<crate::components::WorkerTag>>,
+    mut agents: Query<(Entity, &WorldState, Option<&ActionPlan>), With<crate::components::UnitTag>>,
     action_set: Res<ActionSet>,
     debug: Res<DebugSystem>,
 ) {
@@ -460,7 +460,7 @@ pub fn goap_execution_system(
                 );
                 
                 // Apply effects to actual components based on action
-                match action.name.as_str() {
+                let should_advance = match action.name.as_str() {
                     "eat_food" => {
                         // Actually consume food from inventory
                         if inventory.remove_item(crate::resources::ResourceType::Berries, 1) {
@@ -468,21 +468,31 @@ pub fn goap_execution_system(
                             needs.energy = 1.0;  // Restore energy
                             println!("🍎 {} ate food! Hunger reset to 0", name.name.green());
                         }
+                        true  // Instant action, advance immediately
                     },
                     "rest" => {
                         needs.energy = 1.0;  // Restore energy
                         println!("😴 {} rested! Energy restored", name.name.blue());
+                        true  // Instant action, advance immediately
+                    },
+                    "gather_food" | "cut_wood" | "gather_stone" | "harvest_resource" => {
+                        // These require work to complete, don't advance yet
+                        // The work system will advance when work completes
+                        false
                     },
                     _ => {
                         // Other actions handled by task system
+                        false  // Assume they need work
                     }
-                }
+                };
                 
                 // Apply the action's effects to world state
                 world_state.apply_action(action);
                 
-                // Move to next action
-                plan.advance();
+                // Only advance for instant actions
+                if should_advance {
+                    plan.advance();
+                }
             } else {
                 debug.log(
                     DebugLevel::Info,

@@ -2,9 +2,10 @@ use bevy::prelude::*;
 use colored::Colorize;
 use crate::components::{
     PositionComponent, HealthComponent, NameComponent, EnergyComponent,
-    WorkerTag, WorkerStats, PeasantTag, PeasantConfig,
+    UnitTag, UnitType, UnitStats, PeasantTag, PeasantConfig,
     UnitNeeds, UnitInventory, UnitLocation, UnitWorkState, UnitOwnership,
-    TilesWalked
+    TilesWalked, WorkProgress, WorkSpeed,
+    IsHungry, HasEnergy, IsWorking, HasWood, HasStone, HasFood
 };
 use crate::ai::{WorkerAI, WorldState, StateValue};
 use crate::TileEntity;
@@ -68,10 +69,11 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         HealthComponent::new(peasant_config.health),
         EnergyComponent::new(100.0),
         
-        // Worker components
-        WorkerTag,
-        WorkerStats::default(),
-        PeasantTag::with_config(peasant_config.clone()),
+        // Unit components (unified tag system)
+        UnitTag,
+        UnitType::Worker,
+        UnitStats::default(),
+        PeasantTag::with_config(peasant_config.clone()),  // Keep for now for compatibility
         TilesWalked::new(), // Track total tiles walked
     )).id();
     
@@ -84,10 +86,24 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         UnitWorkState::default(),
         UnitOwnership::default(),
         
+        // Work components
+        WorkProgress::new(),
+        WorkSpeed::default(),
+        
         // AI components
         WorkerAI::new(),
         create_initial_world_state(),
         crate::ai::BehaviorCycle::default(),
+    ));
+    
+    // Add compatibility components separately
+    commands.entity(entity).insert((
+        IsHungry(0.5),
+        HasEnergy(1.0),
+        IsWorking(false),
+        HasWood(0),
+        HasStone(0),
+        HasFood(0),
     ));
     
     entity
@@ -97,12 +113,12 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
 fn create_initial_world_state() -> WorldState {
     let mut state = WorldState::new();
     
-    // Initialize from consolidated components
-    state.set("is_hungry", StateValue::Float(0.3));  // Slightly hungry
+    // Initialize with zero resources - must forage to survive
+    state.set("is_hungry", StateValue::Float(0.5));  // Start hungry
     state.set("has_energy", StateValue::Float(1.0));  // Full energy
-    state.set("has_wood", StateValue::Int(2));        // Starting wood
-    state.set("has_food", StateValue::Int(5));        // Starting food
-    state.set("has_stone", StateValue::Int(0));       // No stone initially
+    state.set("has_wood", StateValue::Int(0));        // No wood
+    state.set("has_food", StateValue::Int(0));        // No food - must forage immediately!
+    state.set("has_stone", StateValue::Int(0));       // No stone
     state.set("has_house", StateValue::Bool(false));  // No house
     state.set("at_storage", StateValue::Bool(false));
     state.set("at_resource", StateValue::Bool(false));

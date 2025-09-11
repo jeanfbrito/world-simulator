@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::*;
+use crate::components::work_progress::{WorkProgress, WorkType, ResourceWork};
 use crate::ai::{Task, TaskType, TaskStatus, ActionPlan};
 use crate::debug::{DebugSystem, DebugLevel};
 use crate::buildings::BuildingComponent;
@@ -25,11 +26,12 @@ pub fn task_execution_system(
         &mut HasEnergy,
         &mut PositionComponent,
         &mut TilesWalked,
-    ), With<WorkerTag>>,
-    buildings: Query<(&BuildingComponent, &PositionComponent), (Without<WorkerTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
-    trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
-    rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<WorkerTag>)>,
-    berries: Query<(Entity, &PositionComponent), (With<BerryBushTag>, Without<WorkerTag>)>,
+    ), With<UnitTag>>,
+    mut work_progress_query: Query<&mut WorkProgress>,
+    buildings: Query<(&BuildingComponent, &PositionComponent), (Without<UnitTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
+    trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<UnitTag>)>,
+    rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<UnitTag>)>,
+    mut berries: Query<(Entity, &PositionComponent, &mut ResourceNode), (With<BerryBushTag>, Without<UnitTag>)>,
     sim_state: Res<crate::SimulationState>,
     debug: Res<DebugSystem>,
 ) {
@@ -95,6 +97,14 @@ pub fn task_execution_system(
                 }
                 
                 "gather_food" => {
+                    // Check if work is already in progress
+                    if let Ok(work_progress) = work_progress_query.get(entity) {
+                        if work_progress.is_working {
+                            // Work is already happening, let it continue
+                            continue;
+                        }
+                    }
+                    
                     debug.log(
                         DebugLevel::Info,
                         "TASK_EXEC",
@@ -102,6 +112,8 @@ pub fn task_execution_system(
                     );
                     // Find nearest berry bush with berries available
                     if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &*worker_pos) {
+                        println!("🫐 Found berry bush at ({}, {}) for peasant at ({}, {})", 
+                            berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y);
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
@@ -118,18 +130,31 @@ pub fn task_execution_system(
                             &debug,
                         ) {
                             // Reached berries - start gathering work
-                            let mut work_progress = WorkProgress::new();
-                            work_progress.start_work(
-                                WorkType::Gathering(ResourceWork {
-                                    resource_type: ResourceType::Berries,
-                                    amount: 3,
-                                    tool_bonus: 1.0,
-                                }),
-                                30, // 3 seconds at 10 TPS
-                                Some(berry_entity),
-                            );
-                            
-                            commands.entity(entity).insert(work_progress);
+                            // Get the existing WorkProgress component and update it
+                            if let Ok(mut work_progress) = work_progress_query.get_mut(entity) {
+                                work_progress.start_work(
+                                    WorkType::Gathering(ResourceWork {
+                                        resource_type: ResourceType::Berries,
+                                        amount: 3,
+                                        tool_bonus: 1.0,
+                                    }),
+                                    30, // 3 seconds at 10 TPS
+                                    Some(berry_entity),
+                                );
+                            } else {
+                                // Create new if somehow missing
+                                let mut new_work_progress = WorkProgress::new();
+                                new_work_progress.start_work(
+                                    WorkType::Gathering(ResourceWork {
+                                        resource_type: ResourceType::Berries,
+                                        amount: 3,
+                                        tool_bonus: 1.0,
+                                    }),
+                                    30, // 3 seconds at 10 TPS
+                                    Some(berry_entity),
+                                );
+                                commands.entity(entity).insert(new_work_progress);
+                            }
                             
                             debug.log(
                                 DebugLevel::Info,
@@ -137,10 +162,11 @@ pub fn task_execution_system(
                                 "Worker started gathering berries"
                             );
                             
-                            // Update old GOAP state for compatibility
-                            has_food.0 = has_food.0.saturating_add(3);
+                            // Don't add food yet - let the work system handle it when complete
                         }
                     } else {
+                        println!("❌ No berry bushes with berries found for peasant at ({}, {})", 
+                            worker_pos.x, worker_pos.y);
                         debug.log(
                             DebugLevel::Info,
                             "TASK_EXEC",
@@ -303,7 +329,7 @@ fn tick_move_towards(
 }
 
 fn find_nearest_tree(
-    trees: &Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
+    trees: &Query<(Entity, &PositionComponent), (With<TreeTag>, Without<UnitTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
@@ -321,7 +347,7 @@ fn find_nearest_tree(
 }
 
 fn find_nearest_rock(
-    rocks: &Query<(Entity, &PositionComponent), (With<RockTag>, Without<WorkerTag>)>,
+    rocks: &Query<(Entity, &PositionComponent), (With<RockTag>, Without<UnitTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
@@ -339,17 +365,20 @@ fn find_nearest_rock(
 }
 
 fn find_nearest_berry(
-    berries: &Query<(Entity, &PositionComponent), (With<BerryBushTag>, Without<WorkerTag>)>,
+    berries: &Query<(Entity, &PositionComponent, &mut ResourceNode), (With<BerryBushTag>, Without<UnitTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
     let mut min_distance = f32::MAX;
     
-    for (entity, berry_pos) in berries.iter() {
-        let distance = worker_pos.distance_squared(berry_pos);
-        if distance < min_distance {
-            min_distance = distance;
-            nearest = Some((entity, berry_pos.clone()));
+    for (entity, berry_pos, resource_node) in berries.iter() {
+        // Only consider bushes that have berries available
+        if resource_node.can_harvest() {
+            let distance = worker_pos.distance_squared(berry_pos);
+            if distance < min_distance {
+                min_distance = distance;
+                nearest = Some((entity, berry_pos.clone()));
+            }
         }
     }
     
@@ -357,7 +386,7 @@ fn find_nearest_berry(
 }
 
 fn find_stockpile(
-    buildings: &Query<(&BuildingComponent, &PositionComponent), (Without<WorkerTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
+    buildings: &Query<(&BuildingComponent, &PositionComponent), (Without<UnitTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
 ) -> Option<PositionComponent> {
     for (building, pos) in buildings.iter() {
         if building.building_type == crate::buildings::BuildingType::Stockpile {

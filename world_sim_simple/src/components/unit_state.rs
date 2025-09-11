@@ -67,11 +67,8 @@ impl UnitInventory {
     }
     
     pub fn with_starting_items() -> Self {
-        let mut inventory = Self::new();
-        // Start with some basic supplies
-        inventory.add_item(ResourceType::Berries, 5);
-        inventory.add_item(ResourceType::Wood, 2);
-        inventory
+        // Start with absolutely nothing - must forage to survive
+        Self::new()
     }
     
     pub fn add_item(&mut self, resource: ResourceType, amount: u32) -> bool {

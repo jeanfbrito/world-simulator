@@ -493,6 +493,86 @@ Combine both systems:
 2. Big-Brain for tactical execution (how to achieve them)
 3. Use consolidated state components instead of 15+ separate ones
 
+## 16. Monitoring Running Simulations
+
+**CRITICAL**: Never start multiple simulation instances! The monitor_world.sh script now automatically handles this.
+
+### Automatic Monitoring with monitor_world.sh
+
+The updated `monitor_world.sh` script now **automatically**:
+1. **Detects multiple running simulations** and offers to clean them up
+2. **Prevents duplicate instances** from starting
+3. **Handles existing simulations** appropriately
+4. **Logs output** to `/tmp/world_sim_*.log` for later review
+
+### Just Run the Monitor:
+```bash
+# The script handles everything automatically
+cd /Users/jean/Github/world-simulator && ./monitor_world.sh
+```
+
+### What the Monitor Does:
+
+#### If Multiple Simulations Found:
+- Shows warning with PID count
+- Offers options:
+  1. Kill all and start fresh (recommended)
+  2. Keep one and kill others
+  3. Exit without changes
+
+#### If One Simulation Running:
+- Detects it automatically
+- Restarts with monitoring enabled
+- Shows clean world state output
+
+#### If No Simulation Running:
+- Starts a new one with monitoring
+- Logs to `/tmp/world_sim_TIMESTAMP.log`
+
+### Output Shows:
+- Peasant positions and states (🧍 standing, 🚶 walking)
+- Hunger/Energy levels with visual bars
+- Inventory contents (🪵 wood, 🍖 food, ⛏️ stone)
+- Current actions and plans
+- Resource availability (🌲 trees, 🫐 berry bushes)
+- Tiles walked counter (📏)
+
+### Manual Commands (if needed):
+
+Check for running simulations:
+```bash
+ps aux | grep "target/debug/world_sim_simple" | grep -v grep
+```
+
+Kill all simulations:
+```bash
+pkill -f "world_sim_simple"
+```
+
+View saved logs:
+```bash
+ls -la /tmp/world_sim_*.log
+tail -f /tmp/world_sim_*.log  # Follow latest log
+```
+
+### Why This Matters:
+- **Prevents CPU overload** from multiple 100%+ CPU processes
+- **Saves compilation time** (5-15 minutes each time!)
+- **Clean output** without overlapping processes
+- **Automatic management** - no manual checking needed
+- **Historical logs** saved for debugging
+
+### Example Workflow:
+```bash
+# Just run the monitor - it handles everything!
+cd /Users/jean/Github/world-simulator && ./monitor_world.sh
+
+# If you see multiple simulations warning, choose option 1 (kill all and restart)
+# Monitor shows clean world state
+# Press Ctrl+C to stop monitoring (simulation continues)
+# Logs are saved to /tmp/ for later review
+```
+
 ## Summary
 
-**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems. Refer to dogoap and big-brain repositories for AI implementation patterns.
+**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems. Refer to dogoap and big-brain repositories for AI implementation patterns. **Always monitor existing simulations instead of starting new ones.**

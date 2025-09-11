@@ -118,30 +118,36 @@ pub fn resource_harvest_system(
     }
     
     for (entity, resource, position, name) in resources.iter() {
-        if resource.amount == 0 && resource.ticks_since_depletion == 1 {
-            // Just depleted this tick
+        // Only trigger depletion when resource goes from >0 to 0 (actual depletion)
+        // ticks_since_depletion == 1 means it was just depleted last tick
+        // We need to track if it had resources before
+        if resource.amount == 0 && resource.ticks_since_depletion == 1 && resource.max_amount > 0 {
+            // This resource was actually harvested to depletion
             let resource_name = name.map(|n| n.name.as_str()).unwrap_or("Resource");
             
-            println!("{} {} depleted at ({}, {}) - respawning in {} seconds",
-                "⚠️".yellow(),
-                resource_name.yellow(),
-                position.x,
-                position.y,
-                resource.respawn_time_ticks / 10
-            );
-            
-            depletion_events.send(ResourceDepletedEvent {
-                entity,
-                resource_type: resource.resource_type,
-                harvester: None, // Would be set by harvesting system
-            });
-            
-            debug.log(
-                DebugLevel::Info,
-                "DEPLETION",
-                &format!("{} depleted at ({}, {})",
-                    resource_name, position.x, position.y)
-            );
+            // Only show depletion message for resources that can respawn
+            if resource.respawn_time_ticks > 0 {
+                println!("{} {} depleted at ({}, {}) - respawning in {} seconds",
+                    "⚠️".yellow(),
+                    resource_name.yellow(),
+                    position.x,
+                    position.y,
+                    resource.respawn_time_ticks / 10
+                );
+                
+                depletion_events.send(ResourceDepletedEvent {
+                    entity,
+                    resource_type: resource.resource_type,
+                    harvester: None, // Would be set by harvesting system
+                });
+                
+                debug.log(
+                    DebugLevel::Info,
+                    "DEPLETION",
+                    &format!("{} depleted at ({}, {})",
+                        resource_name, position.x, position.y)
+                );
+            }
         }
     }
 }
@@ -182,9 +188,11 @@ pub fn spawn_regenerating_resources_system(
     
     let berry_count = berry_positions.len();
     for (x, y) in berry_positions {
-        // Start with 0 berries to test regeneration
-        let mut berry_node = ResourceNode::fruit_bush(0);  // Start with 0 berries
-        berry_node.max_amount = 10;  // Can grow up to 10 berries
+        // Start with 0 berries for scarcity
+        let mut berry_node = ResourceNode::fruit_bush(2);  // Start with 2 berries
+        berry_node.max_amount = 5;  // Can grow up to 5 berries (reduced for scarcity)
+        berry_node.regeneration_rate = 1;  // Only 1 berry at a time
+        berry_node.regeneration_interval = 50;  // Every 5 seconds
         
         commands.spawn((
             NameComponent::new(format!("Berry Bush ({}, {})", x, y)),

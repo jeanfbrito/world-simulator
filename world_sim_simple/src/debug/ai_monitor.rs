@@ -21,7 +21,7 @@ pub fn simple_ai_monitor_system(
         &PositionComponent,
         &TilesWalked,
         Option<&ActionPlan>,
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     trees: Query<Entity, With<crate::ai::TreeTag>>,
     berries: Query<Entity, With<crate::ai::BerryBushTag>>,
 ) {
@@ -118,7 +118,11 @@ pub fn simple_ai_monitor_system(
                     println!("   📝 Next: {}", remaining.join(" → ").bright_black());
                 }
             } else if plan.is_complete() {
-                println!("   ✅ {}", "Plan completed".green());
+                // Don't show "Plan completed" if there's still a current action
+                // This happens when action doesn't auto-advance (like gather_food)
+                if plan.current_action().is_none() {
+                    println!("   ✅ {}", "Plan completed".green());
+                }
             }
         } else {
             println!("   ⚠️ {}", "Trying to create plan...".yellow());

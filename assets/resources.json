@@ -1,0 +1,60 @@
+{
+  "resources": {
+    "berry_bush": {
+      "id": "berry_bush",
+      "name": "Berry Bush",
+      "harvestable": true,
+      "resource_type": "berries",
+      "yield_amount": 3,
+      "work_required": 5,
+      "respawn_ticks": 100,
+      "tags": ["harvestable", "berry_bush", "plant"]
+    },
+    "tree": {
+      "id": "tree", 
+      "name": "Tree",
+      "harvestable": true,
+      "resource_type": "wood",
+      "yield_amount": 5,
+      "work_required": 10,
+      "tool_required": "axe",
+      "respawn_ticks": 300,
+      "tags": ["harvestable", "tree", "wood_source"]
+    },
+    "stone_deposit": {
+      "id": "stone_deposit",
+      "name": "Stone Deposit",
+      "harvestable": true,
+      "resource_type": "stone",
+      "yield_amount": 3,
+      "work_required": 15,
+      "tool_required": "pickaxe",
+      "respawn_ticks": 0,
+      "tags": ["harvestable", "stone_source", "mineral"]
+    }
+  },
+  "items": {
+    "berries": {
+      "id": "berries",
+      "name": "Berries",
+      "stackable": true,
+      "stack_size": 50,
+      "nutrition": 10,
+      "tags": ["food", "consumable"]
+    },
+    "wood": {
+      "id": "wood",
+      "name": "Wood",
+      "stackable": true,
+      "stack_size": 100,
+      "tags": ["material", "construction"]
+    },
+    "stone": {
+      "id": "stone",
+      "name": "Stone",
+      "stackable": true,
+      "stack_size": 50,
+      "tags": ["material", "construction"]
+    }
+  }
+}

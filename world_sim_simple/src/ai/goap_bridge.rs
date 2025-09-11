@@ -68,7 +68,7 @@ pub fn update_needs_system(
         &mut crate::components::IsHungry,
         &mut crate::components::HasEnergy,
         &crate::components::IsWorking,
-        &crate::components::WorkerTag,
+        &crate::components::UnitTag,
     )>,
     time: Res<Time>,
     debug: Res<DebugSystem>,

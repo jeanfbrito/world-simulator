@@ -77,7 +77,7 @@ pub fn handle_gather_food_action(
 // System to set up GOAP planners for workers
 pub fn setup_dogoap_planners(
     mut commands: Commands,
-    query: Query<Entity, (With<crate::components::WorkerTag>, Without<Planner>)>,
+    query: Query<Entity, (With<crate::components::UnitTag>, Without<Planner>)>,
     debug: Res<DebugSystem>,
 ) {
     for entity in query.iter() {

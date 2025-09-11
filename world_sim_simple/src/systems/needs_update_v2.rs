@@ -5,7 +5,8 @@
 /// with large numbers of units.
 
 use bevy::prelude::*;
-use crate::components::{UnitNeedsV2, UnitInventory, UnitLocation, PeasantTag, NameComponent};
+use crate::components::{
+    UnitTag,UnitNeedsV2, UnitInventory, UnitLocation, PeasantTag, NameComponent};
 use crate::SimulationState;
 use crate::ai::BehaviorStateNew as BehaviorState;
 use colored::Colorize;
@@ -18,7 +19,7 @@ pub fn update_unit_needs_tick_system(
         &mut UnitNeedsV2,
         &NameComponent,
         Option<&BehaviorState>
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -102,7 +103,7 @@ pub fn sync_needs_v2_to_worldstate_system(
         &UnitInventory,
         &UnitLocation,
         &mut crate::ai::WorldState
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
 ) {
     // Only sync on ticks
     if !sim_state.just_ticked {
@@ -147,7 +148,7 @@ pub fn eating_action_system(
         &mut UnitInventory,
         &BehaviorState,
         &NameComponent
-    ), With<PeasantTag>>,
+    ), With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -192,7 +193,7 @@ pub fn eating_action_system(
 /// Performance monitoring for the needs system
 pub fn needs_performance_monitor_system(
     sim_state: Res<SimulationState>,
-    units: Query<&UnitNeedsV2, With<PeasantTag>>,
+    units: Query<&UnitNeedsV2, With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
