@@ -3,6 +3,8 @@
 ## Overview
 Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) architecture for better performance at scale (1000+ units).
 
+**Progress**: 3 phases complete, Phase 5 in progress (40% of economy systems done)
+
 ## Completed Phases ✅
 
 ### Phase 1: Core Tick-Based Architecture ✅
@@ -46,8 +48,13 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - [ ] 4.5 Chunk-based pathfinding cache
 
 ### Phase 5: Enhanced Economy & Resources 🔲
-**Status**: IN PROGRESS (1/5 complete)
-- [ ] 5.1 Tick-based resource regeneration (via Lua scripts)
+**Status**: IN PROGRESS (2/5 complete)
+- [x] 5.1 Flexible resource growth system (via Lua scripts) ✅ Commits: f454738, 7099611, 7bbdcbe
+  - Implemented GrowingResource with multiple patterns (grow/ripen/regrow/respawn)
+  - Trees grow through stages (sapling→young→mature→old) and regrow from stumps
+  - Fruits ripen gradually, crops grow through stages, minerals optionally respawn
+  - All growth patterns defined in `growth_patterns.lua` (data-driven)
+  - Uses proper terminology: trees grow/regrow, fruits ripen, minerals respawn
 - [ ] 5.2 Market/trading with integer prices (defined in pack data)
 - [ ] 5.3 Supply/demand simulation (configurable in Lua)
 - [x] 5.4 Resource storage buildings (Lua-defined, data-driven) ✅ Commit: ca53ad5
@@ -102,6 +109,16 @@ Converting world_sim_simple from frame-based (60 FPS) to tick-based (10 TPS) arc
 - Buildings, items, recipes, AI behaviors - all loaded from pack scripts
 - Rust provides the engine, Lua provides the content
 - Example: Storage buildings defined in `assets/packs/stronghold/scripts/buildings/`
+
+### Resource Growth System
+- Different resources use appropriate terminology and mechanics:
+  - Trees: grow through stages, regrow from stumps after cutting
+  - Fruits: ripen over time on bushes and trees
+  - Crops: grow through defined agricultural stages
+  - Minerals: optionally respawn based on game configuration
+- All growth patterns defined in Lua scripts (data-driven)
+- Supports seasonal effects and environmental modifiers
+- Game settings can enable infinite resources or fast growth modes
 
 ### Integer Counters
 - All progress uses integers (0-100,000) instead of floats
