@@ -21,7 +21,8 @@ pub fn simple_ai_monitor_system(
         &PositionComponent,
         Option<&ActionPlan>,
     ), With<PeasantTag>>,
-    resources: Query<Entity, Or<(With<crate::ai::TreeTag>, With<crate::ai::RockTag>, With<crate::ai::BerryBushTag>)>>,
+    trees: Query<Entity, With<crate::ai::TreeTag>>,
+    berries: Query<Entity, With<crate::ai::BerryBushTag>>,
 ) {
     if !sim_state.just_ticked {
         return;
@@ -39,9 +40,12 @@ pub fn simple_ai_monitor_system(
     
     println!("\n{}", format!("━━━ TICK {} ━━━", sim_state.tick).bright_blue().bold());
     
-    // Show resource counts
-    let trees = resources.iter().filter(|_| true).count(); // TODO: properly filter by type
-    println!("🌍 World Resources: {} trees/rocks/berries available", trees);
+    // Show resource counts by type
+    let tree_count = trees.iter().count();
+    let berry_count = berries.iter().count();
+    println!("🌍 World Resources:");
+    println!("   🌲 {} trees available", tree_count);
+    println!("   🫐 {} berry bushes available", berry_count);
     
     // Show each peasant's status
     for (entity, name, needs, inventory, location, tile, position, plan) in peasants.iter() {

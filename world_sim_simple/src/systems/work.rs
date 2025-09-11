@@ -25,6 +25,7 @@ pub fn tick_work_system(
         &mut UnitNeedsV2,
         &GridPosition,
         &NameComponent,
+        Option<&mut crate::ai::ActionPlan>,
     ), With<PeasantTag>>,
     mut resources: Query<&mut crate::components::ResourceNode>,
     debug: Res<crate::debug::DebugSystem>,
@@ -36,7 +37,7 @@ pub fn tick_work_system(
         return;
     }
     
-    for (_entity, mut work, _speed, mut inventory, mut needs, position, name) in units.iter_mut() {
+    for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in units.iter_mut() {
         if !work.is_working {
             continue;
         }
@@ -76,6 +77,16 @@ pub fn tick_work_system(
                 &format!("{} completed work at ({},{})",
                     name.name, position.x, position.y)
             );
+            
+            // Advance GOAP plan when work completes
+            if let Some(mut action_plan) = plan {
+                action_plan.advance();
+                debug.log(
+                    DebugLevel::Info,
+                    "WORK",
+                    "Advanced GOAP plan to next action"
+                );
+            }
         }
     }
 }

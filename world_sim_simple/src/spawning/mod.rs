@@ -48,6 +48,12 @@ fn initial_unit_spawn_system(
 pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> Entity {
     let peasant_config = PeasantConfig::default();
     
+    // Calculate world position from tile coordinates
+    const TILE_SIZE: f32 = 10.0;
+    const MAP_SIZE: usize = 64;
+    let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+    let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+    
     let entity = commands.spawn((
         // Identity
         NameComponent::new(format!("Peasant {}", id)),
@@ -55,6 +61,7 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         // Position
         PositionComponent::from_tile(x, y),
         TileEntity { x, y },
+        Transform::from_xyz(world_x, world_y, 1.0), // Add Transform for movement!
         
         // Basic stats (keeping for compatibility)
         HealthComponent::new(peasant_config.health),

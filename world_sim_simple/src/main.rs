@@ -335,30 +335,21 @@ fn setup(mut commands: Commands) {
         }
     }
     
-    // Spawn rocks as entities (for stone harvesting)
-    for _ in 0..12 {
-        let x = rng.gen_range(10..54);
-        let y = rng.gen_range(10..54);
-        
-        if world_map.tiles[y][x] == TileType::Grass {
-            let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
-            
-            commands.spawn((
-                NameComponent::new("Rock".to_string()),
-                PositionComponent::from_tile(x, y),
-                TileEntity { x, y },
-                ai::RockTag,  // Marker for AI to find rocks
-            ));
-            
-            println!("{}", format!("[SPAWN] Rock at ({}, {})", x, y).bright_black());
-        }
-    }
+    // Rocks removed - focusing on food resources only for Phase 3.5
     
-    // Add some berry bushes as resources
-    for _ in 0..10 {
-        let x = rng.gen_range(15..49);
-        let y = rng.gen_range(15..49);
+    // Add many berry bushes spread across the map to encourage exploration
+    // Spawn berry bushes in clusters for more realistic distribution
+    
+    // Spawn scattered berry bushes across the whole map
+    let mut spawned_bushes = 0;
+    let target_bushes = 25;
+    let mut attempts = 0;
+    const MAX_ATTEMPTS: u32 = 500; // Prevent infinite loop
+    
+    while spawned_bushes < target_bushes && attempts < MAX_ATTEMPTS {
+        attempts += 1;
+        let x = rng.gen_range(5..59);  // Expanded range to cover more of the map
+        let y = rng.gen_range(5..59);
         
         if world_map.tiles[y][x] == TileType::Grass {
             let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
@@ -367,14 +358,52 @@ fn setup(mut commands: Commands) {
             commands.spawn((
                 NameComponent::new("Berry Bush".to_string()),
                 PositionComponent::from_tile(x, y),
-                components::ResourceNode::fruit_bush(10),  // Use new tick-based constructor
+                components::ResourceNode::fruit_bush(rng.gen_range(5..15)),  // Variable berry amounts
                 components::ResourceRegenerationTag,
                 components::GridPosition { x: x as u32, y: y as u32 },
                 TileEntity { x, y },
                 ai::BerryBushTag,  // Add marker for AI to find berries
             ));
             
-            println!("{}", format!("[SPAWN] Berry Bush at ({}, {})", x, y).magenta());
+            println!("{}", format!("[SPAWN] Berry Bush at ({}, {}) with berries", x, y).magenta());
+            spawned_bushes += 1;
+        }
+    }
+    
+    if spawned_bushes < target_bushes {
+        println!("{}", format!("[SPAWN] Only spawned {} of {} berry bushes (terrain limited)", spawned_bushes, target_bushes).yellow());
+    }
+    
+    // Add berry bush clusters in corners to encourage long-distance travel
+    let corners = [(8, 8), (8, 56), (56, 8), (56, 56)];
+    for (corner_x, corner_y) in corners.iter() {
+        let mut corner_spawned = 0;
+        let target_per_corner = 3;
+        let mut corner_attempts = 0;
+        
+        while corner_spawned < target_per_corner && corner_attempts < 50 {
+            corner_attempts += 1;
+            let x = corner_x + rng.gen_range(0..5) as usize;
+            let y = corner_y + rng.gen_range(0..5) as usize;
+            
+            if x < MAP_SIZE && y < MAP_SIZE && world_map.tiles[y][x] == TileType::Grass {
+                commands.spawn((
+                    NameComponent::new("Berry Bush (Corner)".to_string()),
+                    PositionComponent::from_tile(x, y),
+                    components::ResourceNode::fruit_bush(15),  // More berries in corner clusters
+                    components::ResourceRegenerationTag,
+                    components::GridPosition { x: x as u32, y: y as u32 },
+                    TileEntity { x, y },
+                    ai::BerryBushTag,
+                ));
+                
+                println!("{}", format!("[SPAWN] Corner Berry Bush at ({}, {})", x, y).bright_magenta());
+                corner_spawned += 1;
+            }
+        }
+        
+        if corner_spawned < target_per_corner {
+            println!("{}", format!("[SPAWN] Corner ({}, {}) only spawned {} of {} bushes", corner_x, corner_y, corner_spawned, target_per_corner).yellow());
         }
     }
 }

@@ -7,7 +7,7 @@ use crate::{MAP_SIZE, TileEntity};
 use crate::resources::ResourceType;
 
 const TILE_SIZE: f32 = 10.0;
-const MOVE_SPEED: f32 = 20.0; // World units per second
+const TILES_PER_TICK: f32 = 0.5; // Move half a tile per tick (at 10 TPS = 5 tiles/second)
 
 /// System to execute tasks based on GOAP actions
 pub fn task_execution_system(
@@ -16,24 +16,29 @@ pub fn task_execution_system(
         Entity,
         &mut Transform,
         &mut TileEntity,
-        &ActionPlan,
+        &mut ActionPlan,
         &mut IsWorking,
         &mut HasWood,
         &mut HasStone,
         &mut HasFood,
         &mut IsHungry,
         &mut HasEnergy,
-        &PositionComponent,
+        &mut PositionComponent,
     ), With<WorkerTag>>,
-    buildings: Query<(&BuildingComponent, &PositionComponent)>,
-    trees: Query<(Entity, &PositionComponent), With<TreeTag>>,
-    rocks: Query<(Entity, &PositionComponent), With<RockTag>>,
-    berries: Query<(Entity, &PositionComponent), With<BerryBushTag>>,
-    time: Res<Time>,
+    buildings: Query<(&BuildingComponent, &PositionComponent), Without<WorkerTag>>,
+    trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
+    rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<WorkerTag>)>,
+    berries: Query<(Entity, &PositionComponent), (With<BerryBushTag>, Without<WorkerTag>)>,
+    sim_state: Res<crate::SimulationState>,
     debug: Res<DebugSystem>,
 ) {
-    for (entity, mut transform, mut tile_entity, plan, mut is_working, 
-         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy, worker_pos) in workers.iter_mut() {
+    // Only execute on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (entity, mut transform, mut tile_entity, mut plan, mut is_working, 
+         mut has_wood, mut has_stone, mut has_food, mut is_hungry, mut has_energy, mut worker_pos) in workers.iter_mut() {
         
         // Get current action from plan
         if let Some(action) = plan.current_action() {
@@ -42,13 +47,13 @@ pub fn task_execution_system(
             match action.name.as_str() {
                 "cut_wood" => {
                     // Find nearest tree
-                    if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, worker_pos) {
-                        // Move towards tree
-                        if move_towards(
+                    if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, &*worker_pos) {
+                        // Move towards tree (tick-based)
+                        if tick_move_towards(
                             &mut transform,
                             &mut tile_entity,
+                            &mut worker_pos,
                             &tree_pos,
-                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached tree, harvest it
@@ -65,13 +70,13 @@ pub fn task_execution_system(
                 
                 "quarry_stone" => {
                     // Find nearest rock
-                    if let Some((rock_entity, rock_pos)) = find_nearest_rock(&rocks, worker_pos) {
-                        // Move towards rock
-                        if move_towards(
+                    if let Some((rock_entity, rock_pos)) = find_nearest_rock(&rocks, &*worker_pos) {
+                        // Move towards rock (tick-based)
+                        if tick_move_towards(
                             &mut transform,
                             &mut tile_entity,
+                            &mut worker_pos,
                             &rock_pos,
-                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached rock, mine it
@@ -87,14 +92,25 @@ pub fn task_execution_system(
                 }
                 
                 "gather_food" => {
+                    debug.log(
+                        DebugLevel::Info,
+                        "TASK_EXEC",
+                        &format!("Executing gather_food for entity at ({}, {})", worker_pos.x, worker_pos.y)
+                    );
                     // Find nearest berry bush with berries available
-                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, worker_pos) {
-                        // Move towards berries
-                        if move_towards(
+                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &*worker_pos) {
+                        debug.log(
+                            DebugLevel::Info,
+                            "TASK_EXEC",
+                            &format!("Found berry at ({}, {}), moving from ({}, {})", 
+                                berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y)
+                        );
+                        // Move towards berries (tick-based)
+                        if tick_move_towards(
                             &mut transform,
                             &mut tile_entity,
+                            &mut worker_pos,
                             &berry_pos,
-                            time.delta_secs(),
                             &debug,
                         ) {
                             // Reached berries - start gathering work
@@ -120,18 +136,24 @@ pub fn task_execution_system(
                             // Update old GOAP state for compatibility
                             has_food.0 = has_food.0.saturating_add(3);
                         }
+                    } else {
+                        debug.log(
+                            DebugLevel::Info,
+                            "TASK_EXEC",
+                            &format!("No berries found from position ({}, {})", worker_pos.x, worker_pos.y)
+                        );
                     }
                 }
                 
                 "move_to_storage" | "get_wood_from_stockpile" | "get_stone_from_stockpile" => {
                     // Find stockpile
                     if let Some(stockpile_pos) = find_stockpile(&buildings) {
-                        // Move towards stockpile
-                        if move_towards(
+                        // Move towards stockpile (tick-based)
+                        if tick_move_towards(
                             &mut transform,
                             &mut tile_entity,
+                            &mut worker_pos,
                             &stockpile_pos,
-                            time.delta_secs(),
                             &debug,
                         ) {
                             debug.log(
@@ -167,6 +189,8 @@ pub fn task_execution_system(
                             &format!("Worker ate food (hunger: {:.0}%), {} food remaining", is_hungry.0 * 100.0, has_food.0)
                         );
                     }
+                    // Eating is instant, advance to next action
+                    plan.advance();
                 }
                 
                 "rest" => {
@@ -182,11 +206,11 @@ pub fn task_execution_system(
                 "build_house" => {
                     // Find a good spot for house (near center for now)
                     let house_pos = PositionComponent::from_tile(32, 28);
-                    if move_towards(
+                    if tick_move_towards(
                         &mut transform,
                         &mut tile_entity,
+                        &mut worker_pos,
                         &house_pos,
-                        time.delta_secs(),
                         &debug,
                     ) {
                         // Build house (consume resources)
@@ -216,39 +240,60 @@ pub fn task_execution_system(
     }
 }
 
-fn move_towards(
+/// Tick-based movement towards a target position
+fn tick_move_towards(
     transform: &mut Transform,
     tile_entity: &mut TileEntity,
+    position_comp: &mut PositionComponent,
     target_pos: &PositionComponent,
-    delta_time: f32,
     debug: &DebugSystem,
 ) -> bool {
-    let current_pos = Vec2::new(transform.translation.x, transform.translation.y);
-    let target = Vec2::new(target_pos.x, target_pos.y);
-    let direction = target - current_pos;
-    let distance = direction.length();
+    // Work in tile coordinates for simplicity
+    let current_tile_x = position_comp.x;
+    let current_tile_y = position_comp.y;
+    let target_tile_x = target_pos.x;
+    let target_tile_y = target_pos.y;
     
-    if distance < 5.0 {
-        // Close enough
+    let dx = target_tile_x - current_tile_x;
+    let dy = target_tile_y - current_tile_y;
+    let distance = (dx * dx + dy * dy).sqrt();
+    
+    // Check if we're close enough (within 1 tile)
+    if distance < 1.0 {
         return true;
     }
     
-    // Move towards target
-    let move_distance = MOVE_SPEED * delta_time;
-    let movement = direction.normalize() * move_distance.min(distance);
+    // Move TILES_PER_TICK tiles towards the target
+    let move_distance = TILES_PER_TICK.min(distance);
+    let move_x = (dx / distance) * move_distance;
+    let move_y = (dy / distance) * move_distance;
     
-    transform.translation.x += movement.x;
-    transform.translation.y += movement.y;
+    // Update position in tile coordinates
+    position_comp.x += move_x;
+    position_comp.y += move_y;
     
-    // Update tile position
-    tile_entity.x = ((transform.translation.x / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
-    tile_entity.y = ((transform.translation.y / TILE_SIZE) + (MAP_SIZE as f32 / 2.0)) as usize;
+    // Update tile entity (integer tile position)
+    tile_entity.x = position_comp.x.round() as usize;
+    tile_entity.y = position_comp.y.round() as usize;
+    
+    // Update world transform for rendering (if we had rendering)
+    let world_x = (position_comp.x - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+    let world_y = (position_comp.y - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
+    transform.translation.x = world_x;
+    transform.translation.y = world_y;
+    
+    debug.log(
+        DebugLevel::Debug,
+        "MOVEMENT",
+        &format!("Moved to tile ({:.1}, {:.1}), distance remaining: {:.1}",
+            position_comp.x, position_comp.y, distance - move_distance)
+    );
     
     false
 }
 
 fn find_nearest_tree(
-    trees: &Query<(Entity, &PositionComponent), With<TreeTag>>,
+    trees: &Query<(Entity, &PositionComponent), (With<TreeTag>, Without<WorkerTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
@@ -266,7 +311,7 @@ fn find_nearest_tree(
 }
 
 fn find_nearest_rock(
-    rocks: &Query<(Entity, &PositionComponent), With<RockTag>>,
+    rocks: &Query<(Entity, &PositionComponent), (With<RockTag>, Without<WorkerTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
@@ -284,7 +329,7 @@ fn find_nearest_rock(
 }
 
 fn find_nearest_berry(
-    berries: &Query<(Entity, &PositionComponent), With<BerryBushTag>>,
+    berries: &Query<(Entity, &PositionComponent), (With<BerryBushTag>, Without<WorkerTag>)>,
     worker_pos: &PositionComponent,
 ) -> Option<(Entity, PositionComponent)> {
     let mut nearest = None;
@@ -302,7 +347,7 @@ fn find_nearest_berry(
 }
 
 fn find_stockpile(
-    buildings: &Query<(&BuildingComponent, &PositionComponent)>,
+    buildings: &Query<(&BuildingComponent, &PositionComponent), Without<WorkerTag>>,
 ) -> Option<PositionComponent> {
     for (building, pos) in buildings.iter() {
         if building.building_type == crate::buildings::BuildingType::Stockpile {
