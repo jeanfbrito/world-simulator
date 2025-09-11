@@ -54,7 +54,7 @@ pub fn resource_regeneration_system(
             if is_full_respawn {
                 let resource_name = name.map(|n| n.name.as_str()).unwrap_or("Resource");
                 
-                println!("{} {} respawned at ({}, {}) - {} available",
+                println!("{} {} fully respawned at ({}, {}) - {} available",
                     "🌱".green(),
                     resource_name.cyan(),
                     position.x,
@@ -68,14 +68,29 @@ pub fn resource_regeneration_system(
                     &format!("{} fully respawned at ({}, {})",
                         resource_name, position.x, position.y)
                 );
-            } else if sim_state.tick % 100 == 0 && resource.amount > old_amount {
-                // Log gradual regeneration periodically
-                debug.log(
-                    DebugLevel::Debug,
-                    "REGEN",
-                    &format!("Resource at ({}, {}) regenerated: {} -> {}",
-                        position.x, position.y, old_amount, resource.amount)
-                );
+            } else {
+                // Log ALL regeneration for berries to see it working
+                let resource_name = name.map(|n| n.name.as_str()).unwrap_or("Resource");
+                
+                // Special logging for berry bushes
+                if resource_name.contains("Berry") {
+                    println!("{} {} regenerated at ({}, {}): {} -> {} berries",
+                        "🫐".green(),
+                        resource_name.cyan(),
+                        position.x,
+                        position.y,
+                        old_amount,
+                        resource.amount
+                    );
+                } else if sim_state.tick % 100 == 0 {
+                    // Log other resources periodically
+                    debug.log(
+                        DebugLevel::Debug,
+                        "REGEN",
+                        &format!("Resource at ({}, {}) regenerated: {} -> {}",
+                            position.x, position.y, old_amount, resource.amount)
+                    );
+                }
             }
         }
     }
@@ -167,16 +182,20 @@ pub fn spawn_regenerating_resources_system(
     
     let berry_count = berry_positions.len();
     for (x, y) in berry_positions {
+        // Start with 0 berries to test regeneration
+        let mut berry_node = ResourceNode::fruit_bush(0);  // Start with 0 berries
+        berry_node.max_amount = 10;  // Can grow up to 10 berries
+        
         commands.spawn((
             NameComponent::new(format!("Berry Bush ({}, {})", x, y)),
             GridPosition { x, y },
             TileEntity { x: x as usize, y: y as usize },
-            ResourceNode::fruit_bush(10),  // 10 berries max
+            berry_node,
             ResourceRegenerationTag,
         ));
     }
     
-    println!("{} Spawned {} regenerating berry bushes",
+    println!("{} Spawned {} empty berry bushes (will regenerate over time)",
         "🫐".green(),
         berry_count
     );
