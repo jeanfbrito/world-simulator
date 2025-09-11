@@ -357,7 +357,7 @@ fn find_nearest_berry(
 }
 
 fn find_stockpile(
-    buildings: &Query<(&BuildingComponent, &PositionComponent), Without<WorkerTag>>,
+    buildings: &Query<(&BuildingComponent, &PositionComponent), (Without<WorkerTag>, Without<TreeTag>, Without<RockTag>, Without<BerryBushTag>)>,
 ) -> Option<PositionComponent> {
     for (building, pos) in buildings.iter() {
         if building.building_type == crate::buildings::BuildingType::Stockpile {
