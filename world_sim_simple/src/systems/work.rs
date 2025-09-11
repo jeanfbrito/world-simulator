@@ -26,6 +26,7 @@ pub fn tick_work_system(
         &GridPosition,
         &NameComponent,
     ), With<PeasantTag>>,
+    mut resources: Query<&mut crate::components::ResourceNode>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -56,6 +57,7 @@ pub fn tick_work_system(
                     position,
                     name,
                     work.target_entity,
+                    &mut resources,
                     &debug,
                 );
             }
@@ -85,35 +87,72 @@ fn handle_work_completion(
     _needs: &mut UnitNeedsV2,
     _position: &GridPosition,
     name: &NameComponent,
-    _target_entity: Option<Entity>,
+    target_entity: Option<Entity>,
+    resources: &mut Query<&mut crate::components::ResourceNode>,
     debug: &crate::debug::DebugSystem,
 ) {
     use crate::debug::DebugLevel;
     
     match work_type {
         WorkType::Gathering(resource_work) => {
-            // Add gathered resources to inventory
-            let added = inventory.add_item(resource_work.resource_type, resource_work.amount);
+            // First, deplete the resource if we have a target entity
+            let mut resource_depleted = false;
+            if let Some(resource_entity) = target_entity {
+                if let Ok(mut resource) = resources.get_mut(resource_entity) {
+                    // Check if resource has enough
+                    if resource.amount >= resource_work.amount {
+                        resource.amount -= resource_work.amount;
+                        resource_depleted = true;
+                        
+                        println!("{} Resource depleted to {} remaining",
+                            "⛏️".yellow(),
+                            resource.amount
+                        );
+                        
+                        debug.log(
+                            DebugLevel::Debug,
+                            "RESOURCE",
+                            &format!("Resource depleted by {}, {} remaining",
+                                resource_work.amount, resource.amount)
+                        );
+                    } else if resource.amount > 0 {
+                        // Take what's available
+                        let actual_amount = resource.amount;
+                        resource.amount = 0;
+                        resource_depleted = true;
+                        
+                        println!("{} Resource fully depleted (took {})",
+                            "⛏️".red(),
+                            actual_amount
+                        );
+                    }
+                }
+            }
             
-            if added {
-                println!("{} {} gathered {} {}",
-                    "🌲".green(),
-                    name.name.cyan(),
-                    resource_work.amount,
-                    format!("{:?}", resource_work.resource_type).yellow()
-                );
+            // Only add to inventory if we actually depleted the resource
+            if resource_depleted {
+                let added = inventory.add_item(resource_work.resource_type, resource_work.amount);
                 
-                debug.log(
-                    DebugLevel::Info,
-                    "GATHER",
-                    &format!("{} gathered {} {:?}",
-                        name.name, resource_work.amount, resource_work.resource_type)
-                );
-            } else {
-                println!("{} {} inventory full!",
-                    "⚠️".yellow(),
-                    name.name.yellow()
-                );
+                if added {
+                    println!("{} {} gathered {} {}",
+                        "🌲".green(),
+                        name.name.cyan(),
+                        resource_work.amount,
+                        format!("{:?}", resource_work.resource_type).yellow()
+                    );
+                    
+                    debug.log(
+                        DebugLevel::Info,
+                        "GATHER",
+                        &format!("{} gathered {} {:?}",
+                            name.name, resource_work.amount, resource_work.resource_type)
+                    );
+                } else {
+                    println!("{} {} inventory full!",
+                        "⚠️".yellow(),
+                        name.name.yellow()
+                    );
+                }
             }
         }
         

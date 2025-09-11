@@ -15,10 +15,10 @@ After implementing the new growth system (Phase 5.1), we have a mismatch:
 
 ### 3.5.1 Fix Resource Type System ✅
 **Priority**: CRITICAL
-- [ ] Add `ResourceType::Berries` to resource_types.rs
-- [ ] Update berry bushes to produce Berries, not Food
-- [ ] Ensure eating system consumes Berries
-- [ ] Update inventory to handle new resource types
+- [x] Created generic PlantGrowth system (Fruit, Vegetable, Grain, etc.)
+- [x] PlantProduce component for specific names (Apple, Carrot, Wheat)
+- [x] Updated eating system to use generic Food type
+- [ ] Integrate PlantProduce with inventory system
 
 ### 3.5.2 Connect Work to Resource Depletion
 **Priority**: CRITICAL  
