@@ -435,7 +435,7 @@ fn broadcast_game_state(
             &crate::components::EnergyComponent,
             &crate::TileEntity,
         ),
-        With<crate::components::WorkerTag>,
+        With<crate::components::UnitTag>,
     >,
 ) {
     let mut entities = Vec::new();
