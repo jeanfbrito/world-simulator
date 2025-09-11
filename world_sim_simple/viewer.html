@@ -306,6 +306,8 @@
         let ws = null;
         let mapData = [];
         let entities = [];
+        let previousEntityPositions = {}; // Track previous positions for movement detection
+        let entityMovementStates = {}; // Track movement state over time to prevent flickering
         let zoom = 1;
         let offsetX = 0;
         let offsetY = 0;
@@ -497,7 +499,11 @@
             
             // Third pass: Draw entities (units, etc.) on top
             ctx.font = `${TILE_SIZE - 1}px Arial`;
-            entities.forEach(entity => {
+            
+            // Sort entities by y position to ensure proper layering (higher y rendered last)
+            const sortedEntities = [...entities].sort((a, b) => a.y - b.y);
+            
+            sortedEntities.forEach((entity, index) => {
                 const x = entity.x * TILE_SIZE + TILE_SIZE / 2 + offsetX;
                 const y = entity.y * TILE_SIZE + TILE_SIZE / 2 + offsetY;
                 
@@ -506,7 +512,54 @@
                     case 'Unit':
                     case 'unit':
                     case 'worker':
-                        emoji = '👤';
+                        // Initialize movement state if not exists
+                        if (!entityMovementStates[entity.id]) {
+                            entityMovementStates[entity.id] = {
+                                state: 'standing',
+                                counter: 0
+                            };
+                        }
+                        
+                        // Check if the entity is moving by comparing with previous position
+                        const prevPos = previousEntityPositions[entity.id];
+                        let isMoving = false;
+                        
+                        if (prevPos) {
+                            isMoving = (entity.x !== prevPos.x || entity.y !== prevPos.y);
+                        }
+                        
+                        // Update movement state with smoothing to prevent flickering
+                        const moveState = entityMovementStates[entity.id];
+                        if (isMoving) {
+                            if (moveState.state === 'standing') {
+                                moveState.counter++;
+                                if (moveState.counter >= 2) { // Need 2 frames of movement to switch
+                                    moveState.state = 'walking';
+                                    moveState.counter = 0;
+                                }
+                            } else {
+                                moveState.counter = 0; // Reset counter while walking
+                            }
+                        } else {
+                            if (moveState.state === 'walking') {
+                                moveState.counter++;
+                                if (moveState.counter >= 3) { // Need 3 frames of stillness to switch
+                                    moveState.state = 'standing';
+                                    moveState.counter = 0;
+                                }
+                            } else {
+                                moveState.counter = 0; // Reset counter while standing
+                            }
+                        }
+                        
+                        // Set emoji based on smoothed state
+                        emoji = moveState.state === 'walking' ? '🚶' : '🧍';
+                        
+                        // Update previous position
+                        previousEntityPositions[entity.id] = { x: entity.x, y: entity.y };
+                        
+                        // Add slight offset for overlapping entities
+                        const overlapOffset = index * 2;
                         break;
                     case 'Tree':
                     case 'tree':
@@ -523,14 +576,34 @@
                 }
                 
                 if (emoji) {
-                    // Add a subtle shadow for entities to stand out
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                    ctx.shadowBlur = 2;
-                    ctx.shadowOffsetX = 1;
-                    ctx.shadowOffsetY = 1;
-                    ctx.fillStyle = 'black';
-                    ctx.fillText(emoji, x, y);
-                    ctx.shadowBlur = 0;
+                    // Check if coordinates are valid
+                    if (x >= 0 && x <= canvas.width && y >= 0 && y <= canvas.height) {
+                        // Add a subtle shadow for entities to stand out
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                        ctx.shadowBlur = 3;
+                        ctx.shadowOffsetX = 1;
+                        ctx.shadowOffsetY = 1;
+                        
+                        // For overlapping entities at same position, add small offset
+                        let drawX = x;
+                        let drawY = y;
+                        
+                        // Check for other entities at same position
+                        const samePositionEntities = sortedEntities.filter(e => 
+                            e.x === entity.x && e.y === entity.y && e.entity_type === entity.entity_type
+                        );
+                        
+                        if (samePositionEntities.length > 1) {
+                            const entityIndex = samePositionEntities.indexOf(entity);
+                            // Offset overlapping entities slightly
+                            drawX += (entityIndex - (samePositionEntities.length - 1) / 2) * 4;
+                            drawY += (entityIndex % 2) * 2;
+                        }
+                        
+                        ctx.fillStyle = 'black';
+                        ctx.fillText(emoji, drawX, drawY);
+                        ctx.shadowBlur = 0;
+                    }
                 }
             });
         }
