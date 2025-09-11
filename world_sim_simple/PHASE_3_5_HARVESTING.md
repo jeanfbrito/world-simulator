@@ -27,19 +27,22 @@ After implementing the new growth system (Phase 5.1), we have a mismatch:
 - [x] Only add to inventory if resource successfully depleted
 - [x] Handle partial depletion when resource has less than requested
 
-### 3.5.3 Integrate GrowingResource with Work System
+### 3.5.3 Integrate GrowingResource with Work System ✅
 **Priority**: HIGH
-- [ ] Work system checks `harvestable_amount` not just `current_amount`
-- [ ] Different work times for different growth stages
-- [ ] Can't harvest saplings (trees) or unripe fruit
-- [ ] Harvesting triggers proper depletion behavior
+- [x] Work system checks `harvestable_amount` not just `current_amount`
+- [x] Different work times for different growth stages
+- [x] Can't harvest saplings (trees) or unripe fruit
+- [x] Harvesting triggers proper depletion behavior
 
-### 3.5.4 GOAP Integration
-**Priority**: HIGH
-- [ ] Fix harvest_resource action preconditions
-- [ ] Add "near_berry_bush" and "near_ripe_fruit" world states
-- [ ] Update pathfinding to find harvestable resources
-- [ ] Prioritize food gathering when hungry
+### 3.5.4 GOAP Integration 🚧
+**Priority**: CRITICAL - IN PROGRESS
+- [x] Fix harvest_resource action preconditions
+- [x] Add "near_berry_bush" and "near_ripe_fruit" world states
+- [x] Update pathfinding to find harvestable resources
+- [x] Prioritize food gathering when hungry
+- [ ] **BUG**: GOAP plans complete before work is done
+- [ ] **FIX NEEDED**: gather_food action should wait for WorkProgress to complete
+- [ ] **ISSUE**: Task executor runs but peasants never reach berries (movement issue?)
 
 ### 3.5.5 Testing & Validation
 **Priority**: MEDIUM
