@@ -172,19 +172,30 @@ pub fn task_execution_system(
                             ),
                         );
                         // Move towards berries (tick-based)
-                        if tick_move_towards(
+                        let reached = tick_move_towards(
                             &mut transform,
                             &mut tile_entity,
                             &mut worker_pos,
                             &berry_pos,
                             &mut tiles_walked,
                             &debug,
-                        ) {
+                        );
+                        
+                        println!("   Movement to berry: worker at ({:.1}, {:.1}), target ({:.1}, {:.1}), reached: {}", 
+                            worker_pos.x, worker_pos.y, berry_pos.x, berry_pos.y, reached);
+                        
+                        if reached {
                             // Reached berries - start gathering work
                             println!("🍓 {} reached berry bush! Starting work...", name.name);
 
                             // Get the existing WorkProgress component and update it
-                            if let Ok(mut work_progress) = work_progress_query.get_mut(entity) {
+                            let work_progress_result = work_progress_query.get_mut(entity);
+                            println!("   WorkProgress query result: {:?}", work_progress_result.is_ok());
+                            
+                            if let Ok(mut work_progress) = work_progress_result {
+                                println!("   Current work state - is_working: {}, progress: {}/{}", 
+                                    work_progress.is_working, work_progress.progress_counter, work_progress.required_ticks);
+                                    
                                 work_progress.start_work(
                                     WorkType::Gathering(ResourceWork {
                                         resource_type: ResourceType::Berries,
@@ -194,7 +205,8 @@ pub fn task_execution_system(
                                     30, // 3 seconds at 10 TPS
                                     Some(berry_entity),
                                 );
-                                println!("   ✅ Work started on existing WorkProgress component");
+                                println!("   ✅ Work started! Now is_working: {}, required: {} ticks", 
+                                    work_progress.is_working, work_progress.required_ticks);
                             } else {
                                 // Create new if somehow missing
                                 println!("   ⚠️ No WorkProgress component, creating new one");
