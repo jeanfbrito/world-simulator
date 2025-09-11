@@ -467,6 +467,14 @@ fn broadcast_game_state(
         ),
         With<crate::components::UnitTag>,
     >,
+    berry_bushes: Query<
+        (&crate::TileEntity, &crate::components::ResourceNode),
+        With<crate::ai::BerryBushTag>,
+    >,
+    trees: Query<
+        &crate::TileEntity,
+        With<crate::ai::TreeTag>,
+    >,
 ) {
     let mut entities = Vec::new();
 
@@ -482,6 +490,31 @@ fn broadcast_game_state(
             x: tile.x,
             y: tile.y,
             data,
+        });
+    }
+    
+    // Add berry bushes to entities
+    for (tile, resource) in berry_bushes.iter() {
+        let mut data = HashMap::new();
+        data.insert("amount".to_string(), serde_json::json!(resource.amount));
+        data.insert("max_amount".to_string(), serde_json::json!(resource.max_amount));
+        entities.push(EntityData {
+            id: format!("berry_{}_{}", tile.x, tile.y),
+            entity_type: "berry".to_string(),
+            x: tile.x,
+            y: tile.y,
+            data,
+        });
+    }
+    
+    // Add trees to entities
+    for tile in trees.iter() {
+        entities.push(EntityData {
+            id: format!("tree_{}_{}", tile.x, tile.y),
+            entity_type: "tree".to_string(),
+            x: tile.x,
+            y: tile.y,
+            data: HashMap::new(),
         });
     }
 
