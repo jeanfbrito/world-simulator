@@ -33,21 +33,45 @@ pub fn tick_work_system(
 
     // Only process on ticks
     if !sim_state.just_ticked {
+        // Debug: log occasionally to verify system is being called
+        static mut DEBUG_COUNTER: u32 = 0;
+        unsafe {
+            DEBUG_COUNTER += 1;
+            if DEBUG_COUNTER % 1000 == 0 {
+                println!("  Work system called {} times but not on tick", DEBUG_COUNTER);
+            }
+        }
         return;
     }
+    
+    println!("✅ Work system ACTIVE on tick {}", sim_state.tick);
 
     // Debug: Count working units
+    let total_units = units.iter().count();
     let working_count = units
         .iter()
         .filter(|(_, work, _, _, _, _, _, _)| work.is_working)
         .count();
+    
+    // Always log to see if system is running
+    println!("⚙️ Tick work system: {}/{} units working, tick {}", 
+        working_count, total_units, sim_state.tick);
+    
     if working_count > 0 {
-        println!("⚙️ Tick work system: {} units working", working_count);
+        println!("  Found working units - processing...");
     }
 
     for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in
         units.iter_mut()
     {
+        // Debug each unit's work state
+        if work.work_type.is_some() || work.is_working {
+            println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{}", 
+                name.name, work.is_working, work.work_type.is_some(), 
+                work.progress_counter, work.required_ticks);
+        }
+        
+        // Skip if not working
         if !work.is_working {
             continue;
         }

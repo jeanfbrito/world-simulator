@@ -142,6 +142,23 @@ impl GoapPlanner {
                 debug.log(DebugLevel::Info, "GOAP_DEBUG", "Checking action validity:");
                 for action in &action_set.actions {
                     let is_valid = action.is_valid(&current_node.state);
+                    
+                    // Extra debug for harvest_resource
+                    if action.name == "harvest_resource" && !is_valid {
+                        let at_resource = current_node.state.get("at_resource")
+                            .map(|v| format!("{:?}", v))
+                            .unwrap_or_else(|| "missing".to_string());
+                        let inventory_full = current_node.state.get("inventory_full")
+                            .map(|v| format!("{:?}", v))
+                            .unwrap_or_else(|| "missing".to_string());
+                        debug.log(
+                            DebugLevel::Info,
+                            "GOAP_DEBUG",
+                            &format!("    harvest_resource failed: at_resource={}, inventory_full={}", 
+                                at_resource, inventory_full),
+                        );
+                    }
+                    
                     debug.log(
                         DebugLevel::Info,
                         "GOAP_DEBUG",

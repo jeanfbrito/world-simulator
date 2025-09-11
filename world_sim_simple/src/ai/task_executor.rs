@@ -138,6 +138,75 @@ pub fn task_execution_system(
                     }
                 }
 
+                "move_to_resource" => {
+                    // Move to nearest berry bush for harvesting
+                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos) {
+                        // Move towards berry bush (tick-based)
+                        if tick_move_towards(
+                            &mut transform,
+                            &mut tile_entity,
+                            &mut worker_pos,
+                            &berry_pos,
+                            &mut tiles_walked,
+                            &debug,
+                        ) {
+                            debug.log(
+                                DebugLevel::Info,
+                                "TASK_EXEC",
+                                "Worker reached resource (berry bush)",
+                            );
+                            // Mark as complete so next action can harvest
+                            plan.advance();
+                        }
+                    } else {
+                        debug.log(
+                            DebugLevel::Info,
+                            "TASK_EXEC",
+                            "No berry bushes found for move_to_resource",
+                        );
+                        // Complete anyway to avoid getting stuck
+                        plan.advance();
+                    }
+                }
+
+                "harvest_resource" => {
+                    // We should be at a berry bush now, harvest it
+                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos) {
+                        let distance = worker_pos.distance_squared(&berry_pos).sqrt();
+                        if distance <= 2.0 {
+                            // Close enough to harvest
+                            debug.log(
+                                DebugLevel::Info,
+                                "TASK_EXEC",
+                                "Harvesting berries from bush",
+                            );
+                            
+                            // Add wood to simulate harvesting (should be berries but using wood for now)
+                            has_wood.0 += 5;
+                            
+                            // Mark action complete
+                            plan.advance();
+                        } else {
+                            // Not close enough, move closer
+                            tick_move_towards(
+                                &mut transform,
+                                &mut tile_entity,
+                                &mut worker_pos,
+                                &berry_pos,
+                                &mut tiles_walked,
+                                &debug,
+                            );
+                        }
+                    } else {
+                        debug.log(
+                            DebugLevel::Info,
+                            "TASK_EXEC",
+                            "No berry bushes found for harvesting",
+                        );
+                        plan.advance();
+                    }
+                }
+
                 "gather_food" => {
                     // Check if work is already in progress
                     if let Ok(work_progress) = work_progress_query.get(entity) {

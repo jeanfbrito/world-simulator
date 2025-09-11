@@ -31,6 +31,8 @@ pub fn sync_goap_states_system(
     unit_inventories: Query<&UnitInventory>,
     mut world_states: Query<&mut WorldState>,
     buildings: Query<(&BuildingComponent, &PositionComponent)>,
+    berry_bushes: Query<&PositionComponent, With<crate::ai::BerryBushTag>>,
+    trees: Query<&PositionComponent, With<crate::ai::TreeTag>>,
     debug_system: Res<DebugSystem>,
     mut settlement_state: ResMut<SettlementState>,
 ) {
@@ -228,10 +230,30 @@ pub fn sync_goap_states_system(
 
         // Check location states
         let near_distance = 2.0;
-        let at_resource = false;
+        let mut at_resource = false;
         let mut at_storage = false;
         let mut at_home = false;
         let mut at_crafting = false;
+
+        // Check if near berry bushes or trees (resources)
+        for bush_pos in berry_bushes.iter() {
+            let dist = ((pos.x - bush_pos.x).powi(2) + (pos.y - bush_pos.y).powi(2)).sqrt();
+            if dist <= near_distance {
+                at_resource = true;
+                break;
+            }
+        }
+        
+        // Also check trees if not already at resource
+        if !at_resource {
+            for tree_pos in trees.iter() {
+                let dist = ((pos.x - tree_pos.x).powi(2) + (pos.y - tree_pos.y).powi(2)).sqrt();
+                if dist <= near_distance {
+                    at_resource = true;
+                    break;
+                }
+            }
+        }
 
         for (building, bpos) in buildings.iter() {
             let dist = ((pos.x - bpos.x).powi(2) + (pos.y - bpos.y).powi(2)).sqrt();

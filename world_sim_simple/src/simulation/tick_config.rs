@@ -162,10 +162,16 @@ impl TickAccumulator {
         ticks
     }
 
-    pub fn set_speed(&mut self, speed: SimulationSpeed) {
-        self.speed = speed;
-        // Reset accumulator when changing speed to prevent jumps
-        self.accumulated = 0.0;
+    pub fn set_speed(&mut self, speed: SimulationSpeed) -> Option<(SimulationSpeed, SimulationSpeed)> {
+        if self.speed != speed {
+            let old_speed = self.speed;
+            self.speed = speed;
+            // Reset accumulator when changing speed to prevent jumps
+            self.accumulated = 0.0;
+            Some((old_speed, speed))
+        } else {
+            None
+        }
     }
 
     pub fn get_speed(&self) -> SimulationSpeed {

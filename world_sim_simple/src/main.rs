@@ -94,6 +94,7 @@ fn main() {
             simulation_system,
             ai_monitor::simple_ai_monitor_system,
         ))
+        .add_systems(PostUpdate, reset_tick_flag_system)
         .run();
 }
 
@@ -444,15 +445,13 @@ fn setup(mut commands: Commands) {
 fn simulation_system(
     time: Res<Time>,
     mut sim_state: ResMut<SimulationState>,
+    mut tick_events: EventWriter<simulation::SimulationTickEvent>,
     workers: Query<(&mut Transform, &mut TileEntity), With<UnitTag>>,
     world_map: Res<WorldMap>,
 ) {
     if !sim_state.running {
         return;
     }
-
-    // Reset the just_ticked flag at the beginning of each frame
-    sim_state.just_ticked = false;
 
     let delta = time.delta_secs();
     sim_state.accumulated_time += delta * sim_state.speed;
@@ -471,16 +470,27 @@ fn simulation_system(
     if sim_state.accumulated_time >= TICK_RATE {
         sim_state.accumulated_time -= TICK_RATE; // Use subtraction to keep remainder
         sim_state.tick += 1;
-        sim_state.just_ticked = true; // Set the flag when a tick occurs
+        sim_state.just_ticked = true; // Keep for compatibility
+        
+        // Send tick event
+        tick_events.write(simulation::SimulationTickEvent { tick: sim_state.tick as u64 });
 
         // Log tick for easy reading
         println!(
             "{}",
-            format!("\n=== TICK {} === (just_ticked = true)", sim_state.tick).bright_blue()
+            format!("\n=== TICK {} ===", sim_state.tick).bright_blue()
         );
 
         // Movement is now handled by the AI task execution system
         // Workers will move according to their GOAP plans
+    }
+}
+
+// System to reset the tick flag at the end of the frame
+fn reset_tick_flag_system(mut sim_state: ResMut<SimulationState>) {
+    // Reset the flag after all systems have had a chance to check it
+    if sim_state.just_ticked {
+        sim_state.just_ticked = false;
     }
 }
 
