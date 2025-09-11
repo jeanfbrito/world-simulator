@@ -2,6 +2,7 @@ use crate::components::{
     GridPosition, NameComponent, QueuedWork, ResourceWork, UnitInventory, UnitNeedsV2, UnitTag,
     WorkProgress, WorkQueue, WorkSpeed, WorkType,
 };
+use crate::simulation::TickEvent;
 use crate::SimulationState;
 /// Tick-based work execution system
 ///
@@ -12,7 +13,7 @@ use colored::Colorize;
 
 /// Main work execution system that runs on ticks
 pub fn tick_work_system(
-    sim_state: Res<SimulationState>,
+    mut tick_reader: EventReader<TickEvent>,
     mut units: Query<
         (
             Entity,
@@ -31,141 +32,131 @@ pub fn tick_work_system(
 ) {
     use crate::debug::DebugLevel;
 
-    // Only process on ticks
-    if !sim_state.just_ticked {
-        // Debug: log occasionally to verify system is being called
-        static mut DEBUG_COUNTER: u32 = 0;
-        unsafe {
-            DEBUG_COUNTER += 1;
-            if DEBUG_COUNTER % 1000 == 0 {
-                println!("  Work system called {} times but not on tick", DEBUG_COUNTER);
-            }
-        }
-        return;
-    }
-    
-    println!("✅ Work system ACTIVE on tick {}", sim_state.tick);
+    // Process each tick event
+    for tick_event in tick_reader.read() {
+        println!("✅ Work system ACTIVE on tick {}", tick_event.tick);
 
-    // Debug: Count working units
-    let total_units = units.iter().count();
+        // Debug: Count working units
+        let total_units = units.iter().count();
     let working_count = units
         .iter()
         .filter(|(_, work, _, _, _, _, _, _)| work.is_working)
         .count();
     
-    // Always log to see if system is running
-    println!("⚙️ Tick work system: {}/{} units working, tick {}", 
-        working_count, total_units, sim_state.tick);
-    
-    if working_count > 0 {
-        println!("  Found working units - processing...");
-    }
-
-    for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in
-        units.iter_mut()
-    {
-        // Debug each unit's work state
-        if work.work_type.is_some() || work.is_working {
-            println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{}", 
-                name.name, work.is_working, work.work_type.is_some(), 
-                work.progress_counter, work.required_ticks);
-        }
+        // Always log to see if system is running
+        println!("⚙️ Tick work system: {}/{} units working, tick {}", 
+            working_count, total_units, tick_event.tick);
         
-        // Skip if not working
-        if !work.is_working {
-            continue;
+        if working_count > 0 {
+            println!("  Found working units - processing...");
         }
 
-        // Consume energy while working
-        needs.tick_update(); // Additional energy loss while working
+        for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in
+            units.iter_mut()
+        {
+            // Debug each unit's work state
+            if work.work_type.is_some() || work.is_working {
+                println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{}", 
+                    name.name, work.is_working, work.work_type.is_some(), 
+                    work.progress_counter, work.required_ticks);
+            }
+            
+            // Skip if not working
+            if !work.is_working {
+                continue;
+            }
 
-        // Update work progress
-        let completed = work.tick_update();
+            // Consume energy while working
+            needs.tick_update(); // Additional energy loss while working
 
-        // Debug log work progress
-        if work.progress_counter % 10 == 0 && work.progress_counter > 0 {
-            debug.log(
-                DebugLevel::Debug,
-                "WORK",
-                &format!(
-                    "{} working: {}/{} ticks",
-                    name.name, work.progress_counter, work.required_ticks
-                ),
-            );
-        }
+            // Update work progress
+            let completed = work.tick_update();
 
-        if completed {
-            println!(
-                "🔨 {} work completed! Type: {:?}, Target: {:?}",
-                name.name.cyan(),
-                work.work_type,
-                work.target_entity
-            );
-
-            // Handle work completion based on type
-            if let Some(work_type) = &work.work_type {
-                handle_work_completion(
-                    work_type,
-                    &mut inventory,
-                    &mut needs,
-                    position,
-                    name,
-                    work.target_entity,
-                    &mut resources,
-                    &debug,
-                );
-            } else {
-                println!(
-                    "⚠️ {} work completed but NO WORK TYPE SET!",
-                    name.name.yellow()
+            // Debug log work progress
+            if work.progress_counter % 10 == 0 && work.progress_counter > 0 {
+                debug.log(
+                    DebugLevel::Debug,
+                    "WORK",
+                    &format!(
+                        "{} working: {}/{} ticks",
+                        name.name, work.progress_counter, work.required_ticks
+                    ),
                 );
             }
 
-            let work_type_str = work
-                .work_type
-                .as_ref()
-                .map(|w| format!("{:?}", w))
-                .unwrap_or_else(|| "work (no type)".to_string());
+            if completed {
+                println!(
+                    "🔨 {} work completed! Type: {:?}, Target: {:?}",
+                    name.name.cyan(),
+                    work.work_type,
+                    work.target_entity
+                );
 
-            println!(
-                "{} {} completed {}",
-                "✅".green(),
-                name.name.cyan(),
-                work_type_str
-            );
+                // Handle work completion based on type
+                if let Some(work_type) = &work.work_type {
+                    handle_work_completion(
+                        work_type,
+                        &mut inventory,
+                        &mut needs,
+                        position,
+                        name,
+                        work.target_entity,
+                        &mut resources,
+                        &debug,
+                    );
+                } else {
+                    println!(
+                        "⚠️ {} work completed but NO WORK TYPE SET!",
+                        name.name.yellow()
+                    );
+                }
 
-            debug.log(
-                DebugLevel::Info,
-                "WORK_DEBUG",
-                &format!(
-                    "Work completed - Type: {}, Target: {:?}",
-                    work_type_str, work.target_entity
-                ),
-            );
+                let work_type_str = work
+                    .work_type
+                    .as_ref()
+                    .map(|w| format!("{:?}", w))
+                    .unwrap_or_else(|| "work (no type)".to_string());
 
-            debug.log(
-                DebugLevel::Info,
-                "WORK",
-                &format!(
-                    "{} completed work at ({},{})",
-                    name.name, position.x, position.y
-                ),
-            );
+                println!(
+                    "{} {} completed {}",
+                    "✅".green(),
+                    name.name.cyan(),
+                    work_type_str
+                );
 
-            // NOW clear the work after we've handled it
-            work.complete_work();
+                debug.log(
+                    DebugLevel::Info,
+                    "WORK_DEBUG",
+                    &format!(
+                        "Work completed - Type: {}, Target: {:?}",
+                        work_type_str, work.target_entity
+                    ),
+                );
 
-            // Advance GOAP plan when work completes
-            if let Some(mut action_plan) = plan {
-                action_plan.advance();
                 debug.log(
                     DebugLevel::Info,
                     "WORK",
-                    "Advanced GOAP plan to next action",
+                    &format!(
+                        "{} completed work at ({},{})",
+                        name.name, position.x, position.y
+                    ),
                 );
+
+                // NOW clear the work after we've handled it
+                work.complete_work();
+
+                // Advance GOAP plan when work completes
+                if let Some(mut action_plan) = plan {
+                    action_plan.advance();
+                    debug.log(
+                        DebugLevel::Info,
+                        "WORK",
+                        "Advanced GOAP plan to next action",
+                    );
+                }
             }
         }
-    }
+    } // End of tick event loop
 }
 
 /// Handle work completion effects
@@ -333,7 +324,7 @@ fn handle_work_completion(
 
 /// System to assign work from queues
 pub fn work_assignment_system(
-    sim_state: Res<SimulationState>,
+    mut tick_reader: EventReader<TickEvent>,
     mut units: Query<
         (
             Entity,
@@ -348,34 +339,32 @@ pub fn work_assignment_system(
 ) {
     use crate::debug::DebugLevel;
 
-    // Only process on ticks
-    if !sim_state.just_ticked {
-        return;
-    }
+    // Process each tick event
+    for _tick_event in tick_reader.read() {
+        for (_entity, mut work, mut queue, speed, name) in units.iter_mut() {
+            // Skip if already working
+            if work.is_working {
+                continue;
+            }
 
-    for (_entity, mut work, mut queue, speed, name) in units.iter_mut() {
-        // Skip if already working
-        if work.is_working {
-            continue;
-        }
+            // Get next work from queue
+            if let Some(queued) = queue.dequeue() {
+                let ticks = speed.get_ticks_for(&queued.work_type);
+                work.start_work(queued.work_type.clone(), ticks, queued.target_entity);
 
-        // Get next work from queue
-        if let Some(queued) = queue.dequeue() {
-            let ticks = speed.get_ticks_for(&queued.work_type);
-            work.start_work(queued.work_type.clone(), ticks, queued.target_entity);
-
-            debug.log(
-                DebugLevel::Info,
-                "WORK",
-                &format!("{} started {:?} ({}t)", name.name, queued.work_type, ticks),
-            );
+                debug.log(
+                    DebugLevel::Info,
+                    "WORK",
+                    &format!("{} started {:?} ({}t)", name.name, queued.work_type, ticks),
+                );
+            }
         }
     }
 }
 
 /// System to queue gathering work when near resources
 pub fn auto_gather_system(
-    sim_state: Res<SimulationState>,
+    mut tick_reader: EventReader<TickEvent>,
     mut units: Query<
         (
             Entity,
@@ -391,49 +380,52 @@ pub fn auto_gather_system(
 ) {
     use crate::debug::DebugLevel;
 
-    // Only process every 10 ticks
-    if !sim_state.just_ticked || sim_state.tick % 10 != 0 {
-        return;
-    }
-
-    for (_unit_entity, unit_pos, mut queue, inventory, name) in units.iter_mut() {
-        // Skip if inventory is full
-        if inventory.is_full() {
+    // Process each tick event
+    for tick_event in tick_reader.read() {
+        // Only process every 10 ticks
+        if tick_event.tick % 10 != 0 {
             continue;
         }
 
-        // Skip if queue is full
-        if !queue.is_empty() {
-            continue;
-        }
+        for (_unit_entity, unit_pos, mut queue, inventory, name) in units.iter_mut() {
+            // Skip if inventory is full
+            if inventory.is_full() {
+                continue;
+            }
 
-        // Check for nearby resources
-        for (resource_entity, resource_pos, resource_node) in resources.iter() {
-            if unit_pos.distance_to(resource_pos) <= 1 {
-                // Adjacent to resource, queue gathering work
-                let work = QueuedWork {
-                    work_type: WorkType::Gathering(ResourceWork {
-                        resource_type: resource_node.resource_type,
-                        amount: resource_node.yield_amount,
-                        tool_bonus: 1.0,
-                    }),
-                    required_ticks: 10,
-                    target_entity: Some(resource_entity),
-                    priority: 5,
-                };
+            // Skip if queue is full
+            if !queue.is_empty() {
+                continue;
+            }
 
-                if queue.enqueue(work) {
-                    debug.log(
-                        DebugLevel::Debug,
-                        "WORK",
-                        &format!(
-                            "{} queued gathering {:?}",
-                            name.name, resource_node.resource_type
-                        ),
-                    );
+            // Check for nearby resources
+            for (resource_entity, resource_pos, resource_node) in resources.iter() {
+                if unit_pos.distance_to(resource_pos) <= 1 {
+                    // Adjacent to resource, queue gathering work
+                    let work = QueuedWork {
+                        work_type: WorkType::Gathering(ResourceWork {
+                            resource_type: resource_node.resource_type,
+                            amount: resource_node.yield_amount,
+                            tool_bonus: 1.0,
+                        }),
+                        required_ticks: 10,
+                        target_entity: Some(resource_entity),
+                        priority: 5,
+                    };
+
+                    if queue.enqueue(work) {
+                        debug.log(
+                            DebugLevel::Debug,
+                            "WORK",
+                            &format!(
+                                "{} queued gathering {:?}",
+                                name.name, resource_node.resource_type
+                            ),
+                        );
+                    }
+
+                    break; // Only queue one resource at a time
                 }
-
-                break; // Only queue one resource at a time
             }
         }
     }
@@ -441,7 +433,7 @@ pub fn auto_gather_system(
 
 /// System to update work effects (exhaustion, skill gain, etc.)
 pub fn work_effects_system(
-    sim_state: Res<SimulationState>,
+    mut tick_reader: EventReader<TickEvent>,
     mut units: Query<
         (
             &WorkProgress,
@@ -455,33 +447,31 @@ pub fn work_effects_system(
 ) {
     use crate::debug::DebugLevel;
 
-    // Only process on ticks
-    if !sim_state.just_ticked {
-        return;
-    }
+    // Process each tick event
+    for tick_event in tick_reader.read() {
+        for (work, _needs, mut speed, name) in units.iter_mut() {
+            if !work.is_working {
+                continue;
+            }
 
-    for (work, _needs, mut speed, name) in units.iter_mut() {
-        if !work.is_working {
-            continue;
-        }
+            // Working increases hunger faster
+            // This is in addition to normal tick_update
+            // (handled in main work system)
 
-        // Working increases hunger faster
-        // This is in addition to normal tick_update
-        // (handled in main work system)
+            // Gain experience (simplified)
+            if tick_event.tick % 100 == 0 && work.progress() > 0.5 {
+                speed.global_modifier = (speed.global_modifier + 0.01).min(2.0);
 
-        // Gain experience (simplified)
-        if sim_state.tick % 100 == 0 && work.progress() > 0.5 {
-            speed.global_modifier = (speed.global_modifier + 0.01).min(2.0);
-
-            debug.log(
-                DebugLevel::Debug,
-                "SKILL",
-                &format!(
-                    "{} work speed improved to {:.0}%",
-                    name.name,
-                    speed.global_modifier * 100.0
-                ),
-            );
+                debug.log(
+                    DebugLevel::Debug,
+                    "SKILL",
+                    &format!(
+                        "{} work speed improved to {:.0}%",
+                        name.name,
+                        speed.global_modifier * 100.0
+                    ),
+                );
+            }
         }
     }
 }
@@ -504,29 +494,32 @@ pub fn add_work_components_system(
 
 /// Performance monitoring for work systems
 pub fn work_performance_monitor_system(
-    sim_state: Res<SimulationState>,
+    mut tick_reader: EventReader<TickEvent>,
     working_units: Query<&WorkProgress, With<UnitTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
 
-    // Only check every 100 ticks
-    if !sim_state.just_ticked || sim_state.tick % 100 != 0 {
-        return;
+    // Process each tick event
+    for tick_event in tick_reader.read() {
+        // Only check every 100 ticks
+        if tick_event.tick % 100 != 0 {
+            continue;
+        }
+
+        let total = working_units.iter().count();
+        let working = working_units.iter().filter(|w| w.is_working).count();
+        let idle = total - working;
+
+        debug.log(
+            DebugLevel::Debug,
+            "PERFORMANCE",
+            &format!(
+                "Work system: {} working, {} idle ({}% utilization)",
+                working,
+                idle,
+                (working * 100) / total.max(1)
+            ),
+        );
     }
-
-    let total = working_units.iter().count();
-    let working = working_units.iter().filter(|w| w.is_working).count();
-    let idle = total - working;
-
-    debug.log(
-        DebugLevel::Debug,
-        "PERFORMANCE",
-        &format!(
-            "Work system: {} working, {} idle ({}% utilization)",
-            working,
-            idle,
-            (working * 100) / total.max(1)
-        ),
-    );
 }

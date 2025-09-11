@@ -66,7 +66,7 @@ fn main() {
         })) // Use DefaultPlugins for proper time support but disable window
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
-        // .add_plugins(TickSimulationPlugin) // Temporarily disabled - may conflict
+        .add_plugins(simulation::TickSimulationPlugin) // Enable the new tick event system
         // .add_plugins(WebSocketPlugin) // Disabled - blocking startup
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
@@ -91,10 +91,10 @@ fn main() {
         // Removed UI systems for headless operation
         .add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
-            simulation_system,
+            // simulation_system, // Disabled - using new TickSimulationPlugin
             ai_monitor::simple_ai_monitor_system,
         ))
-        .add_systems(PostUpdate, reset_tick_flag_system)
+        // .add_systems(PostUpdate, reset_tick_flag_system) // Not needed with new tick system
         .run();
 }
 

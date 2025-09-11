@@ -64,8 +64,18 @@ pub struct SimulationTickState {
 }
 
 /// System that updates the tick accumulator each frame
-fn tick_accumulator_system(time: Res<Time>, mut accumulator: ResMut<TickAccumulator>) {
-    accumulator.update(time.delta_secs());
+fn tick_accumulator_system(
+    time: Res<Time>,
+    mut accumulator: ResMut<TickAccumulator>,
+    sim_state: Res<crate::SimulationState>,
+) {
+    // Only accumulate time if simulation is running
+    if sim_state.running {
+        accumulator.update(time.delta_secs() * sim_state.speed);
+    } else {
+        // Clear pending ticks if paused
+        accumulator.pending_ticks = 0;
+    }
 }
 
 /// System that runs the appropriate number of simulation ticks
