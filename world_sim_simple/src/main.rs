@@ -455,14 +455,19 @@ fn simulation_system(
     let delta = time.delta_secs();
     sim_state.accumulated_time += delta * sim_state.speed;
 
-    // Debug: Show that the system is running
-    println!(
-        "Simulation system called, delta: {}, accumulated: {}, tick: {}",
-        delta, sim_state.accumulated_time, sim_state.tick
-    );
+    // We want 10 ticks per second, so tick every 0.1 seconds
+    const TICK_RATE: f32 = 0.1; // 10 TPS
 
-    if sim_state.accumulated_time >= 1.0 {
-        sim_state.accumulated_time = 0.0;
+    // Debug: Show that the system is running (only occasionally)
+    if sim_state.tick % 10 == 0 && sim_state.accumulated_time < 0.02 {
+        println!(
+            "Simulation system called, delta: {}, accumulated: {}, tick: {}",
+            delta, sim_state.accumulated_time, sim_state.tick
+        );
+    }
+
+    if sim_state.accumulated_time >= TICK_RATE {
+        sim_state.accumulated_time -= TICK_RATE; // Use subtraction to keep remainder
         sim_state.tick += 1;
         sim_state.just_ticked = true; // Set the flag when a tick occurs
 
