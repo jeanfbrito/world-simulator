@@ -98,47 +98,22 @@ pub fn task_execution_system(
                 "cut_wood" => {
                     // Find nearest tree
                     if let Some((tree_entity, tree_pos)) = find_nearest_tree(&trees, &worker_pos) {
-                        // Set movement target if we have grid components
-                        if let (Some(mut grid_movement), Some(grid_pos)) = (grid_movement.as_mut(), grid_pos.as_ref()) {
-                            let target = GridPosition::new(tree_pos.x.round() as u32, tree_pos.y.round() as u32);
-                            if !grid_movement.is_moving || grid_movement.target != Some(target.clone()) {
-                                grid_movement.set_target(target.clone());
-                                debug.log(
-                                    DebugLevel::Info,
-                                    "TASK_EXEC",
-                                    &format!("Worker moving to tree at ({}, {})", target.x, target.y),
-                                );
-                            }
-                            // Check if reached
-                            if grid_pos.distance_to(&target) <= 1 {
-                                // Reached tree, harvest it
-                                has_wood.0 = has_wood.0.saturating_add(10);
-                                commands.entity(tree_entity).despawn();
-                                debug.log(
-                                    DebugLevel::Info,
-                                    "TASK_EXEC",
-                                    &format!("Worker harvested tree, now has {} wood", has_wood.0),
-                                );
-                                plan.advance();
-                            }
-                        } else {
-                            // Fallback to old movement
-                            if tick_move_towards(
-                                &mut tile_entity,
-                                &mut worker_pos,
-                                &tree_pos,
-                                &mut tiles_walked,
-                                &debug,
-                            ) {
-                                // Reached tree, harvest it
-                                has_wood.0 = has_wood.0.saturating_add(10);
-                                commands.entity(tree_entity).despawn();
-                                debug.log(
-                                    DebugLevel::Info,
-                                    "TASK_EXEC",
-                                    &format!("Worker harvested tree, now has {} wood", has_wood.0),
-                                );
-                            }
+                        // Move towards tree (tick-based)
+                        if tick_move_towards(
+                            &mut tile_entity,
+                            &mut worker_pos,
+                            &tree_pos,
+                            &mut tiles_walked,
+                            &debug,
+                        ) {
+                            // Reached tree, harvest it
+                            has_wood.0 = has_wood.0.saturating_add(10);
+                            commands.entity(tree_entity).despawn();
+                            debug.log(
+                                DebugLevel::Info,
+                                "TASK_EXEC",
+                                &format!("Worker harvested tree, now has {} wood", has_wood.0),
+                            );
                         }
                     }
                 }
@@ -259,41 +234,17 @@ pub fn task_execution_system(
                             berry_pos.x, berry_pos.y, worker_pos.x, worker_pos.y
                         );
                         
-                        // Use grid movement if available
-                        let reached = if let (Some(grid_movement), Some(grid_pos)) = (grid_movement.as_mut(), grid_pos.as_ref()) {
-                            let target = GridPosition::new(berry_pos.x.round() as u32, berry_pos.y.round() as u32);
-                            
-                            // Set movement target if not already moving there
-                            if !grid_movement.is_moving || grid_movement.target != Some(target.clone()) {
-                                // Calculate simple path
-                                let mut path = Vec::new();
-                                let mut current = (**grid_pos).clone();
-                                while current != target {
-                                    current = current.step_toward(&target);
-                                    path.push(current.clone());
-                                }
-                                
-                                if !path.is_empty() {
-                                    grid_movement.set_path(path);
-                                    println!("   Set grid movement path to berry bush");
-                                }
-                            }
-                            
-                            // Check if reached
-                            grid_pos.distance_to(&target) <= 1
-                        } else {
-                            // Fallback to old movement
-                            tick_move_with_pathfinding(
-                                &mut commands,
-                                entity,
-                                &mut tile_entity,
-                                &mut worker_pos,
-                                &berry_pos,
-                                &mut tiles_walked,
-                                &world_map,
-                                &debug,
-                            )
-                        };
+                        // Move towards berries using pathfinding
+                        let reached = tick_move_with_pathfinding(
+                            &mut commands,
+                            entity,
+                            &mut tile_entity,
+                            &mut worker_pos,
+                            &berry_pos,
+                            &mut tiles_walked,
+                            &world_map,
+                            &debug,
+                        );
                         
                         println!("   Movement to berry: worker at ({:.1}, {:.1}), target ({:.1}, {:.1}), reached: {}", 
                             worker_pos.x, worker_pos.y, berry_pos.x, berry_pos.y, reached);
@@ -552,8 +503,6 @@ fn tick_move_with_pathfinding(
 }
 
 /// Tick-based movement towards a target position (simple direct movement)
-/// NOTE: This function now only checks if we're close enough - actual movement
-/// is handled by the grid movement system to avoid conflicts
 fn tick_move_towards(
     tile_entity: &mut TileEntity,
     position_comp: &mut PositionComponent,
@@ -571,33 +520,33 @@ fn tick_move_towards(
     let dy = target_tile_y - current_tile_y;
     let distance = (dx * dx + dy * dy).sqrt();
 
-    // Debug: Log check
-    debug.log(
-        DebugLevel::Debug,
-        "MOVE_CHECK",
-        &format!(
-            "Checking distance from ({:.2}, {:.2}) to ({:.2}, {:.2}): {:.2} tiles",
-            current_tile_x, current_tile_y, target_tile_x, target_tile_y, distance
-        ),
-    );
-
     // Check if we're close enough (within 1 tile)
     if distance < 1.0 {
         debug.log(
             DebugLevel::Debug,
             "MOVE_COMPLETE",
-            &format!("At target ({:.2}, {:.2})", position_comp.x, position_comp.y),
+            &format!("Reached target at ({:.2}, {:.2})", position_comp.x, position_comp.y),
         );
         return true;
     }
 
-    // Movement is handled by grid_movement_system, not here
-    // This avoids conflicts between the two systems
-    debug.log(
-        DebugLevel::Debug,
-        "MOVE_WAITING",
-        &format!("Waiting for grid movement system to move unit (distance: {:.2})", distance),
-    );
+    // Move TILES_PER_TICK tiles towards the target
+    let move_distance = TILES_PER_TICK.min(distance);
+    let move_x = (dx / distance) * move_distance;
+    let move_y = (dy / distance) * move_distance;
+
+    // Update position in tile coordinates
+    position_comp.x += move_x;
+    position_comp.y += move_y;
+
+    // Track tiles walked
+    tiles_walked.add(move_distance);
+
+    // Update tile entity (integer tile position)
+    let new_tile_x = position_comp.x.round() as usize;
+    let new_tile_y = position_comp.y.round() as usize;
+    tile_entity.x = new_tile_x;
+    tile_entity.y = new_tile_y;
 
     false
 }
