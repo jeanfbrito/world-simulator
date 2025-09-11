@@ -309,8 +309,6 @@
         let zoom = 1;
         let offsetX = 0;
         let offsetY = 0;
-        let frameCount = 0;
-        let lastFrameTime = Date.now();
         
         // Initialize map with empty tiles
         for (let y = 0; y < MAP_SIZE; y++) {
@@ -395,21 +393,17 @@
             if (state.tick !== undefined) {
                 document.getElementById('tick-count').textContent = state.tick;
             }
-            
-            render();
         }
         
         function updateTile(x, y, tileType) {
             if (mapData[y] && mapData[y][x] !== undefined) {
                 mapData[y][x] = tileType;
-                render();
             }
         }
         
         function updateEntities(newEntities) {
             entities = newEntities;
             updateStats();
-            render();
         }
         
         function updateStats() {
@@ -539,15 +533,6 @@
                     ctx.shadowBlur = 0;
                 }
             });
-            
-            // Update FPS
-            frameCount++;
-            const now = Date.now();
-            if (now - lastFrameTime >= 1000) {
-                document.getElementById('fps').textContent = frameCount;
-                frameCount = 0;
-                lastFrameTime = now;
-            }
         }
         
         function updateConnectionStatus(connected) {
@@ -610,9 +595,33 @@
             document.getElementById('tooltip').style.display = 'none';
         });
         
-        // Start animation loop
-        function animate() {
-            render();
+        // Start animation loop with FPS limiting and counter
+        let lastTime = 0;
+        let frameCount = 0;
+        let fpsTime = 0;
+        const targetFPS = 30;
+        const frameDelay = 1000 / targetFPS; // ~33ms per frame for 30 FPS
+        
+        function animate(currentTime) {
+            if (!currentTime) currentTime = 0;
+            const deltaTime = currentTime - lastTime;
+            
+            // Only render if enough time has passed for target FPS
+            if (deltaTime >= frameDelay) {
+                lastTime = currentTime - (deltaTime % frameDelay);
+                
+                // Update FPS counter
+                frameCount++;
+                if (currentTime - fpsTime >= 1000) {
+                    document.getElementById('fps').textContent = frameCount;
+                    frameCount = 0;
+                    fpsTime = currentTime;
+                }
+                
+                // Render the map
+                render();
+            }
+            
             requestAnimationFrame(animate);
         }
         
