@@ -1,5 +1,6 @@
 use crate::components::{
-    MovementEffects, MovementSpeed, NameComponent, UnitInventory, UnitNeedsV2, UnitTag,
+    GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, 
+    PositionComponent, UnitInventory, UnitNeedsV2, UnitTag,
 };
 use crate::SimulationState;
 /// System to update movement effects based on unit status
@@ -72,14 +73,34 @@ pub fn update_movement_effects_system(
 /// System to add movement components to units that don't have them
 pub fn add_movement_components_system(
     mut commands: Commands,
-    query: Query<Entity, (With<UnitTag>, Without<MovementSpeed>)>,
+    missing_movement: Query<(Entity, Option<&PositionComponent>), (With<UnitTag>, Without<MovementSpeed>)>,
+    missing_grid: Query<(Entity, Option<&PositionComponent>), (With<UnitTag>, Without<GridPosition>)>,
 ) {
-    for entity in query.iter() {
+    // Add MovementSpeed and MovementEffects
+    for (entity, pos) in missing_movement.iter() {
         commands
             .entity(entity)
             .insert((MovementSpeed::default(), MovementEffects::default()));
 
         println!("Added movement components to entity {:?}", entity);
+    }
+    
+    // Add GridPosition and GridMovement
+    for (entity, pos) in missing_grid.iter() {
+        let grid_pos = if let Some(position) = pos {
+            GridPosition::new(
+                position.x.round() as u32, 
+                position.y.round() as u32
+            )
+        } else {
+            GridPosition::new(32, 32) // Default to center
+        };
+        
+        commands
+            .entity(entity)
+            .insert((grid_pos, GridMovement::new()));
+
+        println!("Added grid movement components to entity {:?}", entity);
     }
 }
 
