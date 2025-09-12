@@ -78,6 +78,20 @@ impl GridPosition {
             (self.y as i32 + dy).max(0) as u32,
         )
     }
+    
+    /// Generate a simple path between two positions
+    pub fn path_between(from: &GridPosition, to: &GridPosition) -> Vec<GridPosition> {
+        let mut path = Vec::new();
+        let mut current = from.clone();
+        
+        // Simple straight-line pathfinding
+        while current != *to {
+            current = current.step_toward(to);
+            path.push(current.clone());
+        }
+        
+        path
+    }
 }
 
 /// Visual position for smooth interpolation between grid positions
@@ -151,11 +165,25 @@ impl GridMovement {
         }
     }
 
-    /// Set a new movement target
+    /// Set a new movement target (generates path from current position)
     pub fn set_target(&mut self, target: GridPosition) {
+        // Don't generate path here - we need current position which we don't have
+        // This will be handled by set_target_from
         self.target = Some(target);
         self.is_moving = true;
         self.progress_counter = 0;
+    }
+    
+    /// Set a new movement target with path generation from current position
+    pub fn set_target_from(&mut self, current: &GridPosition, target: GridPosition) {
+        // Generate simple path from current to target
+        let path = GridPosition::path_between(current, &target);
+        if !path.is_empty() {
+            self.set_path(path);
+        } else {
+            // Same position, stop moving
+            self.stop();
+        }
     }
 
     /// Set a path to follow

@@ -16,9 +16,26 @@ pub fn resource_growth_system(
     }
 
     for (entity, mut growing, resource_node) in resources.iter_mut() {
+        // First sync FROM ResourceNode if it has been modified (e.g., by gathering)
+        if let Some(node) = &resource_node {
+            if node.amount < growing.harvestable_amount {
+                // ResourceNode was depleted by external system (e.g., food_gathering)
+                let harvested = growing.harvestable_amount - node.amount;
+                growing.harvest(harvested);
+                debug.log(
+                    DebugLevel::Debug,
+                    "GROWTH",
+                    &format!(
+                        "Detected external harvest of {} from {:?}, updating GrowingResource",
+                        harvested, growing.resource_type
+                    ),
+                );
+            }
+        }
+        
         let update = growing.tick_update();
 
-        // Sync with ResourceNode if present
+        // Then sync TO ResourceNode if growth happened
         if let Some(mut node) = resource_node {
             if node.amount != growing.harvestable_amount {
                 node.amount = growing.harvestable_amount;
@@ -26,7 +43,7 @@ pub fn resource_growth_system(
                     DebugLevel::Debug,
                     "GROWTH",
                     &format!(
-                        "Synced ResourceNode amount to {} for {:?}",
+                        "Synced ResourceNode amount to {} for {:?} after growth",
                         node.amount, growing.resource_type
                     ),
                 );

@@ -299,17 +299,21 @@ pub fn movement_performance_monitor_system(
 */
 
 /// Simple random movement system - triggers every 10-30 ticks to make units wander
+/// Now includes smart food-seeking behavior when hungry!
 pub fn simple_random_movement_system(
     sim_state: Res<SimulationState>,
     mut units: Query<
         (
+            Entity,
             &GridPosition,
             &mut GridMovement,
             &mut UnitMind,
             &NameComponent,
+            &crate::components::UnitNeedsV2,
         ),
         With<UnitTag>,
     >,
+    berry_bushes: Query<(&GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -321,12 +325,59 @@ pub fn simple_random_movement_system(
     
     let mut rng = rand::thread_rng();
     
-    for (grid_pos, mut movement, mut mind, name) in units.iter_mut() {
+    for (entity, grid_pos, mut movement, mut mind, name, needs) in units.iter_mut() {
         // Skip if already moving
         if movement.is_moving {
             continue;
         }
         
+        // If hungry, look for nearby berry bushes!
+        if needs.is_hungry() {  // Getting hungry
+            // Find nearest berry bush with berries
+            let mut nearest_bush = None;
+            let mut nearest_distance = f32::MAX;
+            
+            for (bush_pos, resource) in berry_bushes.iter() {
+                if resource.amount > 0 {
+                    let dx = (bush_pos.x as f32 - grid_pos.x as f32);
+                    let dy = (bush_pos.y as f32 - grid_pos.y as f32);
+                    let distance = (dx * dx + dy * dy).sqrt();
+                    
+                    if distance < nearest_distance {
+                        nearest_distance = distance;
+                        nearest_bush = Some(bush_pos.clone());
+                    }
+                }
+            }
+            
+            // If found a berry bush, go there!
+            if let Some(target_pos) = nearest_bush {
+                movement.set_target_from(&grid_pos, target_pos.clone());
+                *mind = UnitMind::GoingThere {
+                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                };
+                
+                debug.log(
+                    DebugLevel::Info,
+                    "FOOD_SEEKING",
+                    &format!(
+                        "{} is hungry ({}% full) and moving to berry bush at ({},{})",
+                        name.name, ((1.0 - needs.hunger()) * 100.0) as i32, target_pos.x, target_pos.y
+                    ),
+                );
+                
+                println!(
+                    "{} {} is hungry and heading to berries at ({},{})",
+                    "🍓".red(),
+                    name.name.yellow(),
+                    target_pos.x,
+                    target_pos.y
+                );
+                continue;
+            }
+        }
+        
+        // Otherwise, random movement as before
         // Random chance to start moving (roughly every 10-30 ticks)
         if rng.gen_range(0..20) != 0 {
             continue;
@@ -348,9 +399,9 @@ pub fn simple_random_movement_system(
             continue;
         }
         
-        // Set the movement target
+        // Set the movement target with path
         let target = GridPosition::new(new_x, new_y);
-        movement.set_target(target);
+        movement.set_target_from(&grid_pos, target);
         
         // Update mind state
         *mind = UnitMind::Wandering;

@@ -8,6 +8,7 @@ pub mod resource_growth;
 pub mod storage;
 pub mod unit_mind;
 pub mod work;
+pub mod food_gathering;
 
 pub use movement::*;
 pub use movement_effects::*;
@@ -16,6 +17,7 @@ pub use resource_growth::*;
 pub use storage::*;
 pub use unit_mind::*;
 pub use work::*;
+pub use food_gathering::*;
 
 use bevy::prelude::*;
 
@@ -55,6 +57,7 @@ impl Plugin for SystemsPlugin {
                 update_movement_effects_system,
                 simple_random_movement_system,  // Random movement to get units moving
                 tick_movement_system,
+                food_gathering_system,  // Gather food when at berry bushes
             )
                 .chain()
                 .run_if(crate::simulation::on_simulation_tick_legacy),
@@ -79,8 +82,7 @@ impl Plugin for SystemsPlugin {
             Update,
             (
                 // Resource systems (tick-based)
-                resource_growth_system,
-                harvest_growing_resource_system,
+                resource_growth_system,  // Now handles both growth AND harvest sync
                 resource_regeneration_system,
                 resource_harvest_system,
                 resource_status_display_system,
