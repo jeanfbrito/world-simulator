@@ -462,10 +462,12 @@ fn broadcast_game_state(
         (
             &crate::components::NameComponent,
             &crate::components::HealthComponent,
-            &crate::components::EnergyComponent,
             &crate::TileEntity,
+            &crate::components::PositionComponent,
             Option<&crate::components::UnitNeedsV2>,
             Option<&crate::components::UnitInventory>,
+            Option<&crate::ai::ActionPlan>,
+            Option<&crate::components::WorkProgress>,
         ),
         With<crate::components::UnitTag>,
     >,
@@ -480,18 +482,79 @@ fn broadcast_game_state(
 ) {
     let mut entities = Vec::new();
 
-    for (name, health, energy, tile, needs, inventory) in workers.iter() {
+    // Track previous positions to detect movement
+    use std::collections::HashMap as StdHashMap;
+    static mut PREV_POSITIONS: Option<StdHashMap<String, (usize, usize)>> = None;
+    unsafe {
+        if PREV_POSITIONS.is_none() {
+            PREV_POSITIONS = Some(StdHashMap::new());
+        }
+    }
+    
+    for (name, health, tile, position, needs, inventory, plan, work) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
-        data.insert("energy".to_string(), serde_json::json!(energy.current));
         
-        // Add needs data if available
+        // Add needs data if available (energy comes from here now)
         if let Some(needs) = needs {
             data.insert("hunger".to_string(), serde_json::json!(needs.hunger() * 100.0)); // Convert to percentage
+            data.insert("energy".to_string(), serde_json::json!(needs.energy() * 100.0)); // Energy from needs
             data.insert("morale".to_string(), serde_json::json!(needs.morale() * 100.0));
             data.insert("shelter".to_string(), serde_json::json!(needs.has_shelter));
+        } else {
+            // Fallback values if no needs component
+            data.insert("hunger".to_string(), serde_json::json!(0.0));
+            data.insert("energy".to_string(), serde_json::json!(100.0));
+            data.insert("morale".to_string(), serde_json::json!(100.0));
+            data.insert("shelter".to_string(), serde_json::json!(false));
         }
+        
+        // Detect movement
+        let current_pos = (tile.x, tile.y);
+        let is_moving = unsafe {
+            let prev_map = PREV_POSITIONS.as_mut().unwrap();
+            let worker_id = format!("worker_{}", name.name);
+            let prev_pos = prev_map.get(&worker_id).copied();
+            prev_map.insert(worker_id, current_pos);
+            
+            if let Some(prev) = prev_pos {
+                prev != current_pos
+            } else {
+                false
+            }
+        };
+        
+        // Add movement status
+        data.insert("status".to_string(), serde_json::json!(if is_moving { "walking" } else { "standing" }));
+        
+        // Add current action
+        let action = if let Some(work_progress) = work {
+            if work_progress.is_working {
+                if let Some(work_type) = &work_progress.work_type {
+                    format!("Working: {:?}", work_type)
+                } else {
+                    "Working".to_string()
+                }
+            } else if let Some(plan) = plan {
+                if let Some(current_action) = plan.current_action() {
+                    current_action.name.clone()
+                } else {
+                    "Planning".to_string()
+                }
+            } else {
+                "Idle".to_string()
+            }
+        } else if let Some(plan) = plan {
+            if let Some(current_action) = plan.current_action() {
+                current_action.name.clone()
+            } else {
+                "Planning".to_string()
+            }
+        } else {
+            "Idle".to_string()
+        };
+        data.insert("action".to_string(), serde_json::json!(action));
         
         // Add inventory data if available
         if let Some(inv) = inventory {
