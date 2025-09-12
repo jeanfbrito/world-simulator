@@ -107,25 +107,9 @@ impl ResourceNode {
 
     /// Update regeneration on tick
     pub fn tick_update(&mut self) {
-        if self.amount == 0 {
-            // Handle full respawn when depleted
-            self.ticks_since_depletion += 1;
-
-            if self.ticks_since_depletion >= self.respawn_time_ticks {
-                self.amount = self.max_amount;
-                self.ticks_since_depletion = 0;
-                self.ticks_since_last_regen = 0;
-            }
-        } else if self.amount < self.max_amount {
-            // Handle gradual regeneration
-            self.ticks_since_last_regen += 1;
-
-            if self.ticks_since_last_regen >= self.regeneration_interval {
-                let regen_amount = self.regeneration_rate.min(self.max_amount - self.amount);
-                self.amount += regen_amount;
-                self.ticks_since_last_regen = 0;
-            }
-        }
+        // ResourceNode no longer handles regeneration - that's GrowingResource's job
+        // This method is kept for compatibility but does nothing
+        // All regeneration logic should be in GrowingResource component
     }
 
     /// Check if resource can be harvested

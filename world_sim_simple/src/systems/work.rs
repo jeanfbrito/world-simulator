@@ -27,7 +27,7 @@ pub fn tick_work_system(
         ),
         With<UnitTag>,
     >,
-    mut resources: Query<&mut crate::components::ResourceNode>,
+    mut resources: Query<(&mut crate::components::ResourceNode, Option<&mut crate::components::growth::GrowingResource>)>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
     use crate::debug::DebugLevel;
@@ -167,7 +167,7 @@ fn handle_work_completion(
     _position: &GridPosition,
     name: &NameComponent,
     target_entity: Option<Entity>,
-    resources: &mut Query<&mut crate::components::ResourceNode>,
+    resources: &mut Query<(&mut crate::components::ResourceNode, Option<&mut crate::components::growth::GrowingResource>)>,
     debug: &crate::debug::DebugSystem,
 ) {
     use crate::debug::DebugLevel;
@@ -176,38 +176,66 @@ fn handle_work_completion(
         WorkType::Gathering(resource_work) => {
             // First, deplete the resource if we have a target entity
             let mut resource_harvested = false;
+            let mut actual_harvest_amount = resource_work.amount;
+            
             if let Some(resource_entity) = target_entity {
-                if let Ok(mut resource) = resources.get_mut(resource_entity) {
-                    // Check if resource has enough
-                    if resource.amount >= resource_work.amount {
-                        resource.amount -= resource_work.amount;
-                        resource_harvested = true;
+                if let Ok((mut resource, growing)) = resources.get_mut(resource_entity) {
+                    // If this resource has a GrowingResource component, use its harvest method
+                    if let Some(mut growing_resource) = growing {
+                        // Use GrowingResource's harvest method which handles depletion properly
+                        actual_harvest_amount = growing_resource.harvest(resource_work.amount);
+                        
+                        // Sync the ResourceNode amount with GrowingResource
+                        resource.amount = growing_resource.current_amount;
+                        
+                        resource_harvested = actual_harvest_amount > 0;
+                        
+                        if resource.amount == 0 {
+                            println!(
+                                "{} Resource fully harvested (took {})",
+                                "⛏️".red(),
+                                actual_harvest_amount
+                            );
+                        } else {
+                            println!(
+                                "{} Resource harvested {}, {} remaining",
+                                "⛏️".yellow(),
+                                actual_harvest_amount,
+                                resource.amount
+                            );
+                        }
+                    } else {
+                        // Fallback to old behavior for resources without GrowingResource
+                        if resource.amount >= resource_work.amount {
+                            resource.amount -= resource_work.amount;
+                            resource_harvested = true;
 
-                        println!(
-                            "{} Resource harvested, {} remaining",
-                            "⛏️".yellow(),
-                            resource.amount
-                        );
+                            println!(
+                                "{} Resource harvested, {} remaining",
+                                "⛏️".yellow(),
+                                resource.amount
+                            );
 
-                        debug.log(
-                            DebugLevel::Debug,
-                            "RESOURCE",
-                            &format!(
-                                "Resource harvested {}, {} remaining",
-                                resource_work.amount, resource.amount
-                            ),
-                        );
-                    } else if resource.amount > 0 {
-                        // Take what's available
-                        let actual_amount = resource.amount;
-                        resource.amount = 0;
-                        resource_harvested = true;
+                            debug.log(
+                                DebugLevel::Debug,
+                                "RESOURCE",
+                                &format!(
+                                    "Resource harvested {}, {} remaining",
+                                    resource_work.amount, resource.amount
+                                ),
+                            );
+                        } else if resource.amount > 0 {
+                            // Take what's available
+                            actual_harvest_amount = resource.amount;
+                            resource.amount = 0;
+                            resource_harvested = true;
 
-                        println!(
-                            "{} Resource fully harvested (took {})",
-                            "⛏️".red(),
-                            actual_amount
-                        );
+                            println!(
+                                "{} Resource fully harvested (took {})",
+                                "⛏️".red(),
+                                actual_harvest_amount
+                            );
+                        }
                     }
                 }
             } else {
@@ -226,14 +254,14 @@ fn handle_work_completion(
                     inventory.items
                 );
 
-                let added = inventory.add_item(resource_work.resource_type, resource_work.amount);
+                let added = inventory.add_item(resource_work.resource_type, actual_harvest_amount);
 
                 if added {
                     println!(
                         "{} {} gathered {} {}",
                         "🌲".green(),
                         name.name.cyan(),
-                        resource_work.amount,
+                        actual_harvest_amount,
                         format!("{:?}", resource_work.resource_type).yellow()
                     );
 
@@ -251,7 +279,7 @@ fn handle_work_completion(
                         "GATHER",
                         &format!(
                             "{} gathered {} {:?}",
-                            name.name, resource_work.amount, resource_work.resource_type
+                            name.name, actual_harvest_amount, resource_work.resource_type
                         ),
                     );
                 } else {

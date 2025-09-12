@@ -203,7 +203,8 @@ impl GrowingResource {
                     }
                 }
                 DepletionBehavior::GradualReplenishment { rate, interval } => {
-                    if self.ticks_since_depletion % interval == 0 {
+                    // Wait for first interval before starting regeneration (don't regenerate at tick 0)
+                    if self.ticks_since_depletion > 0 && self.ticks_since_depletion % interval == 0 {
                         self.current_amount = (self.current_amount + rate).min(self.max_amount);
                         self.harvestable_amount = self.current_amount;
                         if self.current_amount > 0 {

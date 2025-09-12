@@ -1,6 +1,6 @@
 use crate::components::{
-    GridPosition, NameComponent, ResourceDepletedEvent, ResourceNode, ResourceRegeneratedEvent,
-    ResourceRegenerationTag,
+    GridPosition, GrowingResource, NameComponent, ResourceDepletedEvent, ResourceNode, 
+    ResourceRegeneratedEvent, ResourceRegenerationTag,
 };
 use crate::SimulationState;
 /// Resource regeneration system for tick-based resource respawning
@@ -210,11 +210,11 @@ pub fn spawn_regenerating_resources_system(
 
     let berry_count = berry_positions.len();
     for (x, y) in berry_positions {
-        // Start with fewer berries to encourage movement
-        let mut berry_node = ResourceNode::fruit_bush(1); // Start with only 1 berry
-        berry_node.max_amount = 3; // Max 3 berries per bush
-        berry_node.regeneration_rate = 1; // Only 1 berry at a time
-        berry_node.regeneration_interval = 600; // Every 60 seconds (much slower!)
+        // Create ResourceNode for compatibility
+        let berry_node = ResourceNode::fruit_bush(1); // Start with only 1 berry
+        
+        // Create GrowingResource to handle all regeneration
+        let growing = GrowingResource::fruit_bush(1, 3); // Start with 1, max 3 berries
 
         commands.spawn((
             NameComponent::new(format!("Berry Bush ({}, {})", x, y)),
@@ -224,6 +224,7 @@ pub fn spawn_regenerating_resources_system(
                 y: y as usize,
             },
             berry_node,
+            growing,
             ResourceRegenerationTag,
         ));
     }
