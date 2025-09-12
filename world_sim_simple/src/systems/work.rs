@@ -54,8 +54,8 @@ pub fn tick_work_system(
         for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in
             units.iter_mut()
         {
-            // Debug each unit's work state
-            if work.work_type.is_some() || work.is_working {
+            // Debug each unit's work state - only show if actually working
+            if work.is_working {
                 println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{}", 
                     name.name, work.is_working, work.work_type.is_some(), 
                     work.progress_counter, work.required_ticks);
