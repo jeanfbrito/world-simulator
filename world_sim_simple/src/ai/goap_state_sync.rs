@@ -13,7 +13,7 @@ pub fn sync_goap_states_system(
             Entity,
             &PositionComponent,
             &EnergyComponent,
-            &WorkerStats,
+            &UnitStats,
             Option<&Inventory>,
             Option<&mut IsHungry>,
             Option<&mut HasEnergy>,

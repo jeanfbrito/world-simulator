@@ -3,14 +3,7 @@ use bevy_dogoap::prelude::*;
 use big_brain::prelude::*;
 
 // Shared state components that both AI systems can read/write
-
-#[derive(Component, Reflect, Clone)]
-#[reflect(Component)]
-pub struct IsHungry(pub bool);
-
-#[derive(Component, Reflect, Clone)]
-#[reflect(Component)]
-pub struct IsTired(pub bool);
+// Note: We're using dogoap's Hunger/Energy components directly now
 
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
@@ -32,24 +25,6 @@ pub struct NeedsShelter(pub bool);
 #[reflect(Component)]
 pub struct NeedsResources(pub bool);
 
-// Worker stats that both systems can monitor
-#[derive(Component, Reflect, Clone)]
-#[reflect(Component)]
-pub struct WorkerStats {
-    pub hunger: f32,    // 0.0 = starving, 1.0 = full
-    pub energy: f32,    // 0.0 = exhausted, 1.0 = rested
-    pub health: f32,    // 0.0 = dead, 1.0 = healthy
-}
-
-impl Default for WorkerStats {
-    fn default() -> Self {
-        Self {
-            hunger: 1.0,
-            energy: 1.0,
-            health: 1.0,
-        }
-    }
-}
 
 // Current AI decision mode
 #[derive(Component, Reflect, Clone, Debug, PartialEq)]
@@ -87,48 +62,34 @@ impl Default for GoalPriorities {
     }
 }
 
-// Update worker stats over time
-pub fn update_worker_stats_system(
-    mut query: Query<(&mut WorkerStats, &mut IsHungry, &mut IsTired)>,
-    time: Res<Time>,
-    debug: Res<crate::debug::DebugSystem>,
+// Sync dogoap Hunger/Energy values to UnitNeedsV2 for display and other systems
+pub fn sync_dogoap_to_unit_needs(
+    mut query: Query<(
+        &crate::ai::bevy_dogoap_impl::Hunger,
+        &crate::ai::bevy_dogoap_impl::Energy,
+        &mut crate::components::UnitNeedsV2,
+    )>,
 ) {
-    let dt = time.delta_secs();
-    
-    for (mut stats, mut is_hungry, mut is_tired) in query.iter_mut() {
-        // Decrease hunger over time
-        stats.hunger = (stats.hunger - dt * 0.02).max(0.0);
-        is_hungry.0 = stats.hunger < 0.3;
-        
-        // Decrease energy over time
-        stats.energy = (stats.energy - dt * 0.015).max(0.0);
-        is_tired.0 = stats.energy < 0.3;
-        
-        // Log critical states
-        if stats.hunger < 0.1 {
-            debug.log(
-                crate::debug::DebugLevel::Warn,
-                "WORKER_STATE",
-                "Worker is starving!"
-            );
-        }
-        if stats.energy < 0.1 {
-            debug.log(
-                crate::debug::DebugLevel::Warn,
-                "WORKER_STATE",
-                "Worker is exhausted!"
-            );
-        }
+    for (hunger, energy, mut needs) in query.iter_mut() {
+        // Sync dogoap values to UnitNeedsV2
+        needs.set_hunger_from_dogoap(hunger.0);
+        needs.set_energy_from_dogoap(energy.0);
     }
 }
 
 // Decide which AI mode to use based on current state
 pub fn ai_mode_selection_system(
-    mut query: Query<(&WorkerStats, &mut AIMode, &GoalPriorities)>,
+    mut query: Query<(
+        &crate::ai::bevy_dogoap_impl::Hunger,
+        &crate::ai::bevy_dogoap_impl::Energy,
+        &mut AIMode,
+        &GoalPriorities,
+    )>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
-    for (stats, mut mode, priorities) in query.iter_mut() {
-        let new_mode = if stats.hunger < 0.3 || stats.energy < 0.3 {
+    for (hunger, energy, mut mode, priorities) in query.iter_mut() {
+        // Use dogoap values directly (0 = bad, 100 = good)
+        let new_mode = if hunger.0 < 30.0 || energy.0 < 30.0 {
             // Critical needs - use reactive AI
             AIMode::Reactive
         } else if *mode == AIMode::Executing {

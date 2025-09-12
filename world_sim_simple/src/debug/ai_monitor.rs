@@ -131,8 +131,15 @@ pub fn simple_ai_monitor_system(
         } else {
             "❓ No Plan"
         };
-        let hunger_bar = create_bar(needs.hunger(), true);  // Use method instead of field
-        let energy_bar = create_bar(needs.energy(), false);  // Use method instead of field
+        // Display values from UnitNeedsV2 which has been synced from dogoap
+        // After sync: hunger is stored inverted internally (0=full, 1=starving)
+        // But we want to display it as: full bar = not hungry (good), empty bar = starving (bad)
+        // So we need to invert it for display: 1.0 - hunger gives us 0=starving, 1=full
+        let hunger_display = 1.0 - needs.hunger();  // Convert to 0=starving, 1=full for display
+        let energy_display = needs.energy();         // Already in correct direction: 0=exhausted, 1=full
+        
+        let hunger_bar = create_bar(hunger_display, false);  // More filled = better (not hungry)
+        let energy_bar = create_bar(energy_display, false);   // More filled = better (more energy)
 
         // Get inventory summary
         let wood = inventory.get_amount(crate::resources::ResourceType::Wood);
@@ -160,7 +167,7 @@ pub fn simple_ai_monitor_system(
         );
         println!(
             "   {} | Hunger {} ({:.2}) | Energy {} ({:.2})",
-            status, hunger_bar, needs.hunger(), energy_bar, needs.energy()
+            status, hunger_bar, hunger_display, energy_bar, energy_display
         );
         println!(
             "   📍 {} | Inventory: {}🪵 {}🍖 {}⛏️ (weight: {:.1}/{:.1})",

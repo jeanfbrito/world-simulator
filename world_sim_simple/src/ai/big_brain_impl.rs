@@ -28,7 +28,7 @@ pub struct PanicGatherAction;
 // Scorer systems - evaluate current state
 
 pub fn hunger_scorer_system(
-    stats_query: Query<&WorkerStats>,
+    stats_query: Query<&AIState>,
     mut query: Query<(&Actor, &mut Score), With<HungerScorer>>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
@@ -41,7 +41,7 @@ pub fn hunger_scorer_system(
 }
 
 pub fn energy_scorer_system(
-    stats_query: Query<&WorkerStats>,
+    stats_query: Query<&AIState>,
     mut query: Query<(&Actor, &mut Score), With<EnergyScorer>>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
@@ -72,7 +72,7 @@ pub fn resource_scorer_system(
 // Action systems - execute the chosen actions
 
 pub fn eat_quick_action_system(
-    mut stats_query: Query<(&mut WorkerStats, &mut HasFood)>,
+    mut stats_query: Query<(&mut AIState, &mut HasFood)>,
     mut query: Query<(&Actor, &mut ActionState), With<EatQuickAction>>,
     debug: Res<DebugSystem>,
 ) {
@@ -99,7 +99,7 @@ pub fn eat_quick_action_system(
 }
 
 pub fn rest_quick_action_system(
-    mut stats_query: Query<&mut WorkerStats>,
+    mut stats_query: Query<&mut AIState>,
     mut query: Query<(&Actor, &mut ActionState), With<RestQuickAction>>,
     time: Res<Time>,
     debug: Res<DebugSystem>,
@@ -165,7 +165,7 @@ pub fn create_reactive_thinker() -> ThinkerBuilder {
 // System to add Thinkers to workers in reactive mode
 pub fn setup_reactive_thinkers_system(
     mut commands: Commands,
-    query: Query<(Entity, &AIMode), (Without<Thinker>, With<WorkerStats>)>,
+    query: Query<(Entity, &AIMode), (Without<Thinker>, With<AIState>)>,
     debug: Res<DebugSystem>,
 ) {
     for (entity, ai_mode) in query.iter() {

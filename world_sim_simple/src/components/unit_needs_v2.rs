@@ -201,6 +201,28 @@ impl UnitNeedsV2 {
         self.morale_counter = morale.min(MAX_MORALE);
         self.update_cached_states();
     }
+    
+    /// Set hunger from dogoap value (0 = starving, 100 = full)
+    pub fn set_hunger_from_dogoap(&mut self, dogoap_hunger: f32) {
+        // Convert dogoap scale (0-100) to our internal counter
+        // dogoap: 0 = starving, 100 = full
+        // our counter: 0 = full, MAX_HUNGER = starving
+        // So we need to invert: (100 - dogoap_hunger) / 100 * MAX_HUNGER
+        let inverted_ratio = (100.0 - dogoap_hunger) / 100.0;
+        self.hunger_counter = (inverted_ratio * MAX_HUNGER as f32) as u32;
+        self.update_cached_states();
+    }
+    
+    /// Set energy from dogoap value (0 = exhausted, 100 = full)
+    pub fn set_energy_from_dogoap(&mut self, dogoap_energy: f32) {
+        // Convert dogoap scale (0-100) to our internal counter
+        // dogoap: 0 = exhausted, 100 = full
+        // our counter: 0 = exhausted, MAX_ENERGY = full
+        // Same direction, just scale: dogoap_energy / 100 * MAX_ENERGY
+        let ratio = dogoap_energy / 100.0;
+        self.energy_counter = (ratio * MAX_ENERGY as f32) as u32;
+        self.update_cached_states();
+    }
 
     // =========================================================================
     // INTERNAL HELPERS

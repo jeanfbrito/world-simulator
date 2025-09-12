@@ -57,7 +57,7 @@ pub struct ComponentData {
     pub energy: Option<f32>,
     pub max_energy: Option<f32>,
     pub inventory: Option<InventoryData>,
-    pub worker_stats: Option<WorkerStatsData>,
+    pub unit_stats: Option<UnitStatsData>,
     pub current_task: Option<TaskData>,
 }
 
@@ -69,12 +69,12 @@ pub struct InventoryData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerStatsData {
+pub struct UnitStatsData {
+    pub work_speed: f32,
+    pub move_speed: f32,
+    pub carry_capacity: f32,
+    pub experience: u32,
     pub level: u32,
-    pub experience: f32,
-    pub strength: f32,
-    pub speed: f32,
-    pub intelligence: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

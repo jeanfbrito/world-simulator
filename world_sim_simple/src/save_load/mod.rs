@@ -75,7 +75,7 @@ fn save_command_system(
                     energy: None,
                     max_energy: None,
                     inventory: None,
-                    worker_stats: None,
+                    unit_stats: None,
                     current_task: None,
                 },
             });
@@ -226,7 +226,7 @@ fn autosave_system(
                     energy: None,
                     max_energy: None,
                     inventory: None,
-                    worker_stats: None,
+                    unit_stats: None,
                     current_task: None,
                 },
             });

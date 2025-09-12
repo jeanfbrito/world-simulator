@@ -11,7 +11,6 @@ pub mod peasant;
 pub mod position;
 pub mod resource;
 pub mod unit; // New unified unit system
-pub mod worker;
 
 // New consolidated modules
 pub mod grid_position;
@@ -38,7 +37,6 @@ pub use resource::{
     ResourceDepletedEvent, ResourceNode, ResourceRegeneratedEvent, ResourceRegenerationTag,
 };
 pub use unit::{UnitStats, UnitTag, UnitType};
-pub use worker::{WorkerStats, WorkerTag};
 
 // Re-export new consolidated components
 pub use grid_position::{migrate_positions_system, GridMovement, GridPosition, VisualPosition};
@@ -69,10 +67,11 @@ impl Plugin for ComponentsPlugin {
             .register_type::<HealthComponent>()
             .register_type::<NameComponent>()
             .register_type::<EnergyComponent>()
-            .register_type::<WorkerTag>()
-            .register_type::<WorkerStats>()
             .register_type::<PeasantTag>()
-            .register_type::<PeasantConfig>();
+            .register_type::<PeasantConfig>()
+            .register_type::<UnitStats>()
+            .register_type::<UnitTag>()
+            .register_type::<UnitType>();
 
         // Register GOAP states
         register_goap_states(app);
