@@ -468,6 +468,7 @@ fn broadcast_game_state(
             Option<&crate::components::UnitInventory>,
             Option<&crate::ai::ActionPlan>,
             Option<&crate::components::WorkProgress>,
+            Option<&crate::components::UnitMind>,  // Add UnitMind component
         ),
         With<crate::components::UnitTag>,
     >,
@@ -491,7 +492,7 @@ fn broadcast_game_state(
         }
     }
     
-    for (name, health, tile, position, needs, inventory, plan, work) in workers.iter() {
+    for (name, health, tile, position, needs, inventory, plan, work, mind) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
@@ -525,35 +526,19 @@ fn broadcast_game_state(
             }
         };
         
-        // Add movement status
-        data.insert("status".to_string(), serde_json::json!(if is_moving { "walking" } else { "standing" }));
-        
-        // Add current action
-        let action = if let Some(work_progress) = work {
-            if work_progress.is_working {
-                if let Some(work_type) = &work_progress.work_type {
-                    format!("Working: {:?}", work_type)
-                } else {
-                    "Working".to_string()
-                }
-            } else if let Some(plan) = plan {
-                if let Some(current_action) = plan.current_action() {
-                    current_action.name.clone()
-                } else {
-                    "Planning".to_string()
-                }
-            } else {
-                "Idle".to_string()
-            }
-        } else if let Some(plan) = plan {
-            if let Some(current_action) = plan.current_action() {
-                current_action.name.clone()
-            } else {
-                "Planning".to_string()
-            }
+        // Get status and action from UnitMind component - single source of truth
+        let (status, action) = if let Some(mind) = mind {
+            // Status is based on movement
+            let status = if mind.is_moving() { "walking" } else { "standing" };
+            // Action is the mind state description
+            let action = mind.description();
+            (status, action)
         } else {
-            "Idle".to_string()
+            // Fallback if no UnitMind component
+            ("standing", "idle".to_string())
         };
+        
+        data.insert("status".to_string(), serde_json::json!(status));
         data.insert("action".to_string(), serde_json::json!(action));
         
         // Add inventory data if available

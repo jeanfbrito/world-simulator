@@ -8,6 +8,7 @@ pub mod needs_update_v2;
 pub mod resource_regeneration;
 pub mod resource_growth;
 pub mod storage;
+pub mod unit_mind;
 pub mod work;
 
 pub use movement::*;
@@ -16,6 +17,7 @@ pub use needs_update_v2::*;
 pub use resource_regeneration::*;
 pub use resource_growth::*;
 pub use storage::*;
+pub use unit_mind::*;
 pub use work::*;
 
 use bevy::prelude::*;
@@ -43,6 +45,7 @@ impl Plugin for SystemsPlugin {
                 spawn_storage_buildings_system,
                 spawn_regenerating_resources_system,
                 add_regeneration_to_trees_system,
+                ensure_unit_mind_system,
             ),
         );
 
@@ -82,6 +85,7 @@ impl Plugin for SystemsPlugin {
                 tick_work_system,
                 auto_gather_system,
                 work_effects_system,
+                update_unit_mind_system,  // Update unit minds after work
             )
                 .chain()
                 .run_if(crate::simulation::on_simulation_tick_legacy),

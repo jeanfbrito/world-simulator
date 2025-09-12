@@ -18,6 +18,7 @@ pub mod grid_position;
 pub mod movement_config;
 pub mod movement_tracker;
 pub mod storage;
+pub mod unit_mind;
 pub mod unit_needs_v2;
 pub mod unit_state;
 pub mod work_progress;
@@ -47,6 +48,7 @@ pub use storage::{
     Stockpile, StorageBuilding, StorageChangeType, StorageChangedEvent, StorageTask,
     StorageTaskState, StorageUpdateTag, Warehouse,
 };
+pub use unit_mind::UnitMind;
 pub use unit_needs_v2::{migrate_needs_system, UnitNeedsV2};
 pub use unit_state::{
     LocationType, UnitInventory, UnitLocation, UnitNeeds, UnitOwnership, UnitWorkState,

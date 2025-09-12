@@ -22,6 +22,7 @@ pub fn simple_ai_monitor_system(
             &PositionComponent,
             &TilesWalked,
             Option<&ActionPlan>,
+            Option<&UnitMind>,  // Add UnitMind component
         ),
         With<UnitTag>,
     >,
@@ -68,7 +69,7 @@ pub fn simple_ai_monitor_system(
     println!("   🌳 {} depleted berry bushes", empty_berry_count);
 
     // Show each peasant's status
-    for (entity, name, needs, inventory, location, tile, position, tiles_walked, plan) in
+    for (entity, name, needs, inventory, location, tile, position, tiles_walked, plan, mind) in
         peasants.iter()
     {
         // Check if peasant moved
@@ -86,6 +87,14 @@ pub fn simple_ai_monitor_system(
         };
 
         let movement_indicator = if moved { "🚶" } else { "🧍" };
+        
+        // Get mind state - this is the primary state display
+        let mind_state = if let Some(mind) = mind {
+            mind.description()
+        } else {
+            "idle".to_string()
+        };
+        
         let status = if plan.is_some() {
             "📋 Has Plan"
         } else {
@@ -110,12 +119,12 @@ pub fn simple_ai_monitor_system(
         };
 
         println!(
-            "👤 {} {} @ ({},{}) {} | {}",
+            "👤 {} {} @ ({},{}) - {} | {}",
             name.name.cyan(),
             movement_indicator,
             tile.x,
             tile.y,
-            format!("({:?})", entity).bright_black(),
+            mind_state.yellow(),  // Display mind state prominently
             tiles_walked.display().bright_magenta()
         );
         println!(
