@@ -103,6 +103,8 @@ pub fn tick_work_system(
                         work.target_entity,
                         &mut resources,
                         &debug,
+                        _entity,
+                        &work,
                     );
                 } else {
                     println!(
@@ -169,6 +171,8 @@ fn handle_work_completion(
     target_entity: Option<Entity>,
     resources: &mut Query<(&mut crate::components::ResourceNode, Option<&mut crate::components::growth::GrowingResource>)>,
     debug: &crate::debug::DebugSystem,
+    worker_entity: Entity,
+    work_progress: &WorkProgress,
 ) {
     use crate::debug::DebugLevel;
 
@@ -243,6 +247,15 @@ fn handle_work_completion(
                 resource_harvested = true;
             }
 
+            // Release claim on the resource when done
+            if let Some(target_entity) = work_progress.target_entity {
+                if let Ok((mut resource, _)) = resources.get_mut(target_entity) {
+                    resource.claimed_by.remove(&worker_entity);
+                    println!("   🔓 Released claim on resource (claims remaining: {}/{})", 
+                        resource.claimed_by.len(), resource.max_workers);
+                }
+            }
+            
             // Add to inventory if we successfully harvested
             if resource_harvested {
                 // Debug: Check inventory state before adding

@@ -46,7 +46,7 @@ pub fn task_execution_system(
     >,
     trees: Query<(Entity, &PositionComponent), (With<TreeTag>, Without<UnitTag>)>,
     rocks: Query<(Entity, &PositionComponent), (With<RockTag>, Without<UnitTag>)>,
-    berries: Query<
+    mut berries: Query<
         (Entity, &PositionComponent, &mut ResourceNode, Option<&GrowingResource>),
         (With<BerryBushTag>, Without<UnitTag>),
     >,
@@ -143,7 +143,7 @@ pub fn task_execution_system(
 
                 "move_to_resource" => {
                     // Move to nearest berry bush for harvesting
-                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos) {
+                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos, entity) {
                         // Use grid movement system
                         if let (Some(ref mut grid_move), Some(ref grid_pos)) = (grid_movement.as_mut(), grid_pos.as_ref()) {
                             // Check if at target
@@ -173,7 +173,7 @@ pub fn task_execution_system(
 
                 "harvest_resource" => {
                     // We should be at a berry bush now, harvest it
-                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos) {
+                    if let Some((berry_entity, berry_pos)) = find_nearest_berry(&berries, &worker_pos, entity) {
                         if let (Some(ref mut grid_move), Some(ref grid_pos)) = (grid_movement.as_mut(), grid_pos.as_ref()) {
                             if is_at_target(grid_pos, &berry_pos, &debug) {
                                 // Close enough to harvest
@@ -222,7 +222,7 @@ pub fn task_execution_system(
                     );
                     // Find nearest berry bush with berries available
                     if let Some((berry_entity, berry_pos)) =
-                        find_nearest_berry(&berries, &worker_pos)
+                        find_nearest_berry(&berries, &worker_pos, entity)
                     {
                         println!(
                             "🫐 Found berry bush at ({}, {}) for peasant at ({}, {})",
@@ -267,6 +267,14 @@ pub fn task_execution_system(
                                     30, // 3 seconds at 10 TPS
                                     Some(berry_entity),
                                 );
+                                
+                                // Claim the resource so others don't try to harvest it
+                                if let Ok((_, _, mut resource_node, _)) = berries.get_mut(berry_entity) {
+                                    resource_node.claimed_by.insert(entity);
+                                    println!("   🔒 Claimed berry bush (claims: {}/{})", 
+                                        resource_node.claimed_by.len(), resource_node.max_workers);
+                                }
+                                
                                 println!("   ✅ Work started! Now is_working: {}, required: {} ticks", 
                                     work_progress.is_working, work_progress.required_ticks);
                             } else {
@@ -520,10 +528,13 @@ fn find_nearest_berry(
         (With<BerryBushTag>, Without<UnitTag>),
     >,
     worker_pos: &PositionComponent,
+    worker_entity: Entity,
 ) -> Option<(Entity, PositionComponent)> {
-    let mut nearest = None;
-    let mut min_distance = f32::MAX;
-
+    use rand::Rng;
+    
+    // Collect all available berry bushes with their distances
+    let mut available_bushes = Vec::new();
+    
     for (entity, berry_pos, resource_node, growing_resource) in berries.iter() {
         // Check if bush has berries available
         let has_berries = if let Some(growing) = growing_resource {
@@ -534,39 +545,57 @@ fn find_nearest_berry(
             resource_node.can_harvest()
         };
         
-        if has_berries {
+        // Check if bush is not fully claimed
+        let can_claim = resource_node.claimed_by.len() < resource_node.max_workers
+            || resource_node.claimed_by.contains(&worker_entity); // Or we already have a claim
+        
+        if has_berries && can_claim {
             let distance = worker_pos.distance_squared(berry_pos);
-            if distance < min_distance {
-                min_distance = distance;
-                nearest = Some((entity, berry_pos.clone()));
-            }
+            available_bushes.push((entity, berry_pos.clone(), distance));
         }
     }
-
-    // If no berries found with current position, try expanding search
-    if nearest.is_none() {
-        println!("⚠️ No berry bushes with fruit found near ({:.0}, {:.0}), searching entire map...", 
-            worker_pos.x, worker_pos.y);
-        
-        // Try again without distance limit - just find ANY bush with berries
-        for (entity, berry_pos, resource_node, growing_resource) in berries.iter() {
-            let has_berries = if let Some(growing) = growing_resource {
-                growing.harvestable_amount > 0
-            } else {
-                resource_node.can_harvest()
-            };
-            
-            if has_berries {
-                println!("   ✅ Found berry bush with fruit at ({:.0}, {:.0})", berry_pos.x, berry_pos.y);
-                return Some((entity, berry_pos.clone()));
-            }
-        }
-        
-        // Log if absolutely no berries available anywhere
+    
+    if available_bushes.is_empty() {
         println!("   ❌ No berry bushes with fruit on entire map!");
+        return None;
     }
-
-    nearest
+    
+    // Sort by distance
+    available_bushes.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+    
+    // Take the top N nearest bushes (max 5)
+    let candidates_count = available_bushes.len().min(5);
+    let candidates = &available_bushes[0..candidates_count];
+    
+    // Randomly select one from the candidates with weighted probability
+    // Closer bushes have higher chance of being selected
+    let mut rng = rand::thread_rng();
+    
+    // Simple weighted random: closer bushes get more weight
+    // Weight = 1/distance for simple inverse relationship
+    let weights: Vec<f32> = candidates.iter()
+        .map(|(_, _, dist)| {
+            if *dist < 1.0 { 10.0 } // Very close gets high weight
+            else { 1.0 / dist.sqrt() } // Further away gets less weight
+        })
+        .collect();
+    
+    let total_weight: f32 = weights.iter().sum();
+    let mut random_value = rng.gen::<f32>() * total_weight;
+    
+    for (i, weight) in weights.iter().enumerate() {
+        random_value -= weight;
+        if random_value <= 0.0 {
+            let (entity, pos, dist) = &candidates[i];
+            println!("🎲 Selected berry bush {} of {} candidates at ({:.0}, {:.0}), distance: {:.1}", 
+                i + 1, candidates_count, pos.x, pos.y, dist.sqrt());
+            return Some((*entity, pos.clone()));
+        }
+    }
+    
+    // Fallback to first (nearest) if somehow we didn't select
+    let (entity, pos, _) = &candidates[0];
+    Some((*entity, pos.clone()))
 }
 
 fn find_stockpile(

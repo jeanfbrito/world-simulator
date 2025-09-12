@@ -4,6 +4,7 @@ use crate::resources::ResourceType;
 /// Uses tick-based regeneration with integer counters
 /// for deterministic resource respawning.
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 /// Resource node that can be harvested and regenerates over time
 #[derive(Component, Clone, Debug, Reflect)]
@@ -25,10 +26,23 @@ pub struct ResourceNode {
     // Resource quality/variety
     pub quality_modifier: f32,  // Affects yield quality
     pub seasonal_modifier: f32, // Changes with seasons
+    
+    // Resource claiming system
+    #[reflect(ignore)]
+    pub claimed_by: HashSet<Entity>, // Entities currently claiming this resource
+    pub max_workers: usize,           // Maximum simultaneous workers (1 for berries, 4 for rocks, etc.)
 }
 
 impl ResourceNode {
     pub fn new(resource_type: ResourceType, amount: u32) -> Self {
+        // Default max_workers based on resource type
+        let max_workers = match resource_type {
+            ResourceType::Berries => 1,  // Only one person can harvest berries at a time
+            ResourceType::Stone => 4,    // Multiple miners can work a rock deposit
+            ResourceType::Wood => 2,     // Two lumberjacks can work the same tree
+            _ => 1,                     // Default to single worker
+        };
+        
         Self {
             resource_type,
             amount,
@@ -46,6 +60,9 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
+            
+            claimed_by: HashSet::new(),
+            max_workers,
         }
     }
 
@@ -68,6 +85,9 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
+            
+            claimed_by: HashSet::new(),
+            max_workers: 1,  // Only one person can pick berries at a time
         }
     }
 
@@ -90,6 +110,9 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
+            
+            claimed_by: HashSet::new(),
+            max_workers: 2,  // Two lumberjacks can work on the same tree
         }
     }
 
