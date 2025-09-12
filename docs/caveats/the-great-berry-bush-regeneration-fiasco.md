@@ -113,3 +113,5 @@ This bug was particularly frustrating because:
 - We had written the correct `GrowingResource.harvest()` method but never called it
 
 The peasants weren't broken. They were just living in paradise with infinite food everywhere. Why move when every bush is an all-you-can-eat buffet?
+
+We thought the peasants had gotten lazy. Turns out the berries were just magical, infinite, and apparently quite tasty.
