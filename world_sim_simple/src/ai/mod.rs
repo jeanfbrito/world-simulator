@@ -1,6 +1,6 @@
 pub mod behavior_state;
 mod behaviors;
-mod pathfinding;
+pub mod pathfinding;
 mod task_executor;
 mod task_system;
 // New AI modules

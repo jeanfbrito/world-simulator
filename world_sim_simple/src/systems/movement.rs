@@ -11,6 +11,7 @@ use crate::{SimulationState, WorldMap, TILE_SIZE};
 use bevy::prelude::*;
 use colored::Colorize;
 use rand::Rng;
+use std::collections::HashSet;
 
 fn is_position_walkable(_world_map: &WorldMap, pos: &GridPosition) -> bool {
     // Simple bounds check for now
@@ -332,10 +333,26 @@ pub fn movement_performance_monitor_system(
 }
 */
 
+/// Build obstacle map from world tiles
+fn build_obstacle_map(world_map: &WorldMap) -> HashSet<(i32, i32)> {
+    let mut obstacles = HashSet::new();
+    
+    for y in 0..crate::MAP_SIZE {
+        for x in 0..crate::MAP_SIZE {
+            if !world_map.tiles[y][x].is_walkable() {
+                obstacles.insert((x as i32, y as i32));
+            }
+        }
+    }
+    
+    obstacles
+}
+
 /// Simple random movement system - triggers every 10-30 ticks to make units wander
 /// Now includes smart food-seeking behavior when hungry!
 pub fn simple_random_movement_system(
     sim_state: Res<SimulationState>,
+    world_map: Res<WorldMap>,
     mut units: Query<
         (
             Entity,
@@ -356,6 +373,9 @@ pub fn simple_random_movement_system(
     if !sim_state.just_ticked {
         return;
     }
+    
+    // Build obstacle map for pathfinding
+    let obstacles = build_obstacle_map(&world_map);
     
     let mut rng = rand::thread_rng();
     
@@ -386,7 +406,7 @@ pub fn simple_random_movement_system(
             
             // If found a berry bush, go there!
             if let Some(target_pos) = nearest_bush {
-                movement.set_target_from(&grid_pos, target_pos.clone());
+                movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
                 *mind = UnitMind::GoingThere {
                     destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
                 };
@@ -433,9 +453,9 @@ pub fn simple_random_movement_system(
             continue;
         }
         
-        // Set the movement target with path
+        // Set the movement target with A* pathfinding
         let target = GridPosition::new(new_x, new_y);
-        movement.set_target_from(&grid_pos, target);
+        movement.set_target_from_with_pathfinding(&grid_pos, target, &obstacles);
         
         // Update mind state
         *mind = UnitMind::Wandering;

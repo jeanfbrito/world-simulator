@@ -185,9 +185,9 @@ pub fn handle_wander_action(
         let new_x = new_x.min(63);
         let new_y = new_y.min(63);
         
-        // Set the movement target
+        // Set the movement target with proper path generation
         let target = crate::components::grid_position::GridPosition::new(new_x, new_y);
-        movement.set_target(target);
+        movement.set_target_from(grid_pos, target);
         
         // Set the mind state
         *mind = crate::components::UnitMind::Wandering;
@@ -207,6 +207,7 @@ pub fn handle_move_to_resource_action(
     mut query: Query<(
         Entity, 
         &MoveToResourceAction,
+        &crate::components::grid_position::GridPosition,
         &mut crate::components::grid_position::GridMovement,
         &mut crate::components::UnitMind
     )>,
@@ -218,11 +219,11 @@ pub fn handle_move_to_resource_action(
         return;
     }
     
-    for (entity, action, mut movement, mut mind) in query.iter_mut() {
+    for (entity, action, grid_pos, mut movement, mut mind) in query.iter_mut() {
         if let Some(target) = action.target {
             if let Ok((target_pos, _)) = resource_query.get(target) {
-                // Move to the resource location
-                movement.set_target(target_pos.clone());
+                // Move to the resource location with proper path generation
+                movement.set_target_from(grid_pos, target_pos.clone());
                 
                 *mind = crate::components::UnitMind::GoingThere {
                     destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),

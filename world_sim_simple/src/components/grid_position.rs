@@ -5,6 +5,7 @@ use crate::simulation::*;
 /// occupy discrete tiles and movement happens in tick-based steps.
 /// Visual interpolation provides smooth movement for presentation.
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 /// The authoritative grid position for simulation logic
 /// This is the "true" position used for all game logic
@@ -186,6 +187,29 @@ impl GridMovement {
         } else {
             // Same position, stop moving
             self.stop();
+        }
+    }
+    
+    /// Set a new movement target with A* pathfinding around obstacles
+    pub fn set_target_from_with_pathfinding(&mut self, current: &GridPosition, target: GridPosition, obstacles: &HashSet<(i32, i32)>) {
+        // Convert positions to Vec3 for pathfinding
+        let start = Vec3::new(current.x as f32 * 10.0, current.y as f32 * 10.0, 0.0);
+        let goal = Vec3::new(target.x as f32 * 10.0, target.y as f32 * 10.0, 0.0);
+        
+        // Use A* pathfinding
+        if let Some(path) = crate::ai::pathfinding::find_path(start, goal, obstacles) {
+            // Convert path waypoints to GridPositions
+            let grid_path: Vec<GridPosition> = path.get_waypoints()
+                .into_iter()
+                .map(|(x, y)| GridPosition::new(x as u32, y as u32))
+                .collect();
+            
+            if !grid_path.is_empty() {
+                self.set_path(grid_path);
+            }
+        } else {
+            // Fallback to simple pathfinding if A* fails
+            self.set_target_from(current, target);
         }
     }
 
