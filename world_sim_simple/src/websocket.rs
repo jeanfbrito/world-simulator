@@ -539,7 +539,8 @@ fn broadcast_game_state(
         };
         
         data.insert("status".to_string(), serde_json::json!(status));
-        data.insert("action".to_string(), serde_json::json!(action));
+        data.insert("action".to_string(), serde_json::json!(action.clone()));
+        data.insert("mind_state".to_string(), serde_json::json!(action)); // Add mind_state for viewer compatibility
         
         // Add inventory data if available
         if let Some(inv) = inventory {
