@@ -86,13 +86,35 @@ pub fn simple_ai_monitor_system(
             }
         };
 
-        let movement_indicator = if moved { "🚶" } else { "🧍" };
-        
-        // Get mind state - this is the primary state display
-        let mind_state = if let Some(mind) = mind {
-            mind.description()
+        // Enhanced movement and mind state indicators
+        let (movement_indicator, mind_icon) = if let Some(mind) = mind {
+            let icon = match mind {
+                UnitMind::Idle => "💤",
+                UnitMind::Thinking => "🤔",
+                UnitMind::SearchingForFood => "🔍",
+                UnitMind::Gathering { .. } => "🌾",
+                UnitMind::Working { .. } => "⚒️",
+                UnitMind::Eating => "🍽️",
+                UnitMind::Resting => "😴",
+                UnitMind::GoingThere { .. } => "🎯",
+                UnitMind::GoingHome => "🏠",
+                UnitMind::Storing => "📦",
+                UnitMind::Building { .. } => "🔨",
+                UnitMind::Wandering => "🚶",
+                UnitMind::LookingAround => "👀",
+                _ => "❓",
+            };
+            let movement = if mind.is_moving() { "🚶" } else { "🧍" };
+            (movement, icon)
         } else {
-            "idle".to_string()
+            ("🧍", "💤")
+        };
+        
+        // Get mind state description
+        let mind_state = if let Some(mind) = mind {
+            format!("{} {}", mind_icon, mind.description())
+        } else {
+            format!("{} idle", mind_icon)
         };
         
         let status = if plan.is_some() {

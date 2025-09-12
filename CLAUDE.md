@@ -601,6 +601,25 @@ cd /Users/jean/Github/world-simulator && ./monitor_world.sh
 # Logs are saved to /tmp/ for later review
 ```
 
+## 17. World Simulator Viewer
+
+The HTML viewer for the simulation is located at:
+```
+file:///Users/jean/Github/world-simulator/world_sim_simple/viewer.html
+```
+
+The viewer provides:
+- Real-time visualization of the map and entities
+- Peasant details showing UnitMind states with icons
+- WebSocket connection to the simulation at ws://localhost:8080
+- Mind state icons that match the terminal debug output
+- Movement detection and visual indicators (🚶 walking, 🧍 standing)
+
+To use the viewer:
+1. Start the simulation with WebSocket enabled (happens by default)
+2. Open the viewer HTML file in a browser
+3. The viewer will automatically connect and display the simulation state
+
 ## Summary
 
-**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems. Refer to dogoap and big-brain repositories for AI implementation patterns. **Always monitor existing simulations instead of starting new ones.**
+**Terminal debugging is not optional** - it's the required validation method for all code changes. HTML visualization is supplementary. Always validate through debug output before considering any task complete. Use Playwright MCP freely for browser-based testing and validation. Follow the incremental upgrade plan for sim_simple enhancements. Expect and plan for long Rust compilation times - they're normal and not a sign of problems. Refer to dogoap and big-brain repositories for AI implementation patterns. **Always monitor existing simulations instead of starting new ones.** The viewer at file:///Users/jean/Github/world-simulator/world_sim_simple/viewer.html provides visual representation of the simulation state.

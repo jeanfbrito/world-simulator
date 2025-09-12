@@ -905,25 +905,42 @@
                 const hunger = peasantData.hunger !== undefined ? peasantData.hunger : 50;
                 const energy = peasantData.energy !== undefined ? peasantData.energy : 50;
                 const inventory = peasantData.inventory || [];
-                const currentAction = peasantData.current_action || 'Idle';
+                const currentAction = peasantData.current_action || peasantData.action_state || 'Idle';
+                const mindState = peasantData.mind_state || peasantData.action_state || currentAction;
                 const morale = peasantData.morale !== undefined ? peasantData.morale : 70;
                 const health = peasantData.health !== undefined ? peasantData.health : 100;
+                
+                // Get mind state icon based on the state
+                let mindIcon = '💤'; // Default idle
+                if (mindState.includes('thinking') || mindState.includes('Thinking')) mindIcon = '🤔';
+                else if (mindState.includes('searching') || mindState.includes('Searching')) mindIcon = '🔍';
+                else if (mindState.includes('gathering') || mindState.includes('Gathering')) mindIcon = '🌾';
+                else if (mindState.includes('working') || mindState.includes('Working')) mindIcon = '⚒️';
+                else if (mindState.includes('eating') || mindState.includes('Eating')) mindIcon = '🍽️';
+                else if (mindState.includes('resting') || mindState.includes('Resting')) mindIcon = '😴';
+                else if (mindState.includes('going') || mindState.includes('Going')) mindIcon = '🎯';
+                else if (mindState.includes('home') || mindState.includes('Home')) mindIcon = '🏠';
+                else if (mindState.includes('storing') || mindState.includes('Storing')) mindIcon = '📦';
+                else if (mindState.includes('building') || mindState.includes('Building')) mindIcon = '🔨';
+                else if (mindState.includes('wandering') || mindState.includes('Wandering')) mindIcon = '🚶';
+                else if (mindState.includes('looking') || mindState.includes('Looking')) mindIcon = '👀';
                 
                 return `
                     <div class="peasant-card">
                         <div class="peasant-header">
                             <span class="peasant-status">${statusEmoji}</span>
                             <span>Peasant ${peasant.id || (index + 1)}</span>
+                            <span style="margin-left: auto;">${mindIcon}</span>
                         </div>
                         <div class="peasant-info">
                             <span class="peasant-label">Position:</span>
                             <span class="peasant-value">(${peasant.x}, ${peasant.y})</span>
                             
-                            <span class="peasant-label">Status:</span>
+                            <span class="peasant-label">Movement:</span>
                             <span class="peasant-value">${statusText}</span>
                             
-                            <span class="peasant-label">Action:</span>
-                            <span class="peasant-value">${currentAction}</span>
+                            <span class="peasant-label">Mind State:</span>
+                            <span class="peasant-value">${mindIcon} ${mindState}</span>
                             
                             <span class="peasant-label">Hunger:</span>
                             <div>

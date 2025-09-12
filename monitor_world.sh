@@ -89,7 +89,7 @@ echo ""
 
 RUST_LOG=info cargo run -p world_sim_simple 2>&1 | \
 tee $LOG_FILE | \
-grep -E "━━━ TICK|👤 Peasant|📍|➡️|📝|✅|⚠️|🌍 World Resources|🌲|🫐|🌳|depleted|Hunger|Energy|Inventory|📏|🚶|🧍|━━━━" | \
+grep -E "━━━ TICK|👤 Peasant|📍|➡️|📝|✅|⚠️|🌍 World Resources|🌲|🫐|🌳|depleted|Hunger|Energy|Inventory|📏|🚶|🧍|━━━━|💤|🤔|🔍|🌾|⚒️|🍽️|😴|🎯|🏠|📦|🔨|👀|Mind State|\[MIND\]" | \
 grep -v "warning:" | \
 grep -v "Compiling" | \
 grep -v "Finished" | \

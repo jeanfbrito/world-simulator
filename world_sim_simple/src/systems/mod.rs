@@ -86,6 +86,7 @@ impl Plugin for SystemsPlugin {
                 auto_gather_system,
                 work_effects_system,
                 update_unit_mind_system,  // Update unit minds after work
+                log_mind_changes_system,  // Log mind state changes for debugging
             )
                 .chain()
                 .run_if(crate::simulation::on_simulation_tick_legacy),

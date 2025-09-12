@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::components::{
-    UnitMind, UnitNeedsV2, UnitInventory, GridPosition, WorkProgress, WorkerTag,
+    UnitMind, UnitNeedsV2, UnitInventory, GridPosition, GridMovement, WorkProgress, WorkerTag,
+    NameComponent,
 };
 use crate::ai::{ActionPlan, GoapAction};
 use crate::resources::ResourceType;
@@ -15,6 +16,7 @@ pub fn update_unit_mind_system(
             Option<&UnitNeedsV2>,
             Option<&UnitInventory>,
             Option<&GridPosition>,
+            Option<&GridMovement>,
             Option<&WorkProgress>,
             Option<&ActionPlan>,
         ),
@@ -27,6 +29,7 @@ pub fn update_unit_mind_system(
         needs,
         inventory,
         position,
+        movement,
         work_progress,
         action_plan,
     ) in query.iter_mut()
@@ -36,6 +39,7 @@ pub fn update_unit_mind_system(
             needs,
             inventory,
             position,
+            movement,
             work_progress,
             action_plan,
         );
@@ -53,29 +57,27 @@ fn determine_unit_mind(
     needs: Option<&UnitNeedsV2>,
     inventory: Option<&UnitInventory>,
     position: Option<&GridPosition>,
+    movement: Option<&GridMovement>,
     work_progress: Option<&WorkProgress>,
     action_plan: Option<&ActionPlan>,
 ) -> UnitMind {
     // Priority 1: Check if actively working
     if let Some(work) = work_progress {
         if work.is_working {
-            return match work.work_type.as_str() {
-                "gather_food" => UnitMind::Gathering {
-                    resource: "berries".to_string(),
-                },
-                "gather_wood" => UnitMind::Gathering {
-                    resource: "wood".to_string(),
-                },
-                "gather_stone" => UnitMind::Gathering {
-                    resource: "stone".to_string(),
-                },
-                "building" => UnitMind::Building {
-                    structure: "structure".to_string(),
-                },
-                _ => UnitMind::Working {
-                    task: work.work_type.clone(),
-                },
-            };
+            if let Some(work_type) = &work.work_type {
+                use crate::components::WorkType;
+                return match work_type {
+                    WorkType::Gathering(res) => UnitMind::Gathering {
+                        resource: format!("{:?}", res.resource_type).to_lowercase(),
+                    },
+                    WorkType::Building(_) => UnitMind::Building {
+                        structure: "structure".to_string(),
+                    },
+                    _ => UnitMind::Working {
+                        task: format!("{:?}", work_type).to_lowercase(),
+                    },
+                };
+            }
         }
     }
 
@@ -117,7 +119,7 @@ fn determine_unit_mind(
         if needs.hunger() > 0.7 {
             // Check if we have food
             if let Some(inv) = inventory {
-                if inv.has_item(ResourceType::Food, 1) {
+                if inv.has_item(ResourceType::Berries, 1) {
                     return UnitMind::Eating;
                 }
             }
@@ -131,8 +133,8 @@ fn determine_unit_mind(
     }
 
     // Priority 4: Check if we're moving
-    if let Some(pos) = position {
-        if pos.is_moving() {
+    if let Some(move_comp) = movement {
+        if move_comp.is_moving {
             // Try to determine destination based on context
             if let Some(needs) = needs {
                 if needs.hunger() > 0.5 {
@@ -174,9 +176,9 @@ pub fn log_mind_changes_system(
     query: Query<(&crate::components::NameComponent, &UnitMind), Changed<UnitMind>>,
 ) {
     for (name, mind) in query.iter() {
-        debug!(
+        println!(
             "[MIND] {} is now: {}",
-            name.0,
+            name.name,
             mind.description()
         );
     }
