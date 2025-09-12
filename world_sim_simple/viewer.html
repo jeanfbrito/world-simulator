@@ -894,6 +894,22 @@
                 return;
             }
             
+            // Sort peasants by ID to maintain consistent ordering
+            // First try to extract numeric ID, fallback to string comparison
+            peasants.sort((a, b) => {
+                // Try to extract numeric ID from peasant.id
+                const idA = parseInt(a.id) || parseInt(String(a.id).match(/\d+/)?.[0]) || 0;
+                const idB = parseInt(b.id) || parseInt(String(b.id).match(/\d+/)?.[0]) || 0;
+                
+                if (idA !== idB) {
+                    return idA - idB;
+                }
+                
+                // If IDs are the same, sort by position as fallback
+                if (a.x !== b.x) return a.x - b.x;
+                return a.y - b.y;
+            });
+            
             peasantList.innerHTML = peasants.map((peasant, index) => {
                 // Determine movement state for display
                 const moveState = entityMovementStates[peasant.id];
@@ -935,7 +951,7 @@
                     <div class="peasant-card">
                         <div class="peasant-header">
                             <span class="peasant-status">${statusEmoji}</span>
-                            <span>Peasant ${peasant.id || (index + 1)}</span>
+                            <span>Peasant ${index + 1}</span>
                             <span style="margin-left: auto;">${mindIcon}</span>
                         </div>
                         <div class="peasant-info">
