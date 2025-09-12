@@ -1,8 +1,10 @@
-# Caveat: Resource Depletion and Regeneration System Architecture
+# The Great Berry Bush Regeneration Fiasco: A Tale of Two Components
 
-## The Problem (Cost: 1+ Days of Debugging)
+## Or: How I Learned to Stop Worrying and Love Component APIs
 
-We spent over a day debugging why berry bushes would never deplete and seemed to regenerate instantly. The symptoms were:
+### The Problem (Cost: 1+ Days of Debugging)
+
+We spent over a day debugging why berry bushes would never deplete and seemed to regenerate instantly. Like magical cornucopias of infinite berries, defying all laws of resource management. The symptoms were:
 - Berry bushes always showed as "25 berry bushes with fruit, 0 depleted" 
 - Berries appeared to regenerate within 1-2 ticks instead of the configured 150 ticks
 - Debug logs showed harvesting was happening but resources never depleted
