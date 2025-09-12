@@ -190,6 +190,7 @@ impl GridMovement {
     pub fn set_path(&mut self, path: Vec<GridPosition>) {
         if !path.is_empty() {
             self.path = path;
+            // Take the first step as our immediate target
             self.target = self.path.first().cloned();
             self.is_moving = true;
             self.progress_counter = 0;
@@ -212,8 +213,9 @@ impl GridMovement {
         }
 
         // Calculate progress increment based on movement speed
-        // MAX_WORK_PROGRESS / ticks_per_tile = progress per tick
-        let progress_increment = (MAX_WORK_PROGRESS / ticks_per_tile.max(1));
+        // We need to ensure we reach exactly MAX_WORK_PROGRESS in the specified ticks
+        // Use ceiling division to avoid off-by-one errors
+        let progress_increment = (MAX_WORK_PROGRESS + ticks_per_tile - 1) / ticks_per_tile.max(1);
         self.progress_counter += progress_increment;
 
         // Check if we've completed movement to next tile

@@ -57,6 +57,7 @@ impl Plugin for SystemsPlugin {
                 update_movement_effects_system,
                 simple_random_movement_system,  // Random movement to get units moving
                 tick_movement_system,
+                sync_tile_entity_system,  // Sync TileEntity with GridPosition
                 food_gathering_system,  // Gather food when at berry bushes
             )
                 .chain()

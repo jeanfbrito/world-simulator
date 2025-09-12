@@ -43,13 +43,26 @@ pub fn tick_movement_system(
         return;
     }
 
+    // Debug: count units being processed
+    let mut moving_count = 0;
+    let total_count = units.iter().count();
+    
+    // Check if any units exist
+    if total_count == 0 {
+        println!("WARNING: No units found with UnitTag, GridPosition, GridMovement, and VisualPosition!");
+        return;
+    }
+
     for (entity, mut grid_pos, mut movement, mut visual_pos, name, speed, effects) in
         units.iter_mut()
     {
+        
         // Skip if not moving
         if !movement.is_moving {
             continue;
         }
+        
+        moving_count += 1;
 
         let old_pos = grid_pos.clone();
 
@@ -111,6 +124,11 @@ pub fn tick_movement_system(
             );
         }
     }
+    
+    // Debug: log how many units were processed
+    if moving_count > 0 || total_count > 0 {
+        println!("Movement system: {}/{} units moving", moving_count, total_count);
+    }
 }
 
 /// System that interpolates visual positions every frame for smooth movement
@@ -126,6 +144,22 @@ pub fn visual_interpolation_system(
 
         // Update transform for rendering
         transform.translation = visual_pos.current;
+    }
+}
+
+/// System to sync TileEntity with GridPosition changes
+pub fn sync_tile_entity_system(
+    sim_state: Res<SimulationState>,
+    mut units: Query<(&GridPosition, &mut crate::TileEntity), (With<UnitTag>, Changed<GridPosition>)>,
+) {
+    // Only sync on ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+
+    for (grid_pos, mut tile_entity) in units.iter_mut() {
+        tile_entity.x = grid_pos.x as usize;
+        tile_entity.y = grid_pos.y as usize;
     }
 }
 
