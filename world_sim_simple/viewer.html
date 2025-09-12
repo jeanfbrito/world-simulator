@@ -910,6 +910,12 @@
                 const morale = peasantData.morale !== undefined ? peasantData.morale : 70;
                 const health = peasantData.health !== undefined ? peasantData.health : 100;
                 
+                // GOAP-specific data
+                const goapGoal = peasantData.goap_goal || 'None';
+                const goapAction = peasantData.goap_action || 'None';
+                const foodCount = peasantData.food_count !== undefined ? peasantData.food_count : 0;
+                const nearBerryBush = peasantData.near_berry_bush || false;
+                
                 // Get mind state icon based on the state
                 let mindIcon = '💤'; // Default idle
                 if (mindState.includes('thinking') || mindState.includes('Thinking')) mindIcon = '🤔';
@@ -941,6 +947,15 @@
                             
                             <span class="peasant-label">Mind State:</span>
                             <span class="peasant-value">${mindIcon} ${mindState}</span>
+                            
+                            <span class="peasant-label">GOAP Goal:</span>
+                            <span class="peasant-value">${goapGoal}</span>
+                            
+                            <span class="peasant-label">GOAP Action:</span>
+                            <span class="peasant-value">${goapAction} ${nearBerryBush ? '🫐' : ''}</span>
+                            
+                            <span class="peasant-label">Food Count:</span>
+                            <span class="peasant-value">🍖 ${foodCount}</span>
                             
                             <span class="peasant-label">Hunger:</span>
                             <div>

@@ -460,6 +460,7 @@ fn broadcast_game_state(
     world_map: Res<crate::WorldMap>,
     workers: Query<
         (
+            Entity,  // Add Entity to access GOAP data
             &crate::components::NameComponent,
             &crate::components::HealthComponent,
             &crate::TileEntity,
@@ -468,6 +469,19 @@ fn broadcast_game_state(
             Option<&crate::components::UnitInventory>,
             Option<&crate::components::WorkProgress>,
             Option<&crate::components::UnitMind>,  // Add UnitMind component
+        ),
+        With<crate::components::UnitTag>,
+    >,
+    // Separate query for GOAP components to avoid query complexity
+    goap_data: Query<
+        (
+            Option<&crate::ai::Hunger>,
+            Option<&crate::ai::Energy>,
+            Option<&crate::ai::FoodCount>,
+            Option<&crate::ai::NearBerryBush>,
+            Option<&crate::ai::EatAction>,
+            Option<&crate::ai::WanderAction>,
+            Option<&crate::ai::GatherFoodAction>,
         ),
         With<crate::components::UnitTag>,
     >,
@@ -491,10 +505,39 @@ fn broadcast_game_state(
         }
     }
     
-    for (name, health, tile, position, needs, inventory, work, mind) in workers.iter() {
+    for (entity, name, health, tile, position, needs, inventory, work, mind) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
+        
+        // Add GOAP data if available
+        if let Ok((hunger, energy, food_count, near_bush, eat_action, wander_action, gather_action)) = goap_data.get(entity) {
+            // Add GOAP state values
+            if let Some(h) = hunger {
+                data.insert("goap_hunger".to_string(), serde_json::json!(h.0));
+            }
+            if let Some(e) = energy {
+                data.insert("goap_energy".to_string(), serde_json::json!(e.0));
+            }
+            if let Some(f) = food_count {
+                data.insert("food_count".to_string(), serde_json::json!(f.0));
+            }
+            if let Some(n) = near_bush {
+                data.insert("near_berry_bush".to_string(), serde_json::json!(n.0 > 0.5));
+            }
+            
+            // Determine current GOAP action
+            let mut goap_action = "None";
+            if eat_action.is_some() {
+                goap_action = "Eating";
+            } else if gather_action.is_some() {
+                goap_action = "Gathering";
+            } else if wander_action.is_some() {
+                goap_action = "Wandering";
+            }
+            data.insert("goap_action".to_string(), serde_json::json!(goap_action));
+            data.insert("goap_goal".to_string(), serde_json::json!("Stay Fed (>80 hunger)"));
+        }
         
         // Add needs data if available (energy comes from here now)
         if let Some(needs) = needs {

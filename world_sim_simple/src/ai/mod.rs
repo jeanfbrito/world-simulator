@@ -4,7 +4,7 @@ mod pathfinding;
 mod task_executor;
 mod task_system;
 // New AI modules
-mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap
+pub mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap - make public for websocket access
 mod shared_state;       // For hybrid AI
 // mod big_brain_impl;     // Reactive AI
 
@@ -16,7 +16,11 @@ pub use pathfinding::Path;
 pub use task_executor::{BerryBushTag, TreeTag};
 pub use task_system::{Task, TaskPriority, TaskStatus, TaskSystem, TaskType};
 // New AI exports
-pub use bevy_dogoap_impl::BevyDogoapPlugin;
+pub use bevy_dogoap_impl::{
+    BevyDogoapPlugin,
+    Hunger, Energy, FoodCount, NearBerryBush,  // Export GOAP state components
+    EatAction, WanderAction, GatherFoodAction, RestAction,  // Export GOAP actions
+};
 // pub use big_brain_impl::BigBrainAIPlugin;
 pub use shared_state::{sync_dogoap_to_unit_needs, ai_mode_selection_system};
 
