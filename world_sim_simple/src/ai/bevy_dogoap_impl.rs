@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_dogoap::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};
+use crate::components::{WorkProgress, WorkType, ResourceWork};
 
 // Simple bevy_dogoap implementation for demonstration
 // This will handle basic needs like eating and resting
@@ -97,7 +98,16 @@ pub fn handle_rest_action(
 pub fn handle_gather_food_action(
     sim_state: Res<crate::SimulationState>,
     mut commands: Commands,
-    mut query: Query<(Entity, &GatherFoodAction, &mut FoodCount, &mut Energy, &NearBerryBush)>,
+    mut query: Query<(
+        Entity, 
+        &GatherFoodAction, 
+        &mut FoodCount, 
+        &mut Energy, 
+        &NearBerryBush,
+        &mut crate::components::WorkProgress,
+        &crate::components::grid_position::GridPosition,
+    )>,
+    resource_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -105,19 +115,44 @@ pub fn handle_gather_food_action(
         return;
     }
     
-    for (entity, _action, mut food, mut energy, near_bush) in query.iter_mut() {
+    for (entity, _action, mut food, mut energy, near_bush, mut work_progress, unit_pos) in query.iter_mut() {
         // Only gather if actually near a berry bush
         if near_bush.0 > 0.0 {
-            // For now, just simulate the gathering directly
-            // In a full implementation, this would trigger the actual work system
-            food.0 += 3.0;  // Gain 3 food (matches mutator)
-            energy.0 = (energy.0 - 5.0).max(0.0);  // Costs 5 energy (matches mutator)
+            // Find the nearest berry bush entity
+            let mut closest_bush = None;
+            let mut closest_distance = u32::MAX;
             
-            debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
-                &format!("Worker gathering berries, food now: {:.0}, energy: {:.1}", food.0, energy.0));
+            for (resource_entity, resource_pos, resource_node) in resource_query.iter() {
+                if resource_node.resource_type == crate::resources::ResourceType::Berries {
+                    let distance = unit_pos.distance_to(resource_pos);
+                    if distance <= 1 && distance < closest_distance && resource_node.can_harvest() {
+                        closest_bush = Some(resource_entity);
+                        closest_distance = distance;
+                    }
+                }
+            }
+            
+            if let Some(bush_entity) = closest_bush {
+                // Start the actual work to gather berries
+                work_progress.start_work(
+                    crate::components::WorkType::Gathering(crate::components::ResourceWork {
+                        resource_type: crate::resources::ResourceType::Berries,
+                        amount: 3,
+                        tool_bonus: 1.0,
+                    }),
+                    30, // Takes 30 ticks (3 seconds) to gather
+                    Some(bush_entity),
+                );
+                
+                // Apply immediate energy cost
+                energy.0 = (energy.0 - 5.0).max(0.0);
+                
+                debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
+                    &format!("Worker starting to gather berries from bush"));
+            }
         }
         
-        // Remove the action after completion
+        // Remove the action after setting up work
         commands.entity(entity).remove::<GatherFoodAction>();
     }
 }
