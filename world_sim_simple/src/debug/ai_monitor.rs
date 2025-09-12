@@ -15,7 +15,7 @@ pub fn simple_ai_monitor_system(
         (
             Entity,
             &NameComponent,
-            &UnitNeeds,
+            &UnitNeedsV2,  // Changed from UnitNeeds to UnitNeedsV2
             &UnitInventory,
             &UnitLocation,
             &TileEntity,
@@ -91,8 +91,8 @@ pub fn simple_ai_monitor_system(
         } else {
             "❓ No Plan"
         };
-        let hunger_bar = create_bar(needs.hunger, true);
-        let energy_bar = create_bar(needs.energy, false);
+        let hunger_bar = create_bar(needs.hunger(), true);  // Use method instead of field
+        let energy_bar = create_bar(needs.energy(), false);  // Use method instead of field
 
         // Get inventory summary
         let wood = inventory.get_amount(crate::resources::ResourceType::Wood);
@@ -120,7 +120,7 @@ pub fn simple_ai_monitor_system(
         );
         println!(
             "   {} | Hunger {} ({:.2}) | Energy {} ({:.2})",
-            status, hunger_bar, needs.hunger, energy_bar, needs.energy
+            status, hunger_bar, needs.hunger(), energy_bar, needs.energy()
         );
         println!(
             "   📍 {} | Inventory: {}🪵 {}🍖 {}⛏️ (weight: {:.1}/{:.1})",

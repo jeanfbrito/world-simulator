@@ -464,7 +464,7 @@ fn broadcast_game_state(
             &crate::components::HealthComponent,
             &crate::components::EnergyComponent,
             &crate::TileEntity,
-            Option<&crate::components::UnitNeeds>,
+            Option<&crate::components::UnitNeedsV2>,
             Option<&crate::components::UnitInventory>,
         ),
         With<crate::components::UnitTag>,
@@ -488,9 +488,9 @@ fn broadcast_game_state(
         
         // Add needs data if available
         if let Some(needs) = needs {
-            data.insert("hunger".to_string(), serde_json::json!(needs.hunger * 100.0)); // Convert to percentage
-            data.insert("morale".to_string(), serde_json::json!(needs.morale * 100.0));
-            data.insert("shelter".to_string(), serde_json::json!(needs.shelter));
+            data.insert("hunger".to_string(), serde_json::json!(needs.hunger() * 100.0)); // Convert to percentage
+            data.insert("morale".to_string(), serde_json::json!(needs.morale() * 100.0));
+            data.insert("shelter".to_string(), serde_json::json!(needs.has_shelter));
         }
         
         // Add inventory data if available
