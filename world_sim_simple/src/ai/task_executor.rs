@@ -543,6 +543,29 @@ fn find_nearest_berry(
         }
     }
 
+    // If no berries found with current position, try expanding search
+    if nearest.is_none() {
+        println!("⚠️ No berry bushes with fruit found near ({:.0}, {:.0}), searching entire map...", 
+            worker_pos.x, worker_pos.y);
+        
+        // Try again without distance limit - just find ANY bush with berries
+        for (entity, berry_pos, resource_node, growing_resource) in berries.iter() {
+            let has_berries = if let Some(growing) = growing_resource {
+                growing.harvestable_amount > 0
+            } else {
+                resource_node.can_harvest()
+            };
+            
+            if has_berries {
+                println!("   ✅ Found berry bush with fruit at ({:.0}, {:.0})", berry_pos.x, berry_pos.y);
+                return Some((entity, berry_pos.clone()));
+            }
+        }
+        
+        // Log if absolutely no berries available anywhere
+        println!("   ❌ No berry bushes with fruit on entire map!");
+    }
+
     nearest
 }
 

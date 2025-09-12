@@ -26,7 +26,7 @@ pub fn simple_ai_monitor_system(
         With<UnitTag>,
     >,
     trees: Query<Entity, With<crate::ai::TreeTag>>,
-    berries: Query<Entity, With<crate::ai::BerryBushTag>>,
+    berries: Query<(Entity, &ResourceNode), With<crate::ai::BerryBushTag>>,
 ) {
     if !sim_state.just_ticked {
         return;
@@ -51,10 +51,21 @@ pub fn simple_ai_monitor_system(
 
     // Show resource counts by type
     let tree_count = trees.iter().count();
-    let berry_count = berries.iter().count();
+    let mut full_berry_count = 0;
+    let mut empty_berry_count = 0;
+    
+    for (_entity, resource_node) in berries.iter() {
+        if resource_node.amount > 0 {
+            full_berry_count += 1;
+        } else {
+            empty_berry_count += 1;
+        }
+    }
+    
     println!("🌍 World Resources:");
     println!("   🌲 {} trees available", tree_count);
-    println!("   🫐 {} berry bushes available", berry_count);
+    println!("   🫐 {} berry bushes with fruit", full_berry_count);
+    println!("   🌳 {} depleted berry bushes", empty_berry_count);
 
     // Show each peasant's status
     for (entity, name, needs, inventory, location, tile, position, tiles_walked, plan) in

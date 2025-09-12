@@ -235,38 +235,38 @@ impl ActionSet {
     pub fn new() -> Self {
         let mut actions = Vec::new();
 
-        // Move to resource action
-        actions.push(
-            GoapAction::new("move_to_resource", 1.0)
-                .with_precondition("has_energy", StateValue::Float(0.2))
-                .with_effect("at_resource", StateValue::Bool(true))
-                .with_effect("at_storage", StateValue::Bool(false)),
-        );
+        // Move to resource action - DISABLED for survival-only mode
+        // actions.push(
+        //     GoapAction::new("move_to_resource", 1.0)
+        //         .with_precondition("has_energy", StateValue::Float(0.2))
+        //         .with_effect("at_resource", StateValue::Bool(true))
+        //         .with_effect("at_storage", StateValue::Bool(false)),
+        // );
 
-        // Harvest resource action
-        actions.push(
-            GoapAction::new("harvest_resource", 2.0)
-                .with_precondition("at_resource", StateValue::Bool(true))
-                .with_precondition("inventory_full", StateValue::Bool(false))
-                .with_effect("has_wood", StateValue::Int(5)),
-        );
+        // Harvest resource action - DISABLED for survival-only mode
+        // actions.push(
+        //     GoapAction::new("harvest_resource", 2.0)
+        //         .with_precondition("at_resource", StateValue::Bool(true))
+        //         .with_precondition("inventory_full", StateValue::Bool(false))
+        //         .with_effect("has_wood", StateValue::Int(5)),
+        // );
 
-        // Move to storage action
-        actions.push(
-            GoapAction::new("move_to_storage", 1.0)
-                .with_precondition("has_energy", StateValue::Float(0.2))
-                .with_effect("at_storage", StateValue::Bool(true))
-                .with_effect("at_resource", StateValue::Bool(false)),
-        );
+        // Move to storage action - DISABLED for survival-only mode
+        // actions.push(
+        //     GoapAction::new("move_to_storage", 1.0)
+        //         .with_precondition("has_energy", StateValue::Float(0.2))
+        //         .with_effect("at_storage", StateValue::Bool(true))
+        //         .with_effect("at_resource", StateValue::Bool(false)),
+        // );
 
-        // Store resources action (stores all carried resources)
-        actions.push(
-            GoapAction::new("store_resources", 1.0)
-                .with_precondition("at_storage", StateValue::Bool(true))
-                .with_precondition("has_wood", StateValue::Int(1))
-                .with_effect("has_wood", StateValue::IntDelta(-999))  // Clear all wood
-                .with_effect("inventory_full", StateValue::Bool(false)),
-        );
+        // Store resources action (stores all carried resources) - DISABLED
+        // actions.push(
+        //     GoapAction::new("store_resources", 1.0)
+        //         .with_precondition("at_storage", StateValue::Bool(true))
+        //         .with_precondition("has_wood", StateValue::Int(1))
+        //         .with_effect("has_wood", StateValue::IntDelta(-999))  // Clear all wood
+        //         .with_effect("inventory_full", StateValue::Bool(false)),
+        // );
 
         // Eat food action (consumes 1 food)
         actions.push(
@@ -294,13 +294,13 @@ impl ActionSet {
                 .with_effect("has_food", StateValue::Int(3)), // Gather 3 food items
         );
 
-        // Cut wood from trees (when need more wood)
-        actions.push(
-            GoapAction::new("cut_wood", 2.5)
-                .with_precondition("has_energy", StateValue::Float(0.4))
-                // No wood precondition - can cut wood anytime
-                .with_effect("has_wood", StateValue::Int(10)),
-        );
+        // Cut wood from trees (when need more wood) - DISABLED for survival-only mode
+        // actions.push(
+        //     GoapAction::new("cut_wood", 2.5)
+        //         .with_precondition("has_energy", StateValue::Float(0.4))
+        //         // No wood precondition - can cut wood anytime
+        //         .with_effect("has_wood", StateValue::Int(10)),
+        // );
 
         // Build house action (consumes resources)
         actions.push(

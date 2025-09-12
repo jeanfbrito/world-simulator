@@ -705,7 +705,12 @@
                         break;
                     case 'Berry':
                     case 'berry':
-                        emoji = '🫐';
+                        // Check if berry bush has fruit (amount > 0)
+                        if (entity.data && entity.data.amount !== undefined) {
+                            emoji = entity.data.amount > 0 ? '🫐' : '🌳';
+                        } else {
+                            emoji = '🫐'; // Default to full if no data
+                        }
                         break;
                     case 'Building':
                     case 'building':
