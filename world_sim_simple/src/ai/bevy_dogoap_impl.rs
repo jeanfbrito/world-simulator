@@ -347,7 +347,7 @@ pub fn setup_dogoap_planners(
 // System to update hunger and energy over time (on simulation ticks)
 pub fn update_needs_system(
     sim_state: Res<crate::SimulationState>,
-    mut query: Query<(&mut Hunger, &mut Energy)>,
+    mut query: Query<(&mut Hunger, &mut Energy, Option<&crate::components::UnitMind>)>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -355,20 +355,30 @@ pub fn update_needs_system(
         return;
     }
     
-    for (mut hunger, mut energy) in query.iter_mut() {
-        // Hunger increases over time (lower is hungrier)
+    for (mut hunger, mut energy, mind) in query.iter_mut() {
+        // Check if unit is resting
+        let is_resting = matches!(mind, Some(crate::components::UnitMind::Resting));
+        
+        // Hunger increases over time regardless of resting (lower is hungrier)
         // Decrease by 0.4 per tick (4 per second at 10 ticks per second)
         hunger.0 = (hunger.0 - 0.4).max(0.0);
         
-        // Energy decreases over time  
-        // Decrease by 0.5 per tick (5 per second at 10 ticks per second)
-        energy.0 = (energy.0 - 0.5).max(0.0);
+        if is_resting {
+            // Energy recovers when resting
+            // Increase by 2.0 per tick (20 per second at 10 ticks per second)
+            energy.0 = (energy.0 + 2.0).min(100.0);
+            debug.log(DebugLevel::Debug, "DOGOAP_STATE", &format!("Unit resting, energy recovering to {:.1}", energy.0));
+        } else {
+            // Energy decreases over time when not resting
+            // Decrease by 0.5 per tick (5 per second at 10 ticks per second)
+            energy.0 = (energy.0 - 0.5).max(0.0);
+        }
         
         // Log critical states
         if hunger.0 < 10.0 {
             debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is very hungry!");
         }
-        if energy.0 < 10.0 {
+        if energy.0 < 10.0 && !is_resting {
             debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is exhausted!");
         }
     }

@@ -1,5 +1,5 @@
 use crate::ai::BehaviorStateNew as BehaviorState;
-use crate::components::{NameComponent, UnitInventory, UnitLocation, UnitNeedsV2, UnitTag};
+use crate::components::{NameComponent, UnitInventory, UnitLocation, UnitNeedsV2, UnitTag, UnitMind};
 use crate::SimulationState;
 /// Tick-based needs update system
 ///
@@ -18,6 +18,7 @@ pub fn update_unit_needs_tick_system(
             &mut UnitNeedsV2,
             &NameComponent,
             Option<&BehaviorState>,
+            Option<&UnitMind>,
         ),
         With<UnitTag>,
     >,
@@ -30,32 +31,32 @@ pub fn update_unit_needs_tick_system(
         return;
     }
 
-    for (entity, mut needs, name, behavior) in units.iter_mut() {
+    for (entity, mut needs, name, behavior, mind) in units.iter_mut() {
         // Store old values for change detection
         let old_hunger = needs.hunger();
         let old_energy = needs.energy();
         let old_starving = needs.is_starving();
         let old_exhausted = needs.is_exhausted();
 
-        // Update based on current behavior
-        match behavior {
-            Some(BehaviorState::Resting) => {
-                // Special update when resting
-                needs.tick_rest();
-                debug.log(
-                    DebugLevel::Debug,
-                    "NEEDS",
-                    &format!("{} is resting, energy recovering", name.name),
-                );
-            }
-            Some(BehaviorState::Eating) => {
-                // Eating happens as discrete action, not tick update
-                needs.tick_update();
-            }
-            _ => {
-                // Normal tick update
-                needs.tick_update();
-            }
+        // Check if unit is resting (either through BehaviorState or UnitMind)
+        let is_resting = matches!(behavior, Some(BehaviorState::Resting)) || 
+                        matches!(mind, Some(UnitMind::Resting));
+
+        // Update based on current state
+        if is_resting {
+            // Special update when resting - recovers energy
+            needs.tick_rest();
+            debug.log(
+                DebugLevel::Debug,
+                "NEEDS",
+                &format!("{} is resting, energy recovering", name.name),
+            );
+        } else if matches!(behavior, Some(BehaviorState::Eating)) {
+            // Eating happens as discrete action, not tick update
+            needs.tick_update();
+        } else {
+            // Normal tick update
+            needs.tick_update();
         }
 
         // Log significant state changes
