@@ -57,13 +57,13 @@ impl ResourceNode {
             max_amount: max_berries,
             yield_amount: 3,
 
-            // Berries regenerate moderately: 1 berry every 5 seconds
+            // Berries regenerate slowly: 1 berry every 60 seconds
             regeneration_rate: 1,
-            regeneration_interval: 50,
+            regeneration_interval: 600,
             ticks_since_last_regen: 0,
 
-            // Respawn after full depletion: 30 seconds
-            respawn_time_ticks: 300,
+            // Respawn after full depletion: 2 minutes
+            respawn_time_ticks: 1200,
             ticks_since_depletion: 0,
 
             quality_modifier: 1.0,

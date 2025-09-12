@@ -210,11 +210,11 @@ pub fn spawn_regenerating_resources_system(
 
     let berry_count = berry_positions.len();
     for (x, y) in berry_positions {
-        // Start with 0 berries for scarcity
-        let mut berry_node = ResourceNode::fruit_bush(2); // Start with 2 berries
-        berry_node.max_amount = 5; // Can grow up to 5 berries (reduced for scarcity)
+        // Start with fewer berries to encourage movement
+        let mut berry_node = ResourceNode::fruit_bush(1); // Start with only 1 berry
+        berry_node.max_amount = 3; // Max 3 berries per bush
         berry_node.regeneration_rate = 1; // Only 1 berry at a time
-        berry_node.regeneration_interval = 50; // Every 5 seconds
+        berry_node.regeneration_interval = 600; // Every 60 seconds (much slower!)
 
         commands.spawn((
             NameComponent::new(format!("Berry Bush ({}, {})", x, y)),
