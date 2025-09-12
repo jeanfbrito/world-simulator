@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::components::{
-    UnitMind, UnitNeedsV2, UnitInventory, GridPosition, GridMovement, WorkProgress, WorkerTag,
+    UnitMind, UnitNeedsV2, UnitInventory, GridPosition, GridMovement, WorkProgress, UnitTag,
     NameComponent,
 };
 use crate::ai::{ActionPlan, GoapAction};
@@ -19,8 +19,9 @@ pub fn update_unit_mind_system(
             Option<&GridMovement>,
             Option<&WorkProgress>,
             Option<&ActionPlan>,
+            Option<&NameComponent>,
         ),
-        With<WorkerTag>,
+        With<UnitTag>,
     >,
 ) {
     for (
@@ -32,6 +33,7 @@ pub fn update_unit_mind_system(
         movement,
         work_progress,
         action_plan,
+        name,
     ) in query.iter_mut()
     {
         // Determine what the unit should be thinking about
@@ -44,10 +46,18 @@ pub fn update_unit_mind_system(
             action_plan,
         );
 
-        // Update if changed
-        if !matches!((&*mind, &new_mind), (UnitMind::Custom(a), UnitMind::Custom(b)) if a == b)
-            && std::mem::discriminant(&*mind) != std::mem::discriminant(&new_mind)
-        {
+        // Always update mind state to ensure it's current
+        // (previously we were only updating on discriminant change which missed state updates)
+        if *mind != new_mind {
+            // Debug log the state change
+            if let Some(n) = name {
+                println!(
+                    "[MIND] {} changed from {} to {}",
+                    n.name,
+                    mind.description(),
+                    new_mind.description()
+                );
+            }
             *mind = new_mind;
         }
     }
@@ -61,34 +71,25 @@ fn determine_unit_mind(
     work_progress: Option<&WorkProgress>,
     action_plan: Option<&ActionPlan>,
 ) -> UnitMind {
-    // Priority 1: Check if actively working
-    if let Some(work) = work_progress {
-        if work.is_working {
-            if let Some(work_type) = &work.work_type {
-                use crate::components::WorkType;
-                return match work_type {
-                    WorkType::Gathering(res) => UnitMind::Gathering {
-                        resource: format!("{:?}", res.resource_type).to_lowercase(),
-                    },
-                    WorkType::Building(_) => UnitMind::Building {
-                        structure: "structure".to_string(),
-                    },
-                    _ => UnitMind::Working {
-                        task: format!("{:?}", work_type).to_lowercase(),
-                    },
-                };
-            }
-        }
-    }
-
-    // Priority 2: Check if executing a plan
+    // Priority 1: Check if executing a plan action FIRST
+    // (Since WorkProgress detection seems to not be working properly)
     if let Some(plan) = action_plan {
         if !plan.actions.is_empty() && plan.current_index < plan.actions.len() {
             let current_action = &plan.actions[plan.current_index];
+            
+            // Map GOAP actions to mind states
             return match current_action.name.as_str() {
                 "move_to_resource" | "move_to_berries" | "move_to_tree" => {
-                    UnitMind::GoingThere {
-                        destination: "resource".to_string(),
+                    if let Some(move_comp) = movement {
+                        if move_comp.is_moving {
+                            UnitMind::GoingThere {
+                                destination: "resource".to_string(),
+                            }
+                        } else {
+                            UnitMind::SearchingForFood
+                        }
+                    } else {
+                        UnitMind::SearchingForFood
                     }
                 }
                 "gather_food" => UnitMind::Gathering {
@@ -108,12 +109,37 @@ fn determine_unit_mind(
                     task: current_action.name.clone(),
                 },
             };
-        } else if plan.is_complete() {
-            return UnitMind::Thinking; // Plan complete, thinking about next step
+        }
+    }
+    
+    // Priority 2: Check if actively working (as backup)
+    if let Some(work) = work_progress {
+        if work.is_working || (work.work_type.is_some() && work.progress() > 0.0) {
+            if let Some(work_type) = &work.work_type {
+                use crate::components::WorkType;
+                return match work_type {
+                    WorkType::Gathering(res) => UnitMind::Gathering {
+                        resource: format!("{:?}", res.resource_type).to_lowercase(),
+                    },
+                    WorkType::Building(_) => UnitMind::Building {
+                        structure: "structure".to_string(),
+                    },
+                    _ => UnitMind::Working {
+                        task: format!("{:?}", work_type).to_lowercase(),
+                    },
+                };
+            }
         }
     }
 
-    // Priority 3: Check critical needs
+    // Priority 3: Check if plan is complete
+    if let Some(plan) = action_plan {
+        if plan.is_complete() {
+            return UnitMind::Thinking; // Plan complete, thinking about next step
+        }
+    }
+    
+    // Priority 4: Check critical needs
     if let Some(needs) = needs {
         // Very hungry - actively looking for food
         if needs.hunger() > 0.7 {
@@ -132,7 +158,7 @@ fn determine_unit_mind(
         }
     }
 
-    // Priority 4: Check if we're moving
+    // Priority 5: Check if we're moving
     if let Some(move_comp) = movement {
         if move_comp.is_moving {
             // Try to determine destination based on context
@@ -145,12 +171,12 @@ fn determine_unit_mind(
         }
     }
 
-    // Priority 5: Check if thinking (no plan)
+    // Priority 6: Check if thinking (no plan)
     if action_plan.is_none() {
         return UnitMind::Thinking;
     }
 
-    // Priority 6: Random idle states based on needs
+    // Priority 7: Random idle states based on needs
     if let Some(needs) = needs {
         if needs.hunger() > 0.4 && needs.hunger() < 0.7 {
             return UnitMind::LookingAround; // Mildly hungry, looking for opportunities
@@ -164,9 +190,10 @@ fn determine_unit_mind(
 /// System to add UnitMind component to entities that don't have it
 pub fn ensure_unit_mind_system(
     mut commands: Commands,
-    query: Query<Entity, (With<WorkerTag>, Without<UnitMind>)>,
+    query: Query<Entity, (With<UnitTag>, Without<UnitMind>)>,
 ) {
     for entity in query.iter() {
+        println!("[MIND] Adding UnitMind component to entity {:?}", entity);
         commands.entity(entity).insert(UnitMind::default());
     }
 }

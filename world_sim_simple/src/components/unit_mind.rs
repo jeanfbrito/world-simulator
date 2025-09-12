@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the current state of mind/activity of a unit
 /// This is what the unit is currently focused on or thinking about
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Component, Debug, Clone, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(Component)]
 pub enum UnitMind {
     /// Just standing around, no particular goal
