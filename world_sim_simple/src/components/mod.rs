@@ -13,6 +13,7 @@ pub mod resource;
 pub mod unit; // New unified unit system
 
 // New consolidated modules
+pub mod claimed_resource;
 pub mod grid_position;
 pub mod movement_config;
 pub mod movement_tracker;
@@ -39,6 +40,7 @@ pub use resource::{
 pub use unit::{UnitStats, UnitTag, UnitType};
 
 // Re-export new consolidated components
+pub use claimed_resource::ClaimedResource;
 pub use grid_position::{migrate_positions_system, GridMovement, GridPosition, VisualPosition};
 pub use movement_config::{MovementEffects, MovementSpeed};
 pub use movement_tracker::TilesWalked;

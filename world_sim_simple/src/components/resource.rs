@@ -150,6 +150,48 @@ impl ResourceNode {
         self.seasonal_modifier = modifier;
         // Could affect regeneration rate or yield
     }
+    
+    /// Try to claim this resource for a unit
+    /// Returns true if claim was successful
+    pub fn try_claim(&mut self, claimer: Entity) -> bool {
+        // Check if already claimed by this entity
+        if self.claimed_by.contains(&claimer) {
+            return true;  // Already claimed by this entity
+        }
+        
+        // Check if there's room for another worker
+        if self.claimed_by.len() < self.max_workers {
+            self.claimed_by.insert(claimer);
+            return true;
+        }
+        
+        false  // No room for more workers
+    }
+    
+    /// Release a claim on this resource
+    pub fn release_claim(&mut self, claimer: Entity) {
+        self.claimed_by.remove(&claimer);
+    }
+    
+    /// Check if a specific entity has claimed this resource
+    pub fn is_claimed_by(&self, entity: Entity) -> bool {
+        self.claimed_by.contains(&entity)
+    }
+    
+    /// Check if resource is fully claimed (no room for more workers)
+    pub fn is_fully_claimed(&self) -> bool {
+        self.claimed_by.len() >= self.max_workers
+    }
+    
+    /// Get number of current claimers
+    pub fn claim_count(&self) -> usize {
+        self.claimed_by.len()
+    }
+    
+    /// Clear all claims (useful when resource is depleted)
+    pub fn clear_claims(&mut self) {
+        self.claimed_by.clear();
+    }
 }
 
 /// Different types of resource nodes from Lua scripts

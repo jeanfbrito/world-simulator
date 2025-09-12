@@ -1,9 +1,9 @@
 use crate::ai::WorkerAI;
 use crate::components::{
-    EnergyComponent, HasEnergy, HasFood, HasStone, HasWood, HealthComponent, IsHungry, IsWorking,
-    NameComponent, PeasantConfig, PeasantTag, PositionComponent, TilesWalked, UnitInventory,
-    UnitLocation, UnitNeeds, UnitOwnership, UnitStats, UnitTag, UnitType, UnitWorkState,
-    WorkProgress, WorkSpeed,
+    ClaimedResource, EnergyComponent, HasEnergy, HasFood, HasStone, HasWood, HealthComponent, 
+    IsHungry, IsWorking, NameComponent, PeasantConfig, PeasantTag, PositionComponent, TilesWalked, 
+    UnitInventory, UnitLocation, UnitNeeds, UnitOwnership, UnitStats, UnitTag, UnitType, 
+    UnitWorkState, WorkProgress, WorkSpeed,
 };
 use crate::TileEntity;
 use bevy::prelude::*;
@@ -87,6 +87,7 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         // Work components
         WorkProgress::new(),
         WorkSpeed::default(),
+        ClaimedResource::new(),  // Track claimed resources
         // AI components
         WorkerAI::new(),
         crate::ai::BehaviorCycle::default(),

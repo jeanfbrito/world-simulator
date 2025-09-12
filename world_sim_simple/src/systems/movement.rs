@@ -1,8 +1,12 @@
 use crate::components::{
     GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, UnitTag,
-    VisualPosition, UnitMind,
+    VisualPosition, UnitMind, ClaimedResource, UnitNeedsV2, UnitInventory,
+    resource::ResourceNode,
 };
 use crate::{SimulationState, WorldMap, TILE_SIZE};
+use crate::resources::ResourceType;
+use crate::ai::BerryBushTag;
+use crate::debug::{DebugSystem, DebugLevel};
 /// Tick-based movement system
 ///
 /// This system handles all unit movement on the simulation tick,
@@ -13,10 +17,14 @@ use colored::Colorize;
 use rand::Rng;
 use std::collections::HashSet;
 
-fn is_position_walkable(_world_map: &WorldMap, pos: &GridPosition) -> bool {
-    // Simple bounds check for now
-    // TODO: Implement proper collision detection with WorldMap
-    pos.x < 64 && pos.y < 64
+fn is_position_walkable(world_map: &WorldMap, pos: &GridPosition) -> bool {
+    // Check bounds first
+    if pos.x >= 64 || pos.y >= 64 {
+        return false;
+    }
+    
+    // Check if the tile is walkable (not water, deep water, etc.)
+    world_map.tiles[pos.y as usize][pos.x as usize].is_walkable()
 }
 
 /// System that processes movement on each simulation tick
@@ -361,13 +369,14 @@ pub fn simple_random_movement_system(
             &mut UnitMind,
             &NameComponent,
             &crate::components::UnitNeedsV2,
+            &crate::components::UnitInventory,
+            &mut crate::components::ClaimedResource,
         ),
         With<UnitTag>,
     >,
-    berry_bushes: Query<(&GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
-    debug: Res<crate::debug::DebugSystem>,
+    mut berry_bushes: Query<(Entity, &GridPosition, &mut ResourceNode), With<BerryBushTag>>,
+    debug: Res<DebugSystem>,
 ) {
-    use crate::debug::DebugLevel;
     
     // Only process on ticks
     if !sim_state.just_ticked {
@@ -379,20 +388,32 @@ pub fn simple_random_movement_system(
     
     let mut rng = rand::thread_rng();
     
-    for (entity, grid_pos, mut movement, mut mind, name, needs) in units.iter_mut() {
+    for (entity, grid_pos, mut movement, mut mind, name, needs, inventory, mut claimed_resource) in units.iter_mut() {
         // Skip if already moving
         if movement.is_moving {
             continue;
         }
         
-        // If hungry, look for nearby berry bushes!
-        if needs.is_hungry() {  // Getting hungry
-            // Find nearest berry bush with berries
+        // Release any existing claim if we're not moving
+        if claimed_resource.has_claim() {
+            if let Some(resource_entity) = claimed_resource.get_claimed() {
+                if let Ok((_, _, mut resource)) = berry_bushes.get_mut(resource_entity) {
+                    resource.release_claim(entity);
+                }
+            }
+            claimed_resource.release();
+        }
+        
+        // If hungry and no food in inventory, look for berry bushes to harvest
+        if needs.is_hungry() && inventory.get_amount(crate::resources::ResourceType::Berries) < 3 {
+            // Find nearest berry bush with berries that isn't fully claimed
             let mut nearest_bush = None;
+            let mut nearest_bush_entity = None;
             let mut nearest_distance = f32::MAX;
             
-            for (bush_pos, resource) in berry_bushes.iter() {
-                if resource.amount > 0 {
+            for (bush_entity, bush_pos, resource) in berry_bushes.iter() {
+                // Check if bush has berries AND isn't fully claimed (or already claimed by us)
+                if resource.amount > 0 && (!resource.is_fully_claimed() || resource.is_claimed_by(entity)) {
                     let dx = (bush_pos.x as f32 - grid_pos.x as f32);
                     let dy = (bush_pos.y as f32 - grid_pos.y as f32);
                     let distance = (dx * dx + dy * dy).sqrt();
@@ -400,34 +421,48 @@ pub fn simple_random_movement_system(
                     if distance < nearest_distance {
                         nearest_distance = distance;
                         nearest_bush = Some(bush_pos.clone());
+                        nearest_bush_entity = Some(bush_entity);
                     }
                 }
             }
             
-            // If found a berry bush, go there!
+            // If found a berry bush, claim it and go there!
             if let Some(target_pos) = nearest_bush {
-                movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
-                *mind = UnitMind::GoingThere {
-                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
-                };
-                
-                debug.log(
-                    DebugLevel::Info,
-                    "FOOD_SEEKING",
-                    &format!(
-                        "{} is hungry ({}% full) and moving to berry bush at ({},{})",
-                        name.name, ((1.0 - needs.hunger()) * 100.0) as i32, target_pos.x, target_pos.y
-                    ),
-                );
-                
-                println!(
-                    "{} {} is hungry and heading to berries at ({},{})",
-                    "🍓".red(),
-                    name.name.yellow(),
-                    target_pos.x,
-                    target_pos.y
-                );
-                continue;
+                if let Some(bush_entity) = nearest_bush_entity {
+                    // Try to claim the resource
+                    if let Ok((_, _, mut resource)) = berry_bushes.get_mut(bush_entity) {
+                        if resource.try_claim(entity) {
+                            // Save the claimed resource
+                            claimed_resource.claim(bush_entity);
+                            
+                            movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
+                            *mind = UnitMind::GoingThere {
+                                destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                            };
+                            
+                            debug.log(
+                                DebugLevel::Info,
+                                "RESOURCE_CLAIM",
+                                &format!(
+                                    "{} claimed berry bush at ({},{}) for harvesting [workers: {}/{}]",
+                                    name.name, target_pos.x, target_pos.y,
+                                    resource.claim_count(), resource.max_workers
+                                ),
+                            );
+                            
+                            println!(
+                                "{} {} claimed berries at ({},{}) [workers: {}/{}]",
+                                "⛏️".cyan(),
+                                name.name.yellow(),
+                                target_pos.x,
+                                target_pos.y,
+                                resource.claim_count(),
+                                resource.max_workers
+                            );
+                            continue;
+                        }
+                    }
+                }
             }
         }
         
@@ -476,5 +511,108 @@ pub fn simple_random_movement_system(
             new_x,
             new_y
         );
+    }
+}
+
+/// System to handle units searching for food - finds and moves to berry bushes
+pub fn food_search_movement_system(
+    sim_state: Res<SimulationState>,
+    mut units: Query<(
+        Entity,
+        &GridPosition,
+        &mut GridMovement, 
+        &mut UnitMind,
+        &mut ClaimedResource,
+        &UnitNeedsV2,
+        &UnitInventory,
+        &NameComponent,
+    ), With<UnitTag>>,
+    mut berry_bushes: Query<(Entity, &GridPosition, &mut ResourceNode), With<BerryBushTag>>,
+    world_map: Res<WorldMap>,
+    debug: Res<DebugSystem>,
+) {
+    // Only process on ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    // Build obstacle map for pathfinding
+    let obstacles = build_obstacle_map(&world_map);
+    
+    for (entity, grid_pos, mut movement, mut mind, mut claimed_resource, needs, inventory, name) in units.iter_mut() {
+        // Only process units that are searching for food
+        if !matches!(*mind, UnitMind::SearchingForFood) {
+            continue;
+        }
+        
+        // Skip if already moving
+        if movement.is_moving {
+            continue;
+        }
+        
+        // If hungry and need food
+        if needs.is_hungry() && inventory.get_amount(ResourceType::Berries) == 0 {
+            // Find nearest berry bush with available berries
+            let mut best_bush = None;
+            let mut best_distance = f32::MAX;
+            
+            for (bush_entity, bush_pos, resource) in berry_bushes.iter() {
+                // Skip if no berries or fully claimed
+                if resource.amount == 0 || resource.is_fully_claimed() {
+                    continue;
+                }
+                
+                let dx = bush_pos.x as f32 - grid_pos.x as f32;
+                let dy = bush_pos.y as f32 - grid_pos.y as f32;
+                let distance = (dx * dx + dy * dy).sqrt();
+                
+                if distance < best_distance {
+                    best_distance = distance;
+                    best_bush = Some((bush_entity, bush_pos.clone()));
+                }
+            }
+            
+            // Move to the best bush if found
+            if let Some((bush_entity, target_pos)) = best_bush {
+                // Try to claim the resource
+                if let Ok((_, _, mut resource)) = berry_bushes.get_mut(bush_entity) {
+                    if resource.try_claim(entity) {
+                        claimed_resource.claim(bush_entity);
+                        movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
+                        *mind = UnitMind::GoingThere { 
+                            destination: format!("berry bush at ({},{})", target_pos.x, target_pos.y) 
+                        };
+                        
+                        debug.log(
+                            DebugLevel::Info,
+                            "FOOD_SEARCH",
+                            &format!(
+                                "{} found and claimed berry bush at ({},{}) - moving there",
+                                name.name, target_pos.x, target_pos.y
+                            ),
+                        );
+                        
+                        println!(
+                            "{} {} found food at ({},{}) and is moving there",
+                            "🎯".green(),
+                            name.name.yellow(),
+                            target_pos.x,
+                            target_pos.y
+                        );
+                    }
+                }
+            } else {
+                // No available bushes - go back to idle
+                *mind = UnitMind::Idle;
+                debug.log(
+                    DebugLevel::Debug,
+                    "NO_FOOD_FOUND",
+                    &format!("{} couldn't find any available berry bushes", name.name),
+                );
+            }
+        } else {
+            // Not hungry anymore or has food - go back to idle
+            *mind = UnitMind::Idle;
+        }
     }
 }
