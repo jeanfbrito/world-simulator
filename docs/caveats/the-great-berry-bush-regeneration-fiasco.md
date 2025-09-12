@@ -1,10 +1,12 @@
 # The Great Berry Bush Regeneration Fiasco: A Tale of Two Components
 
-## Or: How I Learned to Stop Worrying and Love Component APIs
+## Or: Why The Peasants Stopped Moving and Nobody Got Hungry Anymore
 
 ### The Problem (Cost: 1+ Days of Debugging)
 
-We spent over a day debugging why berry bushes would never deplete and seemed to regenerate instantly. Like magical cornucopias of infinite berries, defying all laws of resource management. The symptoms were:
+We spent over a day debugging why peasants would get stuck on the map after some time and never get hungry or move anymore. The world would just... freeze. Peasants standing there like statues, forever satisfied, never needing food again. 
+
+The actual culprit? Berry bushes that never depleted. Like magical cornucopias of infinite berries, they kept feeding the peasants instantly, breaking the entire hunger/movement cycle. The symptoms were:
 - Berry bushes always showed as "25 berry bushes with fruit, 0 depleted" 
 - Berries appeared to regenerate within 1-2 ticks instead of the configured 150 ticks
 - Debug logs showed harvesting was happening but resources never depleted
@@ -102,7 +104,12 @@ The documentation clearly stated GrowingResource should handle ALL regeneration 
 ## The Frustration Factor
 
 This bug was particularly frustrating because:
-- The symptoms didn't match the cause (instant regeneration vs. wrong component usage)
-- We kept looking at timing logic when the issue was architectural
+- **The visible problem**: Peasants freezing in place, never moving, never getting hungry
+- **What we investigated**: AI systems, pathfinding, movement logic, hunger mechanics
+- **The actual cause**: Berry bushes with infinite food breaking the entire simulation loop
+- The symptoms didn't match the cause (frozen peasants vs. non-depleting resources)
+- We kept looking at AI and movement when the issue was resource management
 - The fix was trivially simple once we found the real problem
 - We had written the correct `GrowingResource.harvest()` method but never called it
+
+The peasants weren't broken. They were just living in paradise with infinite food everywhere. Why move when every bush is an all-you-can-eat buffet?
