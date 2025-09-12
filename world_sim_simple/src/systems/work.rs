@@ -56,9 +56,11 @@ pub fn tick_work_system(
         {
             // Debug each unit's work state - only show if actually working
             if work.is_working {
-                println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{}", 
+                // Calculate actual progress in ticks (not raw counter)
+                let current_tick = (work.progress_counter * work.required_ticks / crate::simulation::MAX_WORK_PROGRESS).min(work.required_ticks);
+                println!("  {} - is_working: {}, work_type: {:?}, progress: {}/{} ticks", 
                     name.name, work.is_working, work.work_type.is_some(), 
-                    work.progress_counter, work.required_ticks);
+                    current_tick, work.required_ticks);
             }
             
             // Skip if not working
