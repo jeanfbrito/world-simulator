@@ -17,11 +17,12 @@
 - [x] Build and test that peasants actually move
 - ✅ SUCCESS: Peasants now randomly wander! "Peasant reached destination" messages confirm movement
 
-## Phase 2: Enable Big-Brain
-- [ ] Uncomment big-brain plugin
-- [ ] Add MoveToTarget action
-- [ ] Add movement scorer
-- [ ] Connect to GridMovement
+## Phase 2: Enable Big-Brain (COMPLETED)
+- [x] Uncommented big-brain plugin
+- [x] Added MoveToTarget action with GridMovement integration
+- [x] Connected to GridMovement with proper state transitions
+- [x] Added AIState component for hunger/energy tracking
+- ✅ SUCCESS: Hybrid AI system compiles!
 
 ## Phase 3: Simplify GOAP
 - [ ] GOAP only sets high-level goals

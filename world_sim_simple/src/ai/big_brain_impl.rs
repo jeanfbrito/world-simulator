@@ -3,6 +3,13 @@ use big_brain::prelude::*;
 use crate::ai::shared_state::*;
 use crate::debug::{DebugSystem, DebugLevel};
 
+// Define AIState as a simple container for hunger/energy values
+#[derive(Component, Clone, Debug)]
+pub struct AIState {
+    pub hunger: f32,
+    pub energy: f32,
+}
+
 // Scorers - evaluate the world and decide what's important
 
 #[derive(Debug, Clone, Component, ScorerBuilder)]
@@ -24,6 +31,11 @@ pub struct RestQuickAction;
 
 #[derive(Debug, Clone, Component, ActionBuilder)]
 pub struct PanicGatherAction;
+
+#[derive(Debug, Clone, Component, ActionBuilder)]
+pub struct MoveToTargetAction {
+    pub target: Option<crate::components::GridPosition>,
+}
 
 // Scorer systems - evaluate current state
 
@@ -60,9 +72,9 @@ pub fn resource_scorer_system(
     for (Actor(actor), mut score) in query.iter_mut() {
         if let Ok((food, wood, stone)) = resource_query.get(*actor) {
             // Score based on resource scarcity
-            let food_score = if food.0 < 2 { 0.8 } else { 0.0 };
-            let wood_score = if wood.0 < 5 { 0.3 } else { 0.0 };
-            let stone_score = if stone.0 < 3 { 0.2 } else { 0.0 };
+            let food_score: f32 = if food.0 < 2 { 0.8 } else { 0.0 };
+            let wood_score: f32 = if wood.0 < 5 { 0.3 } else { 0.0 };
+            let stone_score: f32 = if stone.0 < 3 { 0.2 } else { 0.0 };
             
             score.set((food_score + wood_score + stone_score).min(1.0));
         }
@@ -150,6 +162,57 @@ pub fn panic_gather_action_system(
     }
 }
 
+// Movement action system - executes movement to targets
+pub fn move_to_target_action_system(
+    mut movement_query: Query<(
+        &mut crate::components::GridMovement,
+        &crate::components::GridPosition,
+        &mut crate::components::UnitMind,
+    )>,
+    mut query: Query<(&Actor, &mut ActionState, &MoveToTargetAction)>,
+    debug: Res<DebugSystem>,
+) {
+    for (Actor(actor), mut state, action) in query.iter_mut() {
+        if let Ok((mut movement, grid_pos, mut mind)) = movement_query.get_mut(*actor) {
+            match *state {
+                ActionState::Requested => {
+                    if let Some(ref target) = action.target {
+                        // Check if we're already at target
+                        if grid_pos.x == target.x && grid_pos.y == target.y {
+                            *state = ActionState::Success;
+                            debug.log(DebugLevel::Info, "BIG_BRAIN", "Already at target");
+                        } else {
+                            // Set movement target
+                            movement.set_target(target.clone());
+                            *mind = crate::components::UnitMind::GoingThere {
+                                destination: format!("({}, {})", target.x, target.y),
+                            };
+                            *state = ActionState::Executing;
+                            debug.log(DebugLevel::Info, "BIG_BRAIN", 
+                                &format!("Moving to ({}, {})", target.x, target.y));
+                        }
+                    } else {
+                        *state = ActionState::Failure;
+                    }
+                }
+                ActionState::Executing => {
+                    // Check if movement is complete
+                    if !movement.is_moving {
+                        *state = ActionState::Success;
+                        *mind = crate::components::UnitMind::Idle;
+                        debug.log(DebugLevel::Info, "BIG_BRAIN", "Reached target");
+                    }
+                }
+                ActionState::Cancelled => {
+                    movement.stop();
+                    *state = ActionState::Failure;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 // Create a Thinker for reactive behaviors
 pub fn create_reactive_thinker() -> ThinkerBuilder {
     Thinker::build()
@@ -193,6 +256,7 @@ impl Plugin for BigBrainAIPlugin {
                 eat_quick_action_system,
                 rest_quick_action_system,
                 panic_gather_action_system,
+                move_to_target_action_system,
             ).in_set(BigBrainSet::Actions))
             .add_systems(Update, setup_reactive_thinkers_system);
     }

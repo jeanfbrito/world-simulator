@@ -6,7 +6,7 @@ mod task_system;
 // New AI modules
 pub mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap - make public for websocket access
 mod shared_state;       // For hybrid AI
-// mod big_brain_impl;     // Reactive AI
+mod big_brain_impl;     // Reactive AI - ENABLED for execution layer
 
 pub use behavior_state::{
     BehaviorCycle, BehaviorState as BehaviorStateNew,
@@ -21,7 +21,7 @@ pub use bevy_dogoap_impl::{
     Hunger, Energy, FoodCount, NearBerryBush,  // Export GOAP state components
     EatAction, WanderAction, GatherFoodAction, RestAction,  // Export GOAP actions
 };
-// pub use big_brain_impl::BigBrainAIPlugin;
+pub use big_brain_impl::BigBrainAIPlugin;  // ENABLED for reactive execution
 pub use shared_state::{sync_dogoap_to_unit_needs, ai_mode_selection_system};
 
 use crate::debug::{DebugLevel, DebugSystem};
@@ -42,10 +42,10 @@ pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
-        // Add AI plugins - enable dogoap ONLY
+        // Add AI plugins - enable BOTH for hybrid architecture
         app.add_plugins((
-            BevyDogoapPlugin,      // GOAP planning
-            // BigBrainAIPlugin,      // Reactive behaviors - disabled for now
+            BevyDogoapPlugin,      // GOAP planning (strategic layer)
+            BigBrainAIPlugin,      // Reactive behaviors (execution layer)
         ));
         app.init_resource::<TaskSystem>()
             .insert_resource(crate::components::SettlementState::default())
