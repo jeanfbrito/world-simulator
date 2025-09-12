@@ -241,5 +241,12 @@ impl Plugin for BevyDogoapPlugin {
                 // Sync dogoap values to UnitNeedsV2 for display
                 crate::ai::shared_state::sync_dogoap_to_unit_needs,
             ));
+        
+        // CRITICAL: Register the DatumComponents with dogoap
+        // This is required for the planner to find the components at runtime
+        register_components!(
+            app,
+            vec![Hunger, Energy, FoodCount]
+        );
     }
 }
