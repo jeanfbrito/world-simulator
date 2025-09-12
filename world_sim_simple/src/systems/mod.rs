@@ -3,8 +3,6 @@ pub mod movement_effects;
 /// Systems module organizing all game systems
 ///
 /// Systems are separated into tick-based (simulation) and frame-based (presentation)
-pub mod needs_update;
-pub mod needs_update_v2;
 pub mod resource_regeneration;
 pub mod resource_growth;
 pub mod storage;
@@ -13,7 +11,6 @@ pub mod work;
 
 pub use movement::*;
 pub use movement_effects::*;
-pub use needs_update_v2::*;
 pub use resource_regeneration::*;
 pub use resource_growth::*;
 pub use storage::*;
@@ -50,28 +47,13 @@ impl Plugin for SystemsPlugin {
         );
 
         // Add tick-based systems (simulation) - split into smaller groups
-        app.add_systems(
-            Update,
-            (
-                // Needs systems
-                update_unit_needs_tick_system,
-                sync_needs_v2_to_worldstate_system,
-                sync_has_energy_to_needs_system,
-                eating_action_system,
-            )
-                .chain()
-                .run_if(crate::simulation::on_simulation_tick_legacy),
-        );
 
         app.add_systems(
             Update,
             (
                 // Movement systems (tick-based)
                 update_movement_effects_system,
-                movement_request_system,
                 tick_movement_system,
-                sync_tile_entity_system,
-                sync_position_component_system,
             )
                 .chain()
                 .run_if(crate::simulation::on_simulation_tick_legacy),
@@ -124,8 +106,6 @@ impl Plugin for SystemsPlugin {
             Update,
             (
                 // Performance monitoring
-                needs_performance_monitor_system,
-                movement_performance_monitor_system,
                 work_performance_monitor_system,
                 storage_performance_monitor_system,
                 resource_performance_monitor_system,

@@ -2,14 +2,12 @@ use crate::debug::{DebugLevel, DebugSystem};
 use bevy::prelude::*;
 use bevy_mod_scripting::prelude::*;
 
-pub mod goap_loader;
 pub mod lua_api;
 pub mod recipe_scripts;
 pub mod tree_generation; // Now enabled with mlua
                          // pub mod storage_loader; // TODO: Enable when mlua is configured
 
 // Re-export key types for easier use
-pub use goap_loader::{ReloadGoapActionsCommand, ScriptedGoapActions};
 pub use recipe_scripts::ReloadRecipeScriptsCommand;
 pub use tree_generation::{GenerateTreesCommand, TreeGenerationState};
 
@@ -23,7 +21,6 @@ pub enum ScriptType {
     Recipe,
     Worker,
     World,
-    Goap,
 }
 
 pub struct ScriptingPlugin;
@@ -34,9 +31,7 @@ impl Plugin for ScriptingPlugin {
             .add_event::<ScriptReloadEvent>()
             .add_event::<ReloadRecipeScriptsCommand>()
             .add_event::<GenerateTreesCommand>()
-            .add_event::<ReloadGoapActionsCommand>()
             .init_resource::<TreeGenerationState>()
-            .init_resource::<ScriptedGoapActions>()
             .add_systems(Startup, scripting_init_system)
             .add_systems(
                 Update,
@@ -45,8 +40,6 @@ impl Plugin for ScriptingPlugin {
                     recipe_scripts::load_recipe_scripts,
                     recipe_scripts::process_recipe_scripts,
                     tree_generation::generate_trees_system,
-                    goap_loader::load_goap_actions_system,
-                    goap_loader::merge_goap_actions_system,
                 ),
             );
     }
@@ -56,7 +49,6 @@ fn scripting_init_system(
     debug: Res<DebugSystem>,
     mut reload_events: EventWriter<ReloadRecipeScriptsCommand>,
     mut tree_events: EventWriter<GenerateTreesCommand>,
-    mut goap_events: EventWriter<ReloadGoapActionsCommand>,
 ) {
     debug.log(
         DebugLevel::Info,
@@ -85,10 +77,6 @@ fn scripting_init_system(
         "Triggering initial tree generation",
     );
 
-    // Load GOAP actions on startup
-    goap_events.send(ReloadGoapActionsCommand {
-        pack_name: Some("stronghold".to_string()),
-    });
 
     debug.log(
         DebugLevel::Info,
@@ -100,7 +88,6 @@ fn scripting_init_system(
 fn script_reload_system(
     mut reload_events: EventReader<ScriptReloadEvent>,
     mut recipe_reload_events: EventWriter<ReloadRecipeScriptsCommand>,
-    mut goap_reload_events: EventWriter<ReloadGoapActionsCommand>,
     debug: Res<DebugSystem>,
 ) {
     for event in reload_events.read() {
@@ -120,11 +107,6 @@ fn script_reload_system(
                     "SCRIPT",
                     "Worker script reloading not yet implemented",
                 );
-            }
-            ScriptType::Goap => {
-                goap_reload_events.send(ReloadGoapActionsCommand {
-                    pack_name: None, // Use default pack
-                });
             }
             ScriptType::World => {
                 debug.log(

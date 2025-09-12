@@ -1,4 +1,3 @@
-use crate::ai::ActionPlan;
 use crate::components::{
     GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, UnitTag,
     VisualPosition,
@@ -11,6 +10,12 @@ use crate::{SimulationState, WorldMap, TILE_SIZE};
 /// separately for smooth presentation.
 use bevy::prelude::*;
 use colored::Colorize;
+
+fn is_position_walkable(_world_map: &WorldMap, pos: &GridPosition) -> bool {
+    // Simple bounds check for now
+    // TODO: Implement proper collision detection with WorldMap
+    pos.x < 64 && pos.y < 64
+}
 
 /// System that processes movement on each simulation tick
 pub fn tick_movement_system(
@@ -25,7 +30,6 @@ pub fn tick_movement_system(
             &NameComponent,
             Option<&MovementSpeed>,
             Option<&MovementEffects>,
-            Option<&ActionPlan>,
         ),
         With<UnitTag>,
     >,
@@ -38,7 +42,7 @@ pub fn tick_movement_system(
         return;
     }
 
-    for (entity, mut grid_pos, mut movement, mut visual_pos, name, speed, effects, plan) in
+    for (entity, mut grid_pos, mut movement, mut visual_pos, name, speed, effects) in
         units.iter_mut()
     {
         // Skip if not moving
@@ -124,6 +128,7 @@ pub fn visual_interpolation_system(
     }
 }
 
+/*
 /// System to handle movement requests from AI plans
 pub fn movement_request_system(
     sim_state: Res<SimulationState>,
@@ -290,3 +295,4 @@ pub fn movement_performance_monitor_system(
         ),
     );
 }
+*/

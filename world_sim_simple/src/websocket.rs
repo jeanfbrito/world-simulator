@@ -466,7 +466,6 @@ fn broadcast_game_state(
             &crate::components::PositionComponent,
             Option<&crate::components::UnitNeedsV2>,
             Option<&crate::components::UnitInventory>,
-            Option<&crate::ai::ActionPlan>,
             Option<&crate::components::WorkProgress>,
             Option<&crate::components::UnitMind>,  // Add UnitMind component
         ),
@@ -492,7 +491,7 @@ fn broadcast_game_state(
         }
     }
     
-    for (name, health, tile, position, needs, inventory, plan, work, mind) in workers.iter() {
+    for (name, health, tile, position, needs, inventory, work, mind) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));

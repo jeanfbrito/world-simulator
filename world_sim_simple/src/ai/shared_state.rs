@@ -72,8 +72,8 @@ pub fn sync_dogoap_to_unit_needs(
 ) {
     for (hunger, energy, mut needs) in query.iter_mut() {
         // Sync dogoap values to UnitNeedsV2
-        needs.set_hunger_from_dogoap(hunger.0);
-        needs.set_energy_from_dogoap(energy.0);
+        needs.set_hunger_from_dogoap(hunger.0 as f32);
+        needs.set_energy_from_dogoap(energy.0 as f32);
     }
 }
 

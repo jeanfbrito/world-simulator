@@ -1,4 +1,4 @@
-use crate::ai::{StateValue, WorkerAI, WorldState};
+use crate::ai::WorkerAI;
 use crate::components::{
     EnergyComponent, HasEnergy, HasFood, HasStone, HasWood, HealthComponent, IsHungry, IsWorking,
     NameComponent, PeasantConfig, PeasantTag, PositionComponent, TilesWalked, UnitInventory,
@@ -89,7 +89,6 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         WorkSpeed::default(),
         // AI components
         WorkerAI::new(),
-        create_initial_world_state(),
         crate::ai::BehaviorCycle::default(),
     ));
 
@@ -106,6 +105,7 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
     entity
 }
 
+/*
 /// Creates the initial GOAP world state for a unit
 fn create_initial_world_state() -> WorldState {
     let mut state = WorldState::new();
@@ -124,6 +124,7 @@ fn create_initial_world_state() -> WorldState {
 
     state
 }
+*/
 
 /// Spawn configuration loaded from Lua scripts
 #[derive(Debug, Clone)]

@@ -19,13 +19,13 @@ pub struct RestAction;
 pub struct GatherFoodAction;
 
 // State components using DatumComponent
-#[derive(Component, Clone)]
-pub struct Hunger(pub f32);
+#[derive(Component, Clone, DatumComponent)]
+pub struct Hunger(pub f64);
 
-#[derive(Component, Clone)]
-pub struct Energy(pub f32);
+#[derive(Component, Clone, DatumComponent)]
+pub struct Energy(pub f64);
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, DatumComponent)]
 pub struct FoodCount(pub f64);
 
 // System to handle EatAction execution
@@ -121,7 +121,7 @@ pub fn setup_dogoap_planners(
         
         // Define actions with their preconditions and effects
         let eat_action = EatAction::new()
-            .add_precondition(FoodCount::is_more(0))
+            .add_precondition(FoodCount::is_more(0.0))
             .add_mutator(Hunger::increase(10.0))  // Matches what handle_eat_action actually does
             .add_mutator(FoodCount::decrease(1.0));
         

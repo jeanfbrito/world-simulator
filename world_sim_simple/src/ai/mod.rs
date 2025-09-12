@@ -1,34 +1,24 @@
 pub mod behavior_state;
 mod behaviors;
-mod debug_logger;
-pub mod goap_actions;
-mod goap_bridge;
-pub mod goap_planner;
-mod goap_state_sync;
 mod pathfinding;
 mod task_executor;
 mod task_system;
-// New AI modules (temporarily disabled due to library compatibility issues)
-// mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap
-// mod shared_state;       // For hybrid AI
+// New AI modules
+mod bevy_dogoap_impl;  // GOAP planning using bevy_dogoap
+mod shared_state;       // For hybrid AI
 // mod big_brain_impl;     // Reactive AI
 
 pub use behavior_state::{
-    behavior_state_machine_system, BehaviorCycle, BehaviorState as BehaviorStateNew,
+    BehaviorCycle, BehaviorState as BehaviorStateNew,
 };
 pub use behaviors::WorkerAI;
-pub use debug_logger::enhanced_debug_system;
-pub use goap_actions::{ActionPlan, ActionSet, GoapAction, StateValue, WorldState};
-pub use goap_bridge::{goap_to_task_bridge_system, update_needs_system};
-pub use goap_planner::{goap_execution_system, goap_planning_system};
-pub use goap_state_sync::sync_goap_states_system;
 pub use pathfinding::Path;
-pub use task_executor::{task_execution_system, BerryBushTag, TreeTag};
+pub use task_executor::{BerryBushTag, TreeTag};
 pub use task_system::{Task, TaskPriority, TaskStatus, TaskSystem, TaskType};
-// New AI exports (temporarily disabled due to library compatibility issues)
-// pub use bevy_dogoap_impl::BevyDogoapPlugin;
+// New AI exports
+pub use bevy_dogoap_impl::BevyDogoapPlugin;
 // pub use big_brain_impl::BigBrainAIPlugin;
-// pub use shared_state::{update_worker_stats_system, ai_mode_selection_system};
+pub use shared_state::{sync_dogoap_to_unit_needs, ai_mode_selection_system};
 
 use crate::debug::{DebugLevel, DebugSystem};
 use crate::SimulationState;
@@ -55,7 +45,6 @@ impl Plugin for AIPlugin {
         ));
         app.init_resource::<TaskSystem>()
             .insert_resource(crate::components::SettlementState::default())
-            .insert_resource(ActionSet::default())
             .add_systems(Startup, ai_init_system)
             .add_systems(
                 Update,
@@ -71,15 +60,6 @@ impl Plugin for AIPlugin {
                     // These can run in parallel as they work on different components
                     worker_ai_update_system.run_if(simulation_running),
                     pathfinding_update_system.run_if(simulation_running),
-                    // DISABLED CUSTOM GOAP - use dogoap instead
-                    // sync_goap_states_system.run_if(simulation_just_ticked),
-                    // update_needs_system.run_if(simulation_just_ticked),
-                    // behavior_state_machine_system.run_if(simulation_just_ticked), // Run before planning
-                    // goap_planning_system.run_if(simulation_just_ticked),
-                    // goap_execution_system.run_if(simulation_just_ticked),
-                    // goap_to_task_bridge_system.run_if(simulation_just_ticked),
-                    task_execution_system.run_if(simulation_running),
-                    enhanced_debug_system.run_if(simulation_just_ticked),
                 ),
             );
     }

@@ -1,4 +1,3 @@
-use crate::ai::ActionPlan;
 use crate::components::*;
 use crate::TileEntity;
 use bevy::prelude::*;
@@ -21,7 +20,6 @@ pub fn simple_ai_monitor_system(
             &TileEntity,
             &PositionComponent,
             &TilesWalked,
-            Option<&ActionPlan>,
             Option<&UnitMind>,  // Add UnitMind component
         ),
         With<UnitTag>,
@@ -69,7 +67,7 @@ pub fn simple_ai_monitor_system(
     println!("   🌳 {} depleted berry bushes", empty_berry_count);
 
     // Show each peasant's status
-    for (entity, name, needs, inventory, location, tile, position, tiles_walked, plan, mind) in
+    for (entity, name, needs, inventory, location, tile, position, tiles_walked, mind) in
         peasants.iter()
     {
         // Check if peasant moved
@@ -126,11 +124,7 @@ pub fn simple_ai_monitor_system(
             "💤 idle".to_string()
         };
         
-        let status = if plan.is_some() {
-            "📋 Has Plan"
-        } else {
-            "❓ No Plan"
-        };
+        let status = "🤖 Using dogoap";
         // Display values from UnitNeedsV2 which has been synced from dogoap
         // After sync: hunger is stored inverted internally (0=full, 1=starving)
         // But we want to display it as: full bar = not hungry (good), empty bar = starving (bad)
@@ -174,7 +168,7 @@ pub fn simple_ai_monitor_system(
             loc, wood, food, stone, inventory.current_weight, inventory.max_weight
         );
 
-        if let Some(plan) = plan {
+        /*if let Some(plan) = plan {
             if !plan.actions.is_empty() && plan.current_index < plan.actions.len() {
                 let current = &plan.actions[plan.current_index];
                 println!("   ➡️ Current: {}", current.name.green());
@@ -192,9 +186,7 @@ pub fn simple_ai_monitor_system(
                     println!("   ✅ {}", "Plan completed".green());
                 }
             }
-        } else {
-            println!("   ⚠️ {}", "Trying to create plan...".yellow());
-        }
+        }*/
     }
 
     println!("{}", "━".repeat(50).bright_black());

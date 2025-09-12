@@ -23,7 +23,6 @@ pub fn tick_work_system(
             &mut UnitNeedsV2,
             &GridPosition,
             &NameComponent,
-            Option<&mut crate::ai::ActionPlan>,
         ),
         With<UnitTag>,
     >,
@@ -40,7 +39,7 @@ pub fn tick_work_system(
         let total_units = units.iter().count();
     let working_count = units
         .iter()
-        .filter(|(_, work, _, _, _, _, _, _)| work.is_working)
+        .filter(|(_, work, _, _, _, _, _)| work.is_working)
         .count();
     
         // Always log to see if system is running
@@ -51,7 +50,7 @@ pub fn tick_work_system(
             println!("  Found working units - processing...");
         }
 
-        for (_entity, mut work, _speed, mut inventory, mut needs, position, name, plan) in
+        for (_entity, mut work, _speed, mut inventory, mut needs, position, name) in
             units.iter_mut()
         {
             // Debug each unit's work state - only show if actually working
@@ -149,15 +148,6 @@ pub fn tick_work_system(
                 // NOW clear the work after we've handled it
                 work.complete_work();
 
-                // Advance GOAP plan when work completes
-                if let Some(mut action_plan) = plan {
-                    action_plan.advance();
-                    debug.log(
-                        DebugLevel::Info,
-                        "WORK",
-                        "Advanced GOAP plan to next action",
-                    );
-                }
             }
         }
     } // End of tick event loop

@@ -3,7 +3,6 @@ use crate::components::{
     UnitMind, UnitNeedsV2, UnitInventory, GridPosition, GridMovement, WorkProgress, UnitTag,
     NameComponent,
 };
-use crate::ai::{ActionPlan, GoapAction};
 use crate::resources::ResourceType;
 
 /// System to update unit's state of mind based on their current activity
@@ -18,7 +17,6 @@ pub fn update_unit_mind_system(
             Option<&GridPosition>,
             Option<&GridMovement>,
             Option<&WorkProgress>,
-            Option<&ActionPlan>,
             Option<&NameComponent>,
         ),
         With<UnitTag>,
@@ -32,7 +30,6 @@ pub fn update_unit_mind_system(
         position,
         movement,
         work_progress,
-        action_plan,
         name,
     ) in query.iter_mut()
     {
@@ -43,8 +40,7 @@ pub fn update_unit_mind_system(
             position,
             movement,
             work_progress,
-            action_plan,
-        );
+            );
 
         // Always update mind state to ensure it's current
         // (previously we were only updating on discriminant change which missed state updates)
@@ -69,50 +65,11 @@ fn determine_unit_mind(
     position: Option<&GridPosition>,
     movement: Option<&GridMovement>,
     work_progress: Option<&WorkProgress>,
-    action_plan: Option<&ActionPlan>,
 ) -> UnitMind {
-    // Priority 1: Check if executing a plan action FIRST
+    // Priority 1: Check if unit is working on something
     // (Since WorkProgress detection seems to not be working properly)
-    if let Some(plan) = action_plan {
-        if !plan.actions.is_empty() && plan.current_index < plan.actions.len() {
-            let current_action = &plan.actions[plan.current_index];
-            
-            // Map GOAP actions to mind states
-            return match current_action.name.as_str() {
-                "move_to_resource" | "move_to_berries" | "move_to_tree" => {
-                    if let Some(move_comp) = movement {
-                        if move_comp.is_moving {
-                            UnitMind::GoingThere {
-                                destination: "resource".to_string(),
-                            }
-                        } else {
-                            UnitMind::SearchingForFood
-                        }
-                    } else {
-                        UnitMind::SearchingForFood
-                    }
-                }
-                "gather_food" => UnitMind::Gathering {
-                    resource: "berries".to_string(),
-                },
-                "gather_wood" => UnitMind::Gathering {
-                    resource: "wood".to_string(),
-                },
-                "gather_stone" => UnitMind::Gathering {
-                    resource: "stone".to_string(),
-                },
-                "store_resources" => UnitMind::Storing,
-                "eat_food" => UnitMind::Eating,
-                "rest" => UnitMind::Resting,
-                "go_home" => UnitMind::GoingHome,
-                _ => UnitMind::Working {
-                    task: current_action.name.clone(),
-                },
-            };
-        }
-    }
     
-    // Priority 2: Check if actively working (as backup)
+    // Priority 1: Check if actively working
     if let Some(work) = work_progress {
         if work.is_working || (work.work_type.is_some() && work.progress() > 0.0) {
             if let Some(work_type) = &work.work_type {
@@ -132,14 +89,8 @@ fn determine_unit_mind(
         }
     }
 
-    // Priority 3: Check if plan is complete
-    if let Some(plan) = action_plan {
-        if plan.is_complete() {
-            return UnitMind::Thinking; // Plan complete, thinking about next step
-        }
-    }
     
-    // Priority 4: Check critical needs
+    // Priority 2: Check critical needs
     if let Some(needs) = needs {
         // Very hungry - actively looking for food
         if needs.hunger() > 0.7 {
@@ -158,7 +109,7 @@ fn determine_unit_mind(
         }
     }
 
-    // Priority 5: Check if we're moving
+    // Priority 3: Check if we're moving
     if let Some(move_comp) = movement {
         if move_comp.is_moving {
             // Try to determine destination based on context
@@ -171,12 +122,8 @@ fn determine_unit_mind(
         }
     }
 
-    // Priority 6: Check if thinking (no plan)
-    if action_plan.is_none() {
-        return UnitMind::Thinking;
-    }
 
-    // Priority 7: Random idle states based on needs
+    // Priority 4: Random idle states based on needs
     if let Some(needs) = needs {
         if needs.hunger() > 0.4 && needs.hunger() < 0.7 {
             return UnitMind::LookingAround; // Mildly hungry, looking for opportunities
