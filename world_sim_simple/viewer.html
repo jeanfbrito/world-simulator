@@ -288,10 +288,10 @@
                 <button onclick="toggleSimulation()">⏯️ Play/Pause</button>
                 <div style="margin: 0.5rem 0;">
                     <div style="margin-bottom: 0.5rem;">Speed (ticks/sec):</div>
-                    <button id="speed-1" class="speed-btn active" onclick="setTickRate(1)">1 tick/s</button>
+                    <button id="speed-1" class="speed-btn" onclick="setTickRate(1)">1 tick/s</button>
                     <button id="speed-2" class="speed-btn" onclick="setTickRate(2)">2 ticks/s</button>
                     <button id="speed-5" class="speed-btn" onclick="setTickRate(5)">5 ticks/s</button>
-                    <button id="speed-10" class="speed-btn" onclick="setTickRate(10)">10 ticks/s</button>
+                    <button id="speed-10" class="speed-btn active" onclick="setTickRate(10)">10 ticks/s</button>
                     <button id="speed-20" class="speed-btn" onclick="setTickRate(20)">20 ticks/s</button>
                 </div>
                 <button onclick="respawnPeasants()" style="background: #dc2626;">🔄 Reset Peasants</button>
@@ -428,9 +428,9 @@
                 updateConnectionStatus(true);
                 ws.send(JSON.stringify({ type: 'Connect', client_id: 'web-viewer' }));
                 ws.send(JSON.stringify({ type: 'RequestState' }));
-                // Set initial speed to 1 tick/second (speed multiplier 0.1)
-                ws.send(JSON.stringify({ type: 'SetSpeed', speed: 0.1 }));
-                console.log('Set initial speed to 1 tick/s');
+                // Set initial speed to 10 ticks/second (speed multiplier 1.0)
+                ws.send(JSON.stringify({ type: 'SetSpeed', speed: 1.0 }));
+                console.log('Set initial speed to 10 ticks/s');
             };
             
             ws.onmessage = (event) => {
