@@ -269,10 +269,11 @@ impl ActionSet {
         // );
 
         // Eat food action (consumes 1 food)
+        // NOTE: Removed is_hungry precondition - if we have food and are hungry, we should eat!
         actions.push(
             GoapAction::new("eat_food", 0.5)
                 .with_precondition("has_food", StateValue::Int(1))
-                .with_precondition("is_hungry", StateValue::Float(0.3))
+                // No hunger precondition - the goal system will trigger this when needed
                 .with_effect("is_hungry", StateValue::Float(0.0))
                 .with_effect("has_energy", StateValue::Float(1.0))
                 .with_effect("has_food", StateValue::IntDelta(-1)), // Consume 1 food

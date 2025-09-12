@@ -48,11 +48,11 @@ pub struct AIPlugin;
 
 impl Plugin for AIPlugin {
     fn build(&self, app: &mut App) {
-        // Add AI plugins - temporarily disabled due to library compatibility issues
-        // app.add_plugins((
-        //     BevyDogoapPlugin,      // GOAP planning
-        //     BigBrainAIPlugin,      // Reactive behaviors
-        // ));
+        // Add AI plugins - enable dogoap ONLY
+        app.add_plugins((
+            BevyDogoapPlugin,      // GOAP planning
+            // BigBrainAIPlugin,      // Reactive behaviors - disabled for now
+        ));
         app.init_resource::<TaskSystem>()
             .insert_resource(crate::components::SettlementState::default())
             .insert_resource(ActionSet::default())
@@ -71,12 +71,13 @@ impl Plugin for AIPlugin {
                     // These can run in parallel as they work on different components
                     worker_ai_update_system.run_if(simulation_running),
                     pathfinding_update_system.run_if(simulation_running),
-                    sync_goap_states_system.run_if(simulation_just_ticked),
-                    update_needs_system.run_if(simulation_just_ticked),
-                    behavior_state_machine_system.run_if(simulation_just_ticked), // Run before planning
-                    goap_planning_system.run_if(simulation_just_ticked),
-                    goap_execution_system.run_if(simulation_just_ticked),
-                    goap_to_task_bridge_system.run_if(simulation_just_ticked),
+                    // DISABLED CUSTOM GOAP - use dogoap instead
+                    // sync_goap_states_system.run_if(simulation_just_ticked),
+                    // update_needs_system.run_if(simulation_just_ticked),
+                    // behavior_state_machine_system.run_if(simulation_just_ticked), // Run before planning
+                    // goap_planning_system.run_if(simulation_just_ticked),
+                    // goap_execution_system.run_if(simulation_just_ticked),
+                    // goap_to_task_bridge_system.run_if(simulation_just_ticked),
                     task_execution_system.run_if(simulation_running),
                     enhanced_debug_system.run_if(simulation_just_ticked),
                 ),
