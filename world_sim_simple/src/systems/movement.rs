@@ -1,6 +1,6 @@
 use crate::components::{
     GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, UnitTag,
-    VisualPosition,
+    VisualPosition, UnitMind,
 };
 use crate::{SimulationState, WorldMap, TILE_SIZE};
 /// Tick-based movement system
@@ -10,6 +10,7 @@ use crate::{SimulationState, WorldMap, TILE_SIZE};
 /// separately for smooth presentation.
 use bevy::prelude::*;
 use colored::Colorize;
+use rand::Rng;
 
 fn is_position_walkable(_world_map: &WorldMap, pos: &GridPosition) -> bool {
     // Simple bounds check for now
@@ -296,3 +297,79 @@ pub fn movement_performance_monitor_system(
     );
 }
 */
+
+/// Simple random movement system - triggers every 10-30 ticks to make units wander
+pub fn simple_random_movement_system(
+    sim_state: Res<SimulationState>,
+    mut units: Query<
+        (
+            &GridPosition,
+            &mut GridMovement,
+            &mut UnitMind,
+            &NameComponent,
+        ),
+        With<UnitTag>,
+    >,
+    debug: Res<crate::debug::DebugSystem>,
+) {
+    use crate::debug::DebugLevel;
+    
+    // Only process on ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    let mut rng = rand::thread_rng();
+    
+    for (grid_pos, mut movement, mut mind, name) in units.iter_mut() {
+        // Skip if already moving
+        if movement.is_moving {
+            continue;
+        }
+        
+        // Random chance to start moving (roughly every 10-30 ticks)
+        if rng.gen_range(0..20) != 0 {
+            continue;
+        }
+        
+        // Pick a random destination 5-15 tiles away
+        let range = rng.gen_range(5..15);
+        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+        
+        let new_x = (grid_pos.x as i32 + (angle.cos() * range as f32) as i32)
+            .max(0)
+            .min(63) as u32;
+        let new_y = (grid_pos.y as i32 + (angle.sin() * range as f32) as i32)
+            .max(0)
+            .min(63) as u32;
+        
+        // Don't move to same position
+        if new_x == grid_pos.x && new_y == grid_pos.y {
+            continue;
+        }
+        
+        // Set the movement target
+        let target = GridPosition::new(new_x, new_y);
+        movement.set_target(target);
+        
+        // Update mind state
+        *mind = UnitMind::Wandering;
+        
+        debug.log(
+            DebugLevel::Info,
+            "RANDOM_MOVEMENT",
+            &format!(
+                "{} randomly wandering from ({},{}) to ({},{})",
+                name.name, grid_pos.x, grid_pos.y, new_x, new_y
+            ),
+        );
+        
+        println!(
+            "{} {} starts wandering to ({},{})",
+            "🚶".cyan(),
+            name.name.green(),
+            new_x,
+            new_y
+        );
+    }
+}

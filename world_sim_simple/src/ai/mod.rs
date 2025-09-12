@@ -102,11 +102,12 @@ fn worker_ai_update_system(
 
 fn pathfinding_update_system(
     mut query: Query<(&mut Path, &mut Transform)>,
-    time: Res<Time>,
     debug: Res<DebugSystem>,
 ) {
+    const TILES_PER_TICK: f32 = 0.15; // Move 0.15 tiles per tick for smooth, consistent movement
+    
     for (mut path, mut transform) in query.iter_mut() {
-        if path.follow(time.delta_secs(), &mut transform) {
+        if path.follow_tick(&mut transform, TILES_PER_TICK) {
             debug.log(DebugLevel::Debug, "PATHFINDING", "Reached destination");
         }
     }

@@ -53,6 +53,7 @@ impl Plugin for SystemsPlugin {
             (
                 // Movement systems (tick-based)
                 update_movement_effects_system,
+                simple_random_movement_system,  // Random movement to get units moving
                 tick_movement_system,
             )
                 .chain()
