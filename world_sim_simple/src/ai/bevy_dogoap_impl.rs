@@ -18,6 +18,26 @@ pub struct RestAction;
 #[reflect(Component)]
 pub struct GatherFoodAction;
 
+#[derive(Component, Clone, Reflect, Default, ActionComponent)]
+#[reflect(Component)]
+pub struct WanderAction;
+
+#[derive(Component, Clone, Reflect, ActionComponent)]
+#[reflect(Component)]
+pub struct MoveToResourceAction {
+    pub target: Option<Entity>,
+    pub resource_type: crate::resources::ResourceType,
+}
+
+impl Default for MoveToResourceAction {
+    fn default() -> Self {
+        Self {
+            target: None,
+            resource_type: crate::resources::ResourceType::Berries,
+        }
+    }
+}
+
 // State components using DatumComponent
 #[derive(Component, Clone, DatumComponent)]
 pub struct Hunger(pub f64);
@@ -27,6 +47,9 @@ pub struct Energy(pub f64);
 
 #[derive(Component, Clone, DatumComponent)]
 pub struct FoodCount(pub f64);
+
+#[derive(Component, Clone, DatumComponent)]
+pub struct NearBerryBush(pub f64);  // 1.0 if near a berry bush, 0.0 otherwise
 
 // System to handle EatAction execution
 pub fn handle_eat_action(
@@ -43,8 +66,8 @@ pub fn handle_eat_action(
     for (entity, _action, mut hunger, mut food) in query.iter_mut() {
         if food.0 > 0.0 {
             food.0 -= 1.0;
-            hunger.0 = (hunger.0 + 10.0).min(100.0);  // Restore 10 hunger, max 100
-            debug.log(DebugLevel::Info, "DOGOAP_ACTION", &format!("Worker ate food, hunger now: {:.1}", hunger.0));
+            hunger.0 = (hunger.0 + 20.0).min(100.0);  // Restore 20 hunger (matches mutator)
+            debug.log(DebugLevel::Info, "DOGOAP_ACTION", &format!("Worker ate food, hunger now: {:.1}, food left: {:.0}", hunger.0, food.0));
             commands.entity(entity).remove::<EatAction>();
         }
     }
@@ -63,13 +86,10 @@ pub fn handle_rest_action(
     }
     
     for (entity, _action, mut energy) in query.iter_mut() {
-        // Recover 5 energy per tick while resting
-        energy.0 = (energy.0 + 5.0).min(100.0);
-        
-        if energy.0 >= 100.0 {
-            debug.log(DebugLevel::Info, "DOGOAP_ACTION", "Worker fully rested");
-            commands.entity(entity).remove::<RestAction>();
-        }
+        // Recover 25 energy (matches mutator) - happens once then action removed
+        energy.0 = (energy.0 + 25.0).min(100.0);
+        debug.log(DebugLevel::Info, "DOGOAP_ACTION", &format!("Worker rested, energy now: {:.1}", energy.0));
+        commands.entity(entity).remove::<RestAction>();
     }
 }
 
@@ -77,7 +97,7 @@ pub fn handle_rest_action(
 pub fn handle_gather_food_action(
     sim_state: Res<crate::SimulationState>,
     mut commands: Commands,
-    query: Query<(Entity, &GatherFoodAction)>,
+    mut query: Query<(Entity, &GatherFoodAction, &mut FoodCount, &mut Energy, &NearBerryBush)>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -85,21 +105,136 @@ pub fn handle_gather_food_action(
         return;
     }
     
-    for (entity, _action) in query.iter() {
-        // IMPORTANT: This action doesn't actually add food!
-        // Food comes from the actual berry harvesting through the work system.
-        // This action just signals that the peasant should gather food.
-        // The actual gathering happens via:
-        // 1. Peasant finds berry bush
-        // 2. Starts WorkType::Gathering 
-        // 3. Work system harvests berries and adds to inventory
-        // 4. Inventory gets synced to FoodCount
+    for (entity, _action, mut food, mut energy, near_bush) in query.iter_mut() {
+        // Only gather if actually near a berry bush
+        if near_bush.0 > 0.0 {
+            // For now, just simulate the gathering directly
+            // In a full implementation, this would trigger the actual work system
+            food.0 += 3.0;  // Gain 3 food (matches mutator)
+            energy.0 = (energy.0 - 5.0).max(0.0);  // Costs 5 energy (matches mutator)
+            
+            debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
+                &format!("Worker gathering berries, food now: {:.0}, energy: {:.1}", food.0, energy.0));
+        }
         
-        debug.log(DebugLevel::Info, "DOGOAP_ACTION", "GatherFoodAction triggered - peasant will look for berries");
-        
-        // Remove the action since it's just a trigger
-        // The actual gathering will be handled by the work system
+        // Remove the action after completion
         commands.entity(entity).remove::<GatherFoodAction>();
+    }
+}
+
+// System to handle WanderAction - makes peasants move randomly
+pub fn handle_wander_action(
+    sim_state: Res<crate::SimulationState>,
+    mut commands: Commands,
+    mut query: Query<(
+        Entity, 
+        &WanderAction, 
+        &crate::components::grid_position::GridPosition,
+        &mut crate::components::grid_position::GridMovement,
+        &mut crate::components::UnitMind
+    )>,
+    debug: Res<DebugSystem>,
+) {
+    // Only update on simulation ticks  
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (entity, _action, grid_pos, mut movement, mut mind) in query.iter_mut() {
+        // Pick a random nearby location (5-10 tiles away)
+        let range = 8;
+        let new_x = (grid_pos.x as i32 + (rand::random::<i32>() % (range * 2)) - range).max(0) as u32;
+        let new_y = (grid_pos.y as i32 + (rand::random::<i32>() % (range * 2)) - range).max(0) as u32;
+        
+        // Clamp to map bounds (assuming 64x64 map)
+        let new_x = new_x.min(63);
+        let new_y = new_y.min(63);
+        
+        // Set the movement target
+        let target = crate::components::grid_position::GridPosition::new(new_x, new_y);
+        movement.set_target(target);
+        
+        // Set the mind state
+        *mind = crate::components::UnitMind::Wandering;
+        
+        debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
+            &format!("Worker wandering to ({}, {})", new_x, new_y));
+        
+        // Remove the action after setting movement
+        commands.entity(entity).remove::<WanderAction>();
+    }
+}
+
+// System to handle MoveToResourceAction - moves to a specific resource
+pub fn handle_move_to_resource_action(
+    sim_state: Res<crate::SimulationState>,
+    mut commands: Commands,
+    mut query: Query<(
+        Entity, 
+        &MoveToResourceAction,
+        &mut crate::components::grid_position::GridMovement,
+        &mut crate::components::UnitMind
+    )>,
+    resource_query: Query<(&crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
+    debug: Res<DebugSystem>,
+) {
+    // Only update on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (entity, action, mut movement, mut mind) in query.iter_mut() {
+        if let Some(target) = action.target {
+            if let Ok((target_pos, _)) = resource_query.get(target) {
+                // Move to the resource location
+                movement.set_target(target_pos.clone());
+                
+                *mind = crate::components::UnitMind::GoingThere {
+                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                };
+                
+                debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
+                    &format!("Worker moving to resource at ({}, {})", target_pos.x, target_pos.y));
+            }
+        }
+        
+        // Remove the action after setting movement
+        commands.entity(entity).remove::<MoveToResourceAction>();
+    }
+}
+
+// System to debug what actions are active on entities
+pub fn debug_active_actions(
+    query: Query<(
+        Entity,
+        Option<&EatAction>,
+        Option<&WanderAction>,
+        Option<&GatherFoodAction>,
+        Option<&RestAction>,
+        &Hunger,
+        &Energy,
+        &FoodCount,
+    ), With<crate::components::UnitTag>>,
+    debug: Res<DebugSystem>,
+    sim_state: Res<crate::SimulationState>,
+) {
+    // Only log every 50 ticks to avoid spam
+    if sim_state.tick % 50 != 0 {
+        return;
+    }
+    
+    for (entity, eat, wander, gather, rest, hunger, energy, food) in query.iter() {
+        let mut active_actions = Vec::new();
+        if eat.is_some() { active_actions.push("Eat"); }
+        if wander.is_some() { active_actions.push("Wander"); }
+        if gather.is_some() { active_actions.push("Gather"); }
+        if rest.is_some() { active_actions.push("Rest"); }
+        
+        if !active_actions.is_empty() {
+            debug.log(DebugLevel::Info, "DOGOAP_ACTIVE", 
+                &format!("Entity {:?} actions: {:?} | H:{:.1} E:{:.1} F:{:.0}", 
+                    entity, active_actions, hunger.0, energy.0, food.0));
+        }
     }
 }
 
@@ -112,40 +247,51 @@ pub fn setup_dogoap_planners(
     for entity in query.iter() {
         debug.log(DebugLevel::Info, "DOGOAP", "Setting up planner for worker");
         
-        // Define the goal - not be hungry
-        // In dogoap: 0 = starving, 100 = full
-        // So we want hunger to be MORE than 70 (well fed)
+        // Define the goal - keep hunger high
+        // Start with a simple goal that's always active to test
         let goal_not_hungry = Goal::from_reqs(&[
-            Hunger::is_more(70.0),
+            Hunger::is_more(80.0),  // Always want to be well-fed
         ]);
         
         // Define actions with their preconditions and effects
         let eat_action = EatAction::new()
             .add_precondition(FoodCount::is_more(0.0))
-            .add_mutator(Hunger::increase(10.0))  // Matches what handle_eat_action actually does
-            .add_mutator(FoodCount::decrease(1.0));
+            .add_mutator(Hunger::increase(20.0))  // Increased effect to make it worthwhile
+            .add_mutator(FoodCount::decrease(1.0))
+            .set_cost(1);
         
-        // IMPORTANT: gather_food doesn't directly increase FoodCount!
-        // It triggers the peasant to find berries and start harvesting.
-        // The actual food comes from the work system.
-        // We can't use this in a plan that expects immediate food.
-        // Instead, we'll remove it from the planner for now.
+        // Wander action to explore and find berry bushes - simplified
+        let wander_action = WanderAction::new()
+            .add_precondition(NearBerryBush::is(0.0))  // Not near a bush
+            .add_mutator(NearBerryBush::set(1.0))      // Will find a bush
+            .set_cost(2);
+        
+        // Gather food action - only works when near a berry bush
+        let gather_food_action = GatherFoodAction::new()
+            .add_precondition(NearBerryBush::is(1.0)) // Must be near a bush
+            .add_precondition(Energy::is_more(10.0))  // Need some energy to gather
+            .add_mutator(FoodCount::increase(3.0))    // Get 3 food items when gathering
+            .add_mutator(Energy::decrease(5.0))       // Costs some energy
+            .set_cost(2);
         
         let rest_action = RestAction::new()
-            .add_mutator(Energy::set(100.0));
+            .add_precondition(Energy::is_less(50.0))  // Only rest when tired
+            .add_mutator(Energy::increase(25.0))      // Gain energy gradually
+            .set_cost(1);
         
         // Create the planner with the macro
         let (mut planner, components) = create_planner!({
             actions: [
                 (EatAction, eat_action),
-                // GatherFoodAction removed - it doesn't have immediate effects
-                // Food comes from the actual work system
+                (WanderAction, wander_action),
+                (GatherFoodAction, gather_food_action),
                 (RestAction, rest_action),
             ],
             state: [
                 Hunger(50.0),
                 Energy(75.0),
-                FoodCount(2.0),
+                FoodCount(2.0),  // Start with some food
+                NearBerryBush(0.0),  // Not near a bush initially
             ],
             goals: [goal_not_hungry],
         });
@@ -218,6 +364,52 @@ pub fn sync_inventory_to_food_count(
     }
 }
 
+// System to detect when peasants are near berry bushes
+pub fn update_near_berry_bush(
+    sim_state: Res<crate::SimulationState>,
+    mut peasant_query: Query<(&crate::components::grid_position::GridPosition, &mut NearBerryBush), With<crate::components::UnitTag>>,
+    resource_query: Query<(&crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
+    debug: Res<DebugSystem>,
+) {
+    // Only update on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+    
+    for (peasant_pos, mut near_bush) in peasant_query.iter_mut() {
+        let mut found_bush = false;
+        
+        // Check all resource nodes for berry bushes
+        for (resource_pos, resource_node) in resource_query.iter() {
+            if resource_node.resource_type == crate::resources::ResourceType::Berries {
+                // Calculate Manhattan distance
+                let distance = peasant_pos.distance_to(resource_pos);
+                
+                // If within gathering range (1 tile), we're near a bush
+                if distance <= 1 && resource_node.can_harvest() {
+                    found_bush = true;
+                    
+                    // Only log state changes
+                    if near_bush.0 < 0.5 {
+                        debug.log(DebugLevel::Info, "DOGOAP_STATE", 
+                            &format!("Worker found berry bush at distance {}", distance));
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // Update the state
+        let old_value = near_bush.0;
+        near_bush.0 = if found_bush { 1.0 } else { 0.0 };
+        
+        // Log when leaving bush proximity
+        if old_value > 0.5 && near_bush.0 < 0.5 {
+            debug.log(DebugLevel::Debug, "DOGOAP_STATE", "Worker left berry bush area");
+        }
+    }
+}
+
 // Plugin to register all bevy_dogoap systems
 pub struct BevyDogoapPlugin;
 
@@ -230,14 +422,20 @@ impl Plugin for BevyDogoapPlugin {
             .register_type::<EatAction>()
             .register_type::<RestAction>()
             .register_type::<GatherFoodAction>()
+            .register_type::<WanderAction>()
+            .register_type::<MoveToResourceAction>()
             // Add our systems
             .add_systems(Update, (
                 setup_dogoap_planners,
                 update_needs_system,
                 sync_inventory_to_food_count,  // Sync inventory berries to FoodCount
+                update_near_berry_bush,         // Detect proximity to berry bushes
+                debug_active_actions,           // Debug what actions are active
                 handle_eat_action,
                 handle_rest_action,
                 handle_gather_food_action,
+                handle_wander_action,
+                handle_move_to_resource_action,
                 // Sync dogoap values to UnitNeedsV2 for display
                 crate::ai::shared_state::sync_dogoap_to_unit_needs,
             ));
@@ -246,7 +444,7 @@ impl Plugin for BevyDogoapPlugin {
         // This is required for the planner to find the components at runtime
         register_components!(
             app,
-            vec![Hunger, Energy, FoodCount]
+            vec![Hunger, Energy, FoodCount, NearBerryBush]
         );
     }
 }
