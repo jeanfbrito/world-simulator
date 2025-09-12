@@ -146,6 +146,8 @@ pub struct GridMovement {
     pub target: Option<GridPosition>,
     /// Path to follow (list of grid positions)
     pub path: Vec<GridPosition>,
+    /// Current index in the path (which node we're moving toward)
+    pub current_path_index: usize,
     /// Movement progress counter (0 to MAX_MOVE_PROGRESS)
     pub progress_counter: u32,
     /// Whether currently moving
@@ -159,6 +161,7 @@ impl GridMovement {
         Self {
             target: None,
             path: Vec::new(),
+            current_path_index: 0,
             progress_counter: 0,
             is_moving: false,
             speed_modifier: 1.0,
@@ -190,8 +193,9 @@ impl GridMovement {
     pub fn set_path(&mut self, path: Vec<GridPosition>) {
         if !path.is_empty() {
             self.path = path;
-            // Take the first step as our immediate target
-            self.target = self.path.first().cloned();
+            self.current_path_index = 0;
+            // Set target to first position in path
+            self.target = self.path.get(0).cloned();
             self.is_moving = true;
             self.progress_counter = 0;
         }
@@ -201,6 +205,7 @@ impl GridMovement {
     pub fn stop(&mut self) {
         self.target = None;
         self.path.clear();
+        self.current_path_index = 0;
         self.is_moving = false;
         self.progress_counter = 0;
     }
@@ -226,18 +231,21 @@ impl GridMovement {
             if let Some(target) = &self.target {
                 *current_pos = target.clone();
 
-                // If following a path, get next target
-                if !self.path.is_empty() {
-                    self.path.remove(0);
-                    if !self.path.is_empty() {
-                        self.target = self.path.first().cloned();
+                // If following a path, advance to next target
+                if !self.path.is_empty() && self.current_path_index < self.path.len() {
+                    // Move to next position in path
+                    self.current_path_index += 1;
+                    
+                    if self.current_path_index < self.path.len() {
+                        // Set next target
+                        self.target = self.path.get(self.current_path_index).cloned();
                     } else {
-                        // Path complete
+                        // Path complete - we've reached the end
                         self.stop();
                         return true; // Movement complete
                     }
                 } else {
-                    // Single target reached
+                    // No path or reached end
                     self.stop();
                     return true; // Movement complete
                 }
@@ -250,6 +258,16 @@ impl GridMovement {
     /// Get movement progress as a float (0.0 to 1.0)
     pub fn progress(&self) -> f32 {
         self.progress_counter as f32 / MAX_WORK_PROGRESS as f32
+    }
+    
+    /// Get the current path (for debugging)
+    pub fn get_path(&self) -> &[GridPosition] {
+        &self.path
+    }
+    
+    /// Get current position in path
+    pub fn get_path_progress(&self) -> (usize, usize) {
+        (self.current_path_index, self.path.len())
     }
 }
 
