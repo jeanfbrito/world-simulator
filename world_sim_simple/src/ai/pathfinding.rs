@@ -133,18 +133,22 @@ pub fn find_path(start: Vec3, goal: Vec3, obstacles: &HashSet<(i32, i32)>) -> Op
     let start_grid = world_to_grid(start);
     let goal_grid = world_to_grid(goal);
 
-    // Simple case - if no obstacles, direct path
+    // Generate a complete tile-by-tile path even when no obstacles
     if obstacles.is_empty() || !has_obstacles_between(start_grid, goal_grid, obstacles) {
-        let nodes = vec![
-            PathNode {
-                position: start,
-                cost: 0.0,
-            },
-            PathNode {
-                position: goal,
-                cost: start.distance(goal),
-            },
-        ];
+        // Use Bresenham-like algorithm to generate all tiles in the path
+        let path_tiles = generate_line_path(start_grid, goal_grid);
+        
+        // Convert to PathNodes with proper world coordinates
+        let nodes: Vec<PathNode> = path_tiles
+            .into_iter()
+            .enumerate()
+            .map(|(i, (x, y))| PathNode {
+                position: grid_to_world(x, y),
+                cost: i as f32, // Incremental cost for each step
+            })
+            .collect();
+        
+        info!("[PATH] Direct path generated with {} tiles", nodes.len());
         return Some(Path::new(nodes));
     }
 
@@ -175,30 +179,57 @@ fn grid_to_world(x: i32, y: i32) -> Vec3 {
     Vec3::new(x as f32 * 10.0, y as f32 * 10.0, 0.0)
 }
 
+fn generate_line_path(start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {
+    let mut path = Vec::new();
+    
+    // Bresenham's line algorithm for generating all tiles between start and goal
+    let mut x = start.0;
+    let mut y = start.1;
+    
+    let dx = (goal.0 - start.0).abs();
+    let dy = (goal.1 - start.1).abs();
+    let sx = if start.0 < goal.0 { 1 } else { -1 };
+    let sy = if start.1 < goal.1 { 1 } else { -1 };
+    let mut err = dx - dy;
+    
+    loop {
+        path.push((x, y));
+        
+        if x == goal.0 && y == goal.1 {
+            break;
+        }
+        
+        let e2 = 2 * err;
+        
+        if e2 > -dy {
+            err -= dy;
+            x += sx;
+        }
+        
+        if e2 < dx {
+            err += dx;
+            y += sy;
+        }
+    }
+    
+    path
+}
+
 fn has_obstacles_between(
     start: (i32, i32),
     goal: (i32, i32),
     obstacles: &HashSet<(i32, i32)>,
 ) -> bool {
-    // Simple line check for obstacles
-    let dx = (goal.0 - start.0).abs();
-    let dy = (goal.1 - start.1).abs();
-    let steps = dx.max(dy);
-
-    if steps == 0 {
-        return false;
-    }
-
-    for i in 0..=steps {
-        let t = i as f32 / steps as f32;
-        let x = (start.0 as f32 + (goal.0 - start.0) as f32 * t) as i32;
-        let y = (start.1 as f32 + (goal.1 - start.1) as f32 * t) as i32;
-
-        if obstacles.contains(&(x, y)) {
+    // Use the same line generation to check for obstacles
+    let path = generate_line_path(start, goal);
+    
+    // Skip the first tile (start position) as it's not an obstacle
+    for &pos in path.iter().skip(1) {
+        if obstacles.contains(&pos) {
             return true;
         }
     }
-
+    
     false
 }
 
