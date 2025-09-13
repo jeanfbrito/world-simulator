@@ -103,10 +103,8 @@ fn determine_unit_mind(
             return UnitMind::SearchingForFood;
         }
 
-        // Very tired - need rest
-        if needs.energy() < 0.2 {
-            return UnitMind::Resting;
-        }
+        // Very tired - but energy recovers when idle now
+        // No need for explicit resting state
     }
 
     // Priority 3: Check if we're moving

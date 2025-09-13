@@ -30,7 +30,7 @@ pub enum UnitMind {
     /// Eating food to satisfy hunger
     Eating,
     
-    /// Resting to recover energy
+    /// Resting to recover energy (future use - currently energy recovers when idle)
     Resting,
     
     /// Fleeing from danger

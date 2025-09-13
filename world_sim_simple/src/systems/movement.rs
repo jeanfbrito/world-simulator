@@ -545,13 +545,29 @@ pub fn food_search_movement_system(
             continue;
         }
         
+        // Debug log to understand what's happening
+        debug.log(
+            DebugLevel::Info,
+            "FOOD_SEARCH",
+            &format!(
+                "{} is searching for food. is_moving: {}, position: ({},{})",
+                name.name, movement.is_moving, grid_pos.x, grid_pos.y
+            ),
+        );
+        
         // Skip if already moving
         if movement.is_moving {
+            debug.log(
+                DebugLevel::Debug,
+                "FOOD_SEARCH",
+                &format!("{} is already moving, skipping food search", name.name),
+            );
             continue;
         }
         
-        // If hungry and need food
-        if needs.is_hungry() && inventory.get_amount(ResourceType::Berries) == 0 {
+        // If searching for food, find the nearest berry bush
+        // Remove hunger check - if they're searching, they need food
+        if inventory.get_amount(ResourceType::Berries) == 0 {
             // Find nearest berry bush with available berries
             let mut best_bush = None;
             let mut best_distance = f32::MAX;
@@ -611,8 +627,13 @@ pub fn food_search_movement_system(
                 );
             }
         } else {
-            // Not hungry anymore or has food - go back to idle
+            // Has food in inventory - go back to idle
             *mind = UnitMind::Idle;
+            debug.log(
+                DebugLevel::Debug,
+                "FOOD_SEARCH",
+                &format!("{} has food, returning to idle", name.name),
+            );
         }
     }
 }

@@ -11,9 +11,7 @@ use crate::components::{WorkProgress, WorkType, ResourceWork};
 #[reflect(Component)]
 pub struct EatAction;
 
-#[derive(Component, Clone, Reflect, Default, ActionComponent)]
-#[reflect(Component)]
-pub struct RestAction;
+// RestAction removed - energy now recovers when idle
 
 #[derive(Component, Clone, Reflect, Default, ActionComponent)]
 #[reflect(Component)]
@@ -74,25 +72,7 @@ pub fn handle_eat_action(
     }
 }
 
-// System to handle RestAction execution
-pub fn handle_rest_action(
-    sim_state: Res<crate::SimulationState>,
-    mut commands: Commands,
-    mut query: Query<(Entity, &RestAction, &mut Energy)>,
-    debug: Res<DebugSystem>,
-) {
-    // Only update on simulation ticks
-    if !sim_state.just_ticked {
-        return;
-    }
-    
-    for (entity, _action, mut energy) in query.iter_mut() {
-        // Recover 25 energy (matches mutator) - happens once then action removed
-        energy.0 = (energy.0 + 25.0).min(100.0);
-        debug.log(DebugLevel::Info, "DOGOAP_ACTION", &format!("Worker rested, energy now: {:.1}", energy.0));
-        commands.entity(entity).remove::<RestAction>();
-    }
-}
+// RestAction handler removed - energy now recovers automatically when idle
 
 // System to handle GatherFoodAction execution
 pub fn handle_gather_food_action(
@@ -246,7 +226,6 @@ pub fn debug_active_actions(
         Option<&EatAction>,
         Option<&WanderAction>,
         Option<&GatherFoodAction>,
-        Option<&RestAction>,
         &Hunger,
         &Energy,
         &FoodCount,
@@ -259,12 +238,11 @@ pub fn debug_active_actions(
         return;
     }
     
-    for (entity, eat, wander, gather, rest, hunger, energy, food) in query.iter() {
+    for (entity, eat, wander, gather, hunger, energy, food) in query.iter() {
         let mut active_actions = Vec::new();
         if eat.is_some() { active_actions.push("Eat"); }
         if wander.is_some() { active_actions.push("Wander"); }
         if gather.is_some() { active_actions.push("Gather"); }
-        if rest.is_some() { active_actions.push("Rest"); }
         
         if !active_actions.is_empty() {
             debug.log(DebugLevel::Info, "DOGOAP_ACTIVE", 
@@ -310,18 +288,12 @@ pub fn setup_dogoap_planners(
             .add_mutator(Energy::decrease(5.0))       // Costs some energy
             .set_cost(2);
         
-        let rest_action = RestAction::new()
-            .add_precondition(Energy::is_less(50.0))  // Only rest when tired
-            .add_mutator(Energy::increase(25.0))      // Gain energy gradually
-            .set_cost(1);
-        
         // Create the planner with the macro
         let (mut planner, components) = create_planner!({
             actions: [
                 (EatAction, eat_action),
                 (WanderAction, wander_action),
                 (GatherFoodAction, gather_food_action),
-                (RestAction, rest_action),
             ],
             state: [
                 Hunger(50.0),
@@ -347,7 +319,12 @@ pub fn setup_dogoap_planners(
 // System to update hunger and energy over time (on simulation ticks)
 pub fn update_needs_system(
     sim_state: Res<crate::SimulationState>,
-    mut query: Query<(&mut Hunger, &mut Energy, Option<&crate::components::UnitMind>)>,
+    mut query: Query<(
+        &mut Hunger, 
+        &mut Energy,
+        Option<&crate::components::GridMovement>,
+        Option<&crate::components::WorkProgress>,
+    )>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -355,30 +332,66 @@ pub fn update_needs_system(
         return;
     }
     
-    for (mut hunger, mut energy, mind) in query.iter_mut() {
-        // Check if unit is resting
-        let is_resting = matches!(mind, Some(crate::components::UnitMind::Resting));
-        
-        // Hunger increases over time regardless of resting (lower is hungrier)
+    for (mut hunger, mut energy, movement, work) in query.iter_mut() {
+        // Hunger increases over time (lower is hungrier)
         // Decrease by 0.4 per tick (4 per second at 10 ticks per second)
         hunger.0 = (hunger.0 - 0.4).max(0.0);
         
-        if is_resting {
-            // Energy recovers when resting
-            // Increase by 2.0 per tick (20 per second at 10 ticks per second)
-            energy.0 = (energy.0 + 2.0).min(100.0);
-            debug.log(DebugLevel::Debug, "DOGOAP_STATE", &format!("Unit resting, energy recovering to {:.1}", energy.0));
+        // Energy changes based on activity
+        let is_moving = movement.map_or(false, |m| m.is_moving);
+        
+        // Determine energy consumption based on work type
+        let energy_change = if let Some(w) = work {
+            if w.is_working {
+                // Different energy costs for different work types (reduced for balance)
+                let cost = match &w.work_type {
+                    Some(WorkType::Mining(_)) => -0.8,      // Mining is exhausting
+                    Some(WorkType::Building(_)) => -0.6,    // Building is hard work
+                    Some(WorkType::Farming(_)) => -0.5,     // Farming is tiring
+                    Some(WorkType::Gathering(_)) => -0.4,   // Gathering moderate
+                    Some(WorkType::Crafting(_)) => -0.25,   // Crafting is lighter
+                    Some(WorkType::Research(_)) => -0.15,   // Research is mental
+                    Some(WorkType::Repair(_)) => -0.5,      // Repair is physical
+                    _ => -0.3,  // Generic work
+                };
+                
+                if sim_state.tick % 20 == 0 {
+                    let work_name = match &w.work_type {
+                        Some(WorkType::Mining(_)) => "mining",
+                        Some(WorkType::Building(_)) => "building",
+                        Some(WorkType::Farming(_)) => "farming",
+                        Some(WorkType::Gathering(_)) => "gathering",
+                        Some(WorkType::Crafting(_)) => "crafting",
+                        Some(WorkType::Research(_)) => "researching",
+                        Some(WorkType::Repair(_)) => "repairing",
+                        _ => "working",
+                    };
+                    debug.log(DebugLevel::Debug, "DOGOAP_STATE", 
+                        &format!("Unit {}, energy: {:.1}, cost: {:.1}/tick", work_name, energy.0, cost));
+                }
+                cost
+            } else if is_moving {
+                -0.05  // Moving consumes very little energy (greatly reduced from -0.3)
+            } else {
+                0.5   // Idle recovers energy (increased)
+            }
+        } else if is_moving {
+            if sim_state.tick % 20 == 0 {
+                debug.log(DebugLevel::Debug, "DOGOAP_STATE", &format!("Unit moving, energy: {:.1}", energy.0));
+            }
+            -0.05  // Moving consumes very little energy (greatly reduced from -0.3)
         } else {
-            // Energy decreases over time when not resting
-            // Decrease by 0.5 per tick (5 per second at 10 ticks per second)
-            energy.0 = (energy.0 - 0.5).max(0.0);
-        }
+            0.5   // Idle recovers energy (increased)
+        };
+        
+        // Apply energy change
+        energy.0 = (energy.0 + energy_change).clamp(0.0, 100.0);
         
         // Log critical states
         if hunger.0 < 10.0 {
             debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is very hungry!");
         }
-        if energy.0 < 10.0 && !is_resting {
+        if energy.0 < 10.0 {
             debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is exhausted!");
         }
     }
@@ -466,7 +479,6 @@ impl Plugin for BevyDogoapPlugin {
             .add_plugins(DogoapPlugin)
             // Register our components
             .register_type::<EatAction>()
-            .register_type::<RestAction>()
             .register_type::<GatherFoodAction>()
             .register_type::<WanderAction>()
             .register_type::<MoveToResourceAction>()
@@ -478,7 +490,6 @@ impl Plugin for BevyDogoapPlugin {
                 update_near_berry_bush,         // Detect proximity to berry bushes
                 debug_active_actions,           // Debug what actions are active
                 handle_eat_action,
-                handle_rest_action,
                 handle_gather_food_action,
                 handle_wander_action,
                 handle_move_to_resource_action,

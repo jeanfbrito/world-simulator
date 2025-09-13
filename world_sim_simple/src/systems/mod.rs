@@ -78,7 +78,7 @@ impl Plugin for SystemsPlugin {
                 hunger_response_system,  // Trigger gathering when hungry
                 auto_gather_system,
                 work_effects_system,
-                update_unit_mind_system,  // Update unit minds after work
+                // update_unit_mind_system,  // DISABLED - was overwriting movement states every tick
                 log_mind_changes_system,  // Log mind state changes for debugging
             )
                 .chain()
