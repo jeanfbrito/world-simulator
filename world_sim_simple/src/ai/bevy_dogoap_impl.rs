@@ -496,7 +496,8 @@ pub fn update_near_berry_bush(
                             &format!("Worker found berry bush at distance {}", distance));
                         
                         // Force replanning when we reach a berry bush
-                        planner.needs_replan = true;
+                        // Clear current plan to trigger replanning
+                        planner.current_plan.clear();
                         debug.log(DebugLevel::Info, "DOGOAP_STATE", 
                             &format!("Entity {:?} triggering replan at berry bush", entity));
                     }
@@ -513,7 +514,7 @@ pub fn update_near_berry_bush(
         if old_value > 0.5 && near_bush.0 < 0.5 {
             debug.log(DebugLevel::Debug, "DOGOAP_STATE", "Worker left berry bush area");
             // Also trigger replan when leaving
-            planner.needs_replan = true;
+            planner.current_plan.clear();
         }
     }
 }
