@@ -259,7 +259,7 @@ pub fn debug_active_actions(
     query: Query<(
         Entity,
         Option<&EatAction>,
-        Option<&WanderAction>,
+        Option<&MoveToResourceAction>,
         Option<&GatherFoodAction>,
         &Satiety,
         &Energy,
@@ -273,10 +273,10 @@ pub fn debug_active_actions(
         return;
     }
     
-    for (entity, eat, wander, gather, hunger, energy, food) in query.iter() {
+    for (entity, eat, move_to, gather, hunger, energy, food) in query.iter() {
         let mut active_actions = Vec::new();
         if eat.is_some() { active_actions.push("Eat"); }
-        if wander.is_some() { active_actions.push("Wander"); }
+        if move_to.is_some() { active_actions.push("MoveToResource"); }
         if gather.is_some() { active_actions.push("Gather"); }
         
         if !active_actions.is_empty() {
@@ -310,11 +310,12 @@ pub fn setup_dogoap_planners(
             .add_mutator(FoodCount::decrease(1.0))
             .set_cost(1);
         
-        // Wander action to explore and find berry bushes - simplified
-        let wander_action = WanderAction::new()
+        // Move to resource action - finds and moves to berry bushes
+        let move_to_resource_action = MoveToResourceAction::new()
             .add_precondition(NearBerryBush::is(0.0))  // Not near a bush
+            .add_precondition(FoodCount::is_less(5.0)) // Need food
             .add_mutator(NearBerryBush::set(1.0))      // Will find a bush
-            .set_cost(2);
+            .set_cost(3);
         
         // Gather food action - only works when near a berry bush
         let gather_food_action = GatherFoodAction::new()
@@ -328,7 +329,7 @@ pub fn setup_dogoap_planners(
         let (mut planner, components) = create_planner!({
             actions: [
                 (EatAction, eat_action),
-                (WanderAction, wander_action),
+                (MoveToResourceAction, move_to_resource_action),
                 (GatherFoodAction, gather_food_action),
             ],
             state: [
@@ -462,7 +463,12 @@ pub fn sync_inventory_to_food_count(
 // System to detect when peasants are near berry bushes
 pub fn update_near_berry_bush(
     sim_state: Res<crate::SimulationState>,
-    mut peasant_query: Query<(&crate::components::grid_position::GridPosition, &mut NearBerryBush), With<crate::components::UnitTag>>,
+    mut peasant_query: Query<(
+        Entity,
+        &crate::components::grid_position::GridPosition, 
+        &mut NearBerryBush,
+        &mut Planner,
+    ), With<crate::components::UnitTag>>,
     resource_query: Query<(&crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
     debug: Res<DebugSystem>,
 ) {
@@ -471,7 +477,7 @@ pub fn update_near_berry_bush(
         return;
     }
     
-    for (peasant_pos, mut near_bush) in peasant_query.iter_mut() {
+    for (entity, peasant_pos, mut near_bush, mut planner) in peasant_query.iter_mut() {
         let mut found_bush = false;
         
         // Check all resource nodes for berry bushes
@@ -488,6 +494,11 @@ pub fn update_near_berry_bush(
                     if near_bush.0 < 0.5 {
                         debug.log(DebugLevel::Info, "DOGOAP_STATE", 
                             &format!("Worker found berry bush at distance {}", distance));
+                        
+                        // Force replanning when we reach a berry bush
+                        planner.needs_replan = true;
+                        debug.log(DebugLevel::Info, "DOGOAP_STATE", 
+                            &format!("Entity {:?} triggering replan at berry bush", entity));
                     }
                     break;
                 }
@@ -501,6 +512,8 @@ pub fn update_near_berry_bush(
         // Log when leaving bush proximity
         if old_value > 0.5 && near_bush.0 < 0.5 {
             debug.log(DebugLevel::Debug, "DOGOAP_STATE", "Worker left berry bush area");
+            // Also trigger replan when leaving
+            planner.needs_replan = true;
         }
     }
 }
