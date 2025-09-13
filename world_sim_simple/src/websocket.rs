@@ -475,7 +475,7 @@ fn broadcast_game_state(
     // Separate query for GOAP components to avoid query complexity
     goap_data: Query<
         (
-            Option<&crate::ai::Hunger>,
+            Option<&crate::ai::Satiety>,
             Option<&crate::ai::Energy>,
             Option<&crate::ai::FoodCount>,
             Option<&crate::ai::NearBerryBush>,
@@ -511,10 +511,10 @@ fn broadcast_game_state(
         data.insert("health".to_string(), serde_json::json!(health.current));
         
         // Add GOAP data if available
-        if let Ok((hunger, energy, food_count, near_bush, eat_action, wander_action, gather_action)) = goap_data.get(entity) {
+        if let Ok((satiety, energy, food_count, near_bush, eat_action, wander_action, gather_action)) = goap_data.get(entity) {
             // Add GOAP state values
-            if let Some(h) = hunger {
-                data.insert("goap_hunger".to_string(), serde_json::json!(h.0));
+            if let Some(s) = satiety {
+                data.insert("goap_satiety".to_string(), serde_json::json!(s.0));
             }
             if let Some(e) = energy {
                 data.insert("goap_energy".to_string(), serde_json::json!(e.0));
@@ -536,7 +536,7 @@ fn broadcast_game_state(
                 goap_action = "Wandering";
             }
             data.insert("goap_action".to_string(), serde_json::json!(goap_action));
-            data.insert("goap_goal".to_string(), serde_json::json!("Stay Fed (>80 hunger)"));
+            data.insert("goap_goal".to_string(), serde_json::json!("Stay Fed (>30 satiety)"));
         }
         
         // Add needs data if available (energy comes from here now)

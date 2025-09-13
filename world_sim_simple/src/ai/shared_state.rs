@@ -3,7 +3,7 @@ use bevy_dogoap::prelude::*;
 use big_brain::prelude::*;
 
 // Shared state components that both AI systems can read/write
-// Note: We're using dogoap's Hunger/Energy components directly now
+// Note: We're using dogoap's Satiety/Energy components directly now
 
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
@@ -62,17 +62,17 @@ impl Default for GoalPriorities {
     }
 }
 
-// Sync dogoap Hunger/Energy values to UnitNeedsV2 for display and other systems
+// Sync dogoap Satiety/Energy values to UnitNeedsV2 for display and other systems
 pub fn sync_dogoap_to_unit_needs(
     mut query: Query<(
-        &crate::ai::bevy_dogoap_impl::Hunger,
+        &crate::ai::bevy_dogoap_impl::Satiety,
         &crate::ai::bevy_dogoap_impl::Energy,
         &mut crate::components::UnitNeedsV2,
     )>,
 ) {
-    for (hunger, energy, mut needs) in query.iter_mut() {
-        // Sync dogoap values to UnitNeedsV2
-        needs.set_hunger_from_dogoap(hunger.0 as f32);
+    for (satiety, energy, mut needs) in query.iter_mut() {
+        // Convert GOAP values (0-100) to UnitNeeds (0.0-1.0)
+        needs.set_hunger_from_dogoap(satiety.0 as f32);
         needs.set_energy_from_dogoap(energy.0 as f32);
     }
 }
@@ -80,16 +80,16 @@ pub fn sync_dogoap_to_unit_needs(
 // Decide which AI mode to use based on current state
 pub fn ai_mode_selection_system(
     mut query: Query<(
-        &crate::ai::bevy_dogoap_impl::Hunger,
+        &crate::ai::bevy_dogoap_impl::Satiety,
         &crate::ai::bevy_dogoap_impl::Energy,
         &mut AIMode,
         &GoalPriorities,
     )>,
     debug: Res<crate::debug::DebugSystem>,
 ) {
-    for (hunger, energy, mut mode, priorities) in query.iter_mut() {
+    for (satiety, energy, mut mode, priorities) in query.iter_mut() {
         // Use dogoap values directly (0 = bad, 100 = good)
-        let new_mode = if hunger.0 < 30.0 || energy.0 < 30.0 {
+        let new_mode = if satiety.0 < 30.0 || energy.0 < 30.0 {
             // Critical needs - use reactive AI
             AIMode::Reactive
         } else if *mode == AIMode::Executing {

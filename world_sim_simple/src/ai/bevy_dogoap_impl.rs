@@ -39,7 +39,7 @@ impl Default for MoveToResourceAction {
 
 // State components using DatumComponent
 #[derive(Component, Clone, DatumComponent)]
-pub struct Hunger(pub f64);
+pub struct Satiety(pub f64);
 
 #[derive(Component, Clone, DatumComponent)]
 pub struct Energy(pub f64);
@@ -54,7 +54,7 @@ pub struct NearBerryBush(pub f64);  // 1.0 if near a berry bush, 0.0 otherwise
 pub fn handle_eat_action(
     sim_state: Res<crate::SimulationState>,
     mut commands: Commands,
-    mut query: Query<(Entity, &EatAction, &mut Hunger, &mut FoodCount)>,
+    mut query: Query<(Entity, &EatAction, &mut Satiety, &mut FoodCount)>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -226,7 +226,7 @@ pub fn debug_active_actions(
         Option<&EatAction>,
         Option<&WanderAction>,
         Option<&GatherFoodAction>,
-        &Hunger,
+        &Satiety,
         &Energy,
         &FoodCount,
     ), With<crate::components::UnitTag>>,
@@ -261,16 +261,17 @@ pub fn setup_dogoap_planners(
     for entity in query.iter() {
         debug.log(DebugLevel::Info, "DOGOAP", "Setting up planner for worker");
         
-        // Define the goal - keep hunger high
-        // Start with a simple goal that's always active to test
+        // Define the goal - keep satiety high (since lower values mean more hungry)
+        // The satiety system: starts at 50, decreases over time (gets hungrier)
+        // So we want to keep satiety ABOVE a threshold to avoid starvation
         let goal_not_hungry = Goal::from_reqs(&[
-            Hunger::is_more(80.0),  // Always want to be well-fed
+            Satiety::is_more(30.0),  // Trigger food gathering when satiety drops below 30
         ]);
         
         // Define actions with their preconditions and effects
         let eat_action = EatAction::new()
             .add_precondition(FoodCount::is_more(0.0))
-            .add_mutator(Hunger::increase(20.0))  // Increased effect to make it worthwhile
+            .add_mutator(Satiety::increase(20.0))  // Increased effect to make it worthwhile
             .add_mutator(FoodCount::decrease(1.0))
             .set_cost(1);
         
@@ -296,7 +297,7 @@ pub fn setup_dogoap_planners(
                 (GatherFoodAction, gather_food_action),
             ],
             state: [
-                Hunger(50.0),
+                Satiety(50.0),
                 Energy(75.0),
                 FoodCount(2.0),  // Start with some food
                 NearBerryBush(0.0),  // Not near a bush initially
@@ -320,7 +321,7 @@ pub fn setup_dogoap_planners(
 pub fn update_needs_system(
     sim_state: Res<crate::SimulationState>,
     mut query: Query<(
-        &mut Hunger, 
+        &mut Satiety, 
         &mut Energy,
         Option<&crate::components::GridMovement>,
         Option<&crate::components::WorkProgress>,
@@ -332,10 +333,10 @@ pub fn update_needs_system(
         return;
     }
     
-    for (mut hunger, mut energy, movement, work) in query.iter_mut() {
-        // Hunger increases over time (lower is hungrier)
+    for (mut satiety, mut energy, movement, work) in query.iter_mut() {
+        // Satiety decreases over time (lower means more hungry)
         // Decrease by 0.4 per tick (4 per second at 10 ticks per second)
-        hunger.0 = (hunger.0 - 0.4).max(0.0);
+        satiety.0 = (satiety.0 - 0.4).max(0.0);
         
         // Energy changes based on activity
         let is_moving = movement.map_or(false, |m| m.is_moving);
@@ -388,8 +389,8 @@ pub fn update_needs_system(
         energy.0 = (energy.0 + energy_change).clamp(0.0, 100.0);
         
         // Log critical states
-        if hunger.0 < 10.0 {
-            debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is very hungry!");
+        if satiety.0 < 10.0 {
+            debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is very hungry (low satiety)!");
         }
         if energy.0 < 10.0 {
             debug.log(DebugLevel::Warn, "DOGOAP_STATE", "Worker is exhausted!");
@@ -501,7 +502,7 @@ impl Plugin for BevyDogoapPlugin {
         // This is required for the planner to find the components at runtime
         register_components!(
             app,
-            vec![Hunger, Energy, FoodCount, NearBerryBush]
+            vec![Satiety, Energy, FoodCount, NearBerryBush]
         );
     }
 }

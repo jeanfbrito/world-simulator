@@ -138,7 +138,7 @@
             transition: width 0.3s;
         }
         
-        .progress-hunger {
+        .progress-satiety {
             background: linear-gradient(90deg, #ef4444, #f97316);
         }
         
@@ -918,7 +918,8 @@
                 
                 // Extract additional data from server
                 const peasantData = peasant.data || {};
-                const hunger = peasantData.hunger !== undefined ? peasantData.hunger : 50;
+                // Note: satiety represents fullness (100 = full, 0 = starving)
+                const satiety = peasantData.hunger !== undefined ? (100 - peasantData.hunger) : 50;
                 const energy = peasantData.energy !== undefined ? peasantData.energy : 50;
                 const inventory = peasantData.inventory || [];
                 const currentAction = peasantData.current_action || peasantData.action_state || 'Idle';
@@ -973,11 +974,11 @@
                             <span class="peasant-label">Food Count:</span>
                             <span class="peasant-value">🍖 ${foodCount}</span>
                             
-                            <span class="peasant-label">Hunger:</span>
+                            <span class="peasant-label">Satiety:</span>
                             <div>
-                                <span class="peasant-value">${Math.round(hunger)}%</span>
+                                <span class="peasant-value">${Math.round(satiety)}%</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill progress-hunger" style="width: ${hunger}%"></div>
+                                    <div class="progress-fill progress-satiety" style="width: ${satiety}%"></div>
                                 </div>
                             </div>
                             

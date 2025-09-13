@@ -18,7 +18,7 @@ pub use task_system::{Task, TaskPriority, TaskStatus, TaskSystem, TaskType};
 // New AI exports
 pub use bevy_dogoap_impl::{
     BevyDogoapPlugin,
-    Hunger, Energy, FoodCount, NearBerryBush,  // Export GOAP state components
+    Satiety, Energy, FoodCount, NearBerryBush,  // Export GOAP state components
     EatAction, WanderAction, GatherFoodAction,  // Export GOAP actions
 };
 pub use big_brain_impl::BigBrainAIPlugin;  // ENABLED for reactive execution

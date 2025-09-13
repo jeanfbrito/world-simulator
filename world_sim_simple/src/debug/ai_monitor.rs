@@ -127,12 +127,12 @@ pub fn simple_ai_monitor_system(
         let status = "🤖 Using dogoap";
         // Display values from UnitNeedsV2 which has been synced from dogoap
         // After sync: hunger is stored inverted internally (0=full, 1=starving)
-        // But we want to display it as: full bar = not hungry (good), empty bar = starving (bad)
+        // But we want to display satiety as: full bar = satiated (good), empty bar = starving (bad)
         // So we need to invert it for display: 1.0 - hunger gives us 0=starving, 1=full
-        let hunger_display = 1.0 - needs.hunger();  // Convert to 0=starving, 1=full for display
+        let satiety_display = 1.0 - needs.hunger();  // Convert to 0=starving, 1=full for display
         let energy_display = needs.energy();         // Already in correct direction: 0=exhausted, 1=full
         
-        let hunger_bar = create_bar(hunger_display, false);  // More filled = better (not hungry)
+        let satiety_bar = create_bar(satiety_display, false);  // More filled = better (satiated)
         let energy_bar = create_bar(energy_display, false);   // More filled = better (more energy)
 
         // Get inventory summary
@@ -160,8 +160,8 @@ pub fn simple_ai_monitor_system(
             tiles_walked.display().bright_magenta()
         );
         println!(
-            "   {} | Hunger {} ({:.2}) | Energy {} ({:.2})",
-            status, hunger_bar, hunger_display, energy_bar, energy_display
+            "   {} | Satiety {} ({:.2}) | Energy {} ({:.2})",
+            status, satiety_bar, satiety_display, energy_bar, energy_display
         );
         println!(
             "   📍 {} | Inventory: {}🪵 {}🍖 {}⛏️ (weight: {:.1}/{:.1})",
@@ -198,7 +198,7 @@ fn create_bar(value: f32, reverse: bool) -> String {
     let empty = width - filled;
 
     let (filled_char, empty_char, color) = if reverse {
-        // For hunger: more filled = bad
+        // For reverse metrics: more filled = bad
         if value > 0.7 {
             ("●", "○", "red")
         } else if value > 0.3 {
@@ -207,7 +207,7 @@ fn create_bar(value: f32, reverse: bool) -> String {
             ("●", "○", "green")
         }
     } else {
-        // For energy: more filled = good
+        // For satiety/energy: more filled = good
         if value > 0.7 {
             ("●", "○", "green")
         } else if value > 0.3 {
