@@ -84,7 +84,7 @@ pub fn handle_gather_food_action(
         &mut FoodCount, 
         &mut Energy, 
         &NearBerryBush,
-        &mut crate::components::WorkProgress,
+        Option<&mut crate::components::WorkProgress>,
         &crate::components::grid_position::GridPosition,
     )>,
     resource_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
@@ -95,7 +95,7 @@ pub fn handle_gather_food_action(
         return;
     }
     
-    for (entity, _action, mut food, mut energy, near_bush, mut work_progress, unit_pos) in query.iter_mut() {
+    for (entity, _action, mut food, mut energy, near_bush, work_progress_opt, unit_pos) in query.iter_mut() {
         // Only gather if actually near a berry bush
         if near_bush.0 > 0.0 {
             // Find the nearest berry bush entity
@@ -113,19 +113,54 @@ pub fn handle_gather_food_action(
             }
             
             if let Some(bush_entity) = closest_bush {
-                // Start the actual work to gather berries
-                work_progress.start_work(
-                    crate::components::WorkType::Gathering(crate::components::ResourceWork {
-                        resource_type: crate::resources::ResourceType::Berries,
-                        amount: 3,
-                        tool_bonus: 1.0,
-                    }),
-                    30, // Takes 30 ticks (3 seconds) to gather
-                    Some(bush_entity),
-                );
-                
-                // Apply immediate energy cost
-                energy.0 = (energy.0 - 5.0).max(0.0);
+                // Handle WorkProgress - either use existing or add new component
+                if let Some(mut work_progress) = work_progress_opt {
+                    // Only start work if not already working
+                    if !work_progress.is_working {
+                        // Start the actual work to gather berries
+                        work_progress.start_work(
+                            crate::components::WorkType::Gathering(crate::components::ResourceWork {
+                                resource_type: crate::resources::ResourceType::Berries,
+                                amount: 3,
+                                tool_bonus: 1.0,
+                            }),
+                            30, // Takes 30 ticks (3 seconds) to gather
+                            Some(bush_entity),
+                        );
+                        
+                        debug.log(DebugLevel::Info, "GATHER", 
+                            &format!("Started gathering work at ({}, {})", unit_pos.x, unit_pos.y));
+                        
+                        // Apply immediate energy cost
+                        energy.0 = (energy.0 - 5.0).max(0.0);
+                    }
+                } else {
+                    // No WorkProgress component, need to add it first
+                    debug.log(DebugLevel::Info, "GATHER", 
+                        &format!("Adding WorkProgress component to entity {:?}", entity));
+                    
+                    // Create and start work in new WorkProgress component
+                    let mut new_work_progress = crate::components::WorkProgress::new();
+                    new_work_progress.start_work(
+                        crate::components::WorkType::Gathering(crate::components::ResourceWork {
+                            resource_type: crate::resources::ResourceType::Berries,
+                            amount: 3,
+                            tool_bonus: 1.0,
+                        }),
+                        30, // Takes 30 ticks (3 seconds) to gather
+                        Some(bush_entity),
+                    );
+                    
+                    // Add WorkProgress and WorkSpeed components
+                    commands.entity(entity).insert((
+                        new_work_progress,
+                        crate::components::WorkSpeed::default(),
+                        crate::components::WorkQueue::new(10),
+                    ));
+                    
+                    // Apply immediate energy cost
+                    energy.0 = (energy.0 - 5.0).max(0.0);
+                }
                 
                 debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
                     &format!("Worker starting to gather berries from bush"));
