@@ -3,6 +3,10 @@ use bevy_dogoap::prelude::*;
 use crate::debug::{DebugSystem, DebugLevel};
 use crate::components::{WorkProgress, WorkType, ResourceWork};
 
+// System set for GOAP action processing
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub struct GoapActionSet;
+
 // Simple bevy_dogoap implementation for demonstration
 // This will handle basic needs like eating and resting
 
@@ -74,28 +78,58 @@ pub fn handle_eat_action(
 
 // RestAction handler removed - energy now recovers automatically when idle
 
-// System to handle GatherFoodAction execution
+// PHASE 4: System to handle GatherFoodAction execution with proper completion detection
 pub fn handle_gather_food_action(
     sim_state: Res<crate::SimulationState>,
     mut commands: Commands,
     mut query: Query<(
-        Entity, 
-        &GatherFoodAction, 
-        &mut FoodCount, 
-        &mut Energy, 
+        Entity,
+        &GatherFoodAction,
+        &mut FoodCount,
+        &mut Energy,
         &NearBerryBush,
-        Option<&mut crate::components::WorkProgress>,
+        Option<&crate::components::WorkProgress>,  // Changed to non-mut
         &crate::components::grid_position::GridPosition,
     )>,
+    mut planner_query: Query<&mut Planner>,
     resource_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
     debug: Res<DebugSystem>,
 ) {
-    // Only update on simulation ticks
     if !sim_state.just_ticked {
         return;
     }
-    
+
     for (entity, _action, mut food, mut energy, near_bush, work_progress_opt, unit_pos) in query.iter_mut() {
+        // PHASE 4: Check if work is complete FIRST
+        if let Some(work_progress) = work_progress_opt {
+            if work_progress.progress_counter >= crate::simulation::MAX_WORK_PROGRESS && !work_progress.is_working {
+                // Work finished! Get amount from work type and update state
+                let gathered = if let Some(work_type) = &work_progress.work_type {
+                    match work_type {
+                        crate::components::WorkType::Gathering(resource_work) => resource_work.amount,
+                        _ => 1, // Default amount
+                    }
+                } else {
+                    1 // Default amount
+                };
+
+                food.0 += gathered as f64;
+
+                debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                    &format!("Gathering complete! Got {} berries", gathered));
+
+                // Remove action and force replanning
+                commands.entity(entity).remove::<GatherFoodAction>();
+
+                // Clear the work progress
+                commands.entity(entity).remove::<crate::components::WorkProgress>();
+
+                if let Ok(mut planner) = planner_query.get_mut(entity) {
+                    planner.current_plan.clear();
+                }
+                continue;
+            }
+        }
         // Only gather if actually near a berry bush
         if near_bush.0 > 0.0 {
             // Find the nearest berry bush entity
@@ -113,32 +147,12 @@ pub fn handle_gather_food_action(
             }
             
             if let Some(bush_entity) = closest_bush {
-                // Handle WorkProgress - either use existing or add new component
-                if let Some(mut work_progress) = work_progress_opt {
-                    // Only start work if not already working
-                    if !work_progress.is_working {
-                        // Start the actual work to gather berries
-                        work_progress.start_work(
-                            crate::components::WorkType::Gathering(crate::components::ResourceWork {
-                                resource_type: crate::resources::ResourceType::Berries,
-                                amount: 3,
-                                tool_bonus: 1.0,
-                            }),
-                            30, // Takes 30 ticks (3 seconds) to gather
-                            Some(bush_entity),
-                        );
-                        
-                        debug.log(DebugLevel::Info, "GATHER", 
-                            &format!("Started gathering work at ({}, {})", unit_pos.x, unit_pos.y));
-                        
-                        // Apply immediate energy cost
-                        energy.0 = (energy.0 - 5.0).max(0.0);
-                    }
-                } else {
+                // Handle WorkProgress - but check if work can be started
+                if work_progress_opt.is_none() {
                     // No WorkProgress component, need to add it first
-                    debug.log(DebugLevel::Info, "GATHER", 
+                    debug.log(DebugLevel::Info, "GATHER",
                         &format!("Adding WorkProgress component to entity {:?}", entity));
-                    
+
                     // Create and start work in new WorkProgress component
                     let mut new_work_progress = crate::components::WorkProgress::new();
                     new_work_progress.start_work(
@@ -150,25 +164,31 @@ pub fn handle_gather_food_action(
                         30, // Takes 30 ticks (3 seconds) to gather
                         Some(bush_entity),
                     );
-                    
+
                     // Add WorkProgress and WorkSpeed components
                     commands.entity(entity).insert((
                         new_work_progress,
                         crate::components::WorkSpeed::default(),
                         crate::components::WorkQueue::new(10),
                     ));
-                    
+
                     // Apply immediate energy cost
                     energy.0 = (energy.0 - 5.0).max(0.0);
+
+                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                        &format!("Worker starting to gather berries from bush"));
                 }
-                
-                debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
-                    &format!("Worker starting to gather berries from bush"));
+                // If WorkProgress exists and is working, just wait for completion
+                // If WorkProgress exists but isn't working, the work system will handle it
+            } else {
+                debug.log(DebugLevel::Debug, "GATHER", "No berry bush found near peasant");
+                // No berry bush found, remove action and replan
+                commands.entity(entity).remove::<GatherFoodAction>();
+                if let Ok(mut planner) = planner_query.get_mut(entity) {
+                    planner.current_plan.clear();
+                }
             }
         }
-        
-        // Remove the action after setting up work
-        commands.entity(entity).remove::<GatherFoodAction>();
     }
 }
 
@@ -215,18 +235,20 @@ pub fn handle_wander_action(
     }
 }
 
-// System to handle MoveToResourceAction - moves to a specific resource
-pub fn handle_move_to_resource_action(
+// System to assign resource targets to MoveToResourceAction
+pub fn assign_resource_targets(
     sim_state: Res<crate::SimulationState>,
     mut commands: Commands,
     mut query: Query<(
-        Entity, 
-        &MoveToResourceAction,
+        Entity,
+        &mut MoveToResourceAction,
         &crate::components::grid_position::GridPosition,
-        &mut crate::components::grid_position::GridMovement,
-        &mut crate::components::UnitMind
+    ), Without<crate::components::ClaimedResource>>,
+    resource_query: Query<(
+        Entity,
+        &crate::components::grid_position::GridPosition,
+        &crate::components::resource::ResourceNode,
     )>,
-    resource_query: Query<(&crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode)>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -234,23 +256,144 @@ pub fn handle_move_to_resource_action(
         return;
     }
     
-    for (entity, action, grid_pos, mut movement, mut mind) in query.iter_mut() {
-        if let Some(target) = action.target {
-            if let Ok((target_pos, _)) = resource_query.get(target) {
-                // Move to the resource location with proper path generation
-                movement.set_target_from(grid_pos, target_pos.clone());
-                
-                *mind = crate::components::UnitMind::GoingThere {
-                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
-                };
-                
-                debug.log(DebugLevel::Info, "DOGOAP_ACTION", 
-                    &format!("Worker moving to resource at ({}, {})", target_pos.x, target_pos.y));
+    for (entity, mut action, unit_pos) in query.iter_mut() {
+        // Skip if target already assigned
+        if action.target.is_some() {
+            continue;
+        }
+        
+        // Find nearest unclaimed berry bush
+        let mut best_target = None;
+        let mut best_distance = u32::MAX;
+        
+        for (resource_entity, resource_pos, resource_node) in resource_query.iter() {
+            // Check if it's a berry bush
+            if resource_node.resource_type != action.resource_type {
+                continue;
+            }
+            
+            // Skip if claimed or empty
+            if resource_node.is_fully_claimed() || resource_node.amount == 0 {
+                continue;
+            }
+            
+            let distance = unit_pos.distance_to(resource_pos);
+            if distance < best_distance {
+                best_target = Some(resource_entity);
+                best_distance = distance;
             }
         }
         
-        // Remove the action after setting movement
-        commands.entity(entity).remove::<MoveToResourceAction>();
+        if let Some(target) = best_target {
+            action.target = Some(target);
+            debug.log(DebugLevel::Info, "ASSIGN_TARGET", 
+                &format!("Assigned resource target {:?} at distance {} to entity {:?}", 
+                    target, best_distance, entity));
+        } else {
+            debug.log(DebugLevel::Debug, "NO_TARGET", 
+                &format!("No unclaimed resources found for entity {:?}", entity));
+            // Remove action if no targets available
+            commands.entity(entity).remove::<MoveToResourceAction>();
+        }
+    }
+}
+
+// PHASE 4: System to handle MoveToResourceAction with completion detection
+pub fn handle_move_to_resource_action(
+    sim_state: Res<crate::SimulationState>,
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &MoveToResourceAction,
+        &crate::components::grid_position::GridPosition,
+        &mut crate::components::grid_position::GridMovement,
+        &mut crate::components::UnitMind,
+        &mut crate::components::ClaimedResource,
+    )>,
+    mut resource_query: Query<(&crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode)>,
+    mut planner_query: Query<&mut Planner>,
+    debug: Res<DebugSystem>,
+) {
+    if !sim_state.just_ticked {
+        return;
+    }
+
+    for (entity, action, grid_pos, mut movement, mut mind, mut claimed_resource) in query.iter_mut() {
+        // PHASE 4: Check if we reached the target
+        if let Some(target) = action.target {
+            if let Ok((target_pos, _)) = resource_query.get_mut(target) {
+                // Check if we're at the target position
+                if grid_pos.distance_to(target_pos) <= 1 {
+                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                        "Reached resource location!");
+
+                    // Remove action and let plan continue to next action
+                    commands.entity(entity).remove::<MoveToResourceAction>();
+
+                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                        "MoveToResourceAction completed - proceeding to next action in plan");
+                    continue;
+                }
+            }
+        }
+        // Only start movement if not already moving and target exists
+        if let Some(target) = action.target {
+            if let Ok((target_pos, mut resource_node)) = resource_query.get_mut(target) {
+                // Only claim and start movement if not already moving
+                if !movement.is_moving {
+                    // Claim the resource before moving to it
+                    if !resource_node.is_fully_claimed() && resource_node.amount > 0 {
+                        if resource_node.try_claim(entity) {
+                            claimed_resource.claim(target);
+
+                            debug.log(DebugLevel::Info, "CLAIM",
+                                &format!("Entity {:?} claimed resource {:?} at ({}, {}) before moving",
+                                    entity, target, target_pos.x, target_pos.y));
+
+                            // Move to the resource location with proper path generation
+                            movement.set_target_from(grid_pos, target_pos.clone());
+
+                            *mind = crate::components::UnitMind::GoingThere {
+                                destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                            };
+
+                            debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                                &format!("Worker moving to claimed resource at ({}, {})", target_pos.x, target_pos.y));
+                        } else {
+                            // Failed to claim despite not being fully claimed - should not happen
+                            debug.log(DebugLevel::Debug, "CLAIM_ISSUE",
+                                &format!("Failed to claim resource {:?} despite availability", target));
+                        }
+                    } else {
+                        // Resource is already claimed or empty, need to find another
+                        debug.log(DebugLevel::Info, "CLAIM_FAILED",
+                            &format!("Resource {:?} already claimed or empty, clearing plan", target));
+
+                        // Force replanning
+                        if let Ok(mut planner) = planner_query.get_mut(entity) {
+                            planner.current_plan.clear();
+                        }
+                        // Remove action since target is invalid
+                        commands.entity(entity).remove::<MoveToResourceAction>();
+                    }
+                }
+                // If already moving, just wait for completion (handled above)
+            } else {
+                // Target no longer exists, remove action and replan
+                debug.log(DebugLevel::Debug, "TARGET_GONE", "Target resource no longer exists");
+                commands.entity(entity).remove::<MoveToResourceAction>();
+                if let Ok(mut planner) = planner_query.get_mut(entity) {
+                    planner.current_plan.clear();
+                }
+            }
+        } else {
+            // No target assigned, remove action and replan
+            debug.log(DebugLevel::Debug, "NO_TARGET", "MoveToResourceAction has no target");
+            commands.entity(entity).remove::<MoveToResourceAction>();
+            if let Ok(mut planner) = planner_query.get_mut(entity) {
+                planner.current_plan.clear();
+            }
+        }
     }
 }
 
@@ -519,6 +662,65 @@ pub fn update_near_berry_bush(
     }
 }
 
+// PHASE 1: CORE FIX - Execute GOAP plans by spawning action components
+pub fn execute_goap_plans(
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        &mut Planner,
+        Option<&EatAction>,
+        Option<&GatherFoodAction>,
+        Option<&MoveToResourceAction>,
+        Option<&WanderAction>,
+    )>,
+    debug: Res<DebugSystem>,
+    sim_state: Res<crate::SimulationState>,
+) {
+    // Only on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+
+    for (entity, mut planner, eat, gather, move_to, wander) in query.iter_mut() {
+        // Skip if any action is already active
+        if eat.is_some() || gather.is_some() || move_to.is_some() || wander.is_some() {
+            continue;
+        }
+
+        // Pop and execute next action from plan
+        if let Some(action_type) = planner.current_plan.front() {
+            let action_name = format!("{:?}", action_type);
+
+            // Spawn the appropriate action component
+            match action_name.as_str() {
+                name if name.contains("EatAction") => {
+                    commands.entity(entity).insert(EatAction);
+                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning EatAction");
+                }
+                name if name.contains("GatherFoodAction") => {
+                    commands.entity(entity).insert(GatherFoodAction);
+                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning GatherFoodAction");
+                }
+                name if name.contains("MoveToResourceAction") => {
+                    commands.entity(entity).insert(MoveToResourceAction::default());
+                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning MoveToResourceAction");
+                }
+                name if name.contains("WanderAction") => {
+                    commands.entity(entity).insert(WanderAction);
+                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning WanderAction");
+                }
+                _ => {
+                    debug.log(DebugLevel::Info, "GOAP_EXEC",
+                        &format!("Unknown action type: {}", action_name));
+                }
+            }
+
+            // Remove from plan after spawning
+            planner.current_plan.pop_front();
+        }
+    }
+}
+
 // Plugin to register all bevy_dogoap systems
 pub struct BevyDogoapPlugin;
 
@@ -532,20 +734,24 @@ impl Plugin for BevyDogoapPlugin {
             .register_type::<GatherFoodAction>()
             .register_type::<WanderAction>()
             .register_type::<MoveToResourceAction>()
-            // Add our systems
+            // Add our systems - run on simulation ticks
             .add_systems(Update, (
                 setup_dogoap_planners,
                 update_needs_system,
                 sync_inventory_to_food_count,  // Sync inventory berries to FoodCount
                 update_near_berry_bush,         // Detect proximity to berry bushes
                 debug_active_actions,           // Debug what actions are active
+                execute_goap_plans,             // CORE FIX: Execute plans by spawning actions
                 handle_eat_action,
                 handle_gather_food_action,
                 handle_wander_action,
+                assign_resource_targets,        // Assign targets to MoveToResourceAction
                 handle_move_to_resource_action,
                 // Sync dogoap values to UnitNeedsV2 for display
                 crate::ai::shared_state::sync_dogoap_to_unit_needs,
-            ));
+            )
+            .in_set(GoapActionSet)
+            .run_if(crate::simulation::on_simulation_tick_legacy));
         
         // CRITICAL: Register the DatumComponents with dogoap
         // This is required for the planner to find the components at runtime
