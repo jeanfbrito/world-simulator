@@ -14,6 +14,31 @@ A sophisticated medieval economy simulation engine with intelligent AI agents, b
 - 💾 **Save/Load System**: Persistent world state with bincode serialization
 - 🎯 **Event-Driven**: Clean command/event API for external control
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+### Getting Started
+- [**Quick Start Guide**](docs/guides/quick-start.md) - Get up and running in minutes
+- [**Debugging Guide**](docs/guides/debugging.md) - Tools and techniques for troubleshooting
+
+### Architecture
+- [**System Overview**](docs/architecture/overview.md) - Core architecture and design principles
+- [**Tick System**](docs/architecture/tick-system.md) - Understanding tick-based simulation
+- [**Core Components**](docs/architecture/components.md) - Entity Component System details
+
+### AI & Behavior
+- [**Behavior System Overview**](docs/behavior-system/README.md) - Dual-AI system explanation
+- [**GOAP Planning**](docs/behavior-system/goap-planning.md) - Goal-Oriented Action Planning
+- [**Big Brain Reactive**](docs/behavior-system/big-brain-reactive.md) - Emergency response system
+- [**Actions & Tasks**](docs/behavior-system/actions-and-tasks.md) - All available unit actions
+
+### Systems
+- [**Movement & Pathfinding**](docs/movement-pathfinding.md) - Grid movement and A* pathfinding
+- [**Energy Management**](docs/needs-system/energy-management.md) - Three-layer energy protection
+- [**Hunger System**](docs/needs-system/hunger-system.md) - Food gathering and consumption
+- [**Work System**](docs/needs-system/work-system.md) - Resource gathering mechanics
+
 ## Quick Start
 
 ```bash
