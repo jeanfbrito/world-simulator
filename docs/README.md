@@ -29,6 +29,10 @@ Welcome to the World Simulator documentation! This guide will help you understan
 
 ### 📚 War Stories & Caveats
 - [The Great Berry Bush Regeneration Fiasco](caveats/the-great-berry-bush-regeneration-fiasco.md) - How 7.5 hours were lost to `&mut`
+- [Tick Accumulator Fix](TICK_ACCUMULATOR_FIX.md) - Preventing the spiral of death in tick-based simulation
+
+### 🏰 Design & Inspiration
+- [Dwarf Fortress Features](DWARF_FORTRESS_FEATURES.md) - Features inspired by the legendary simulation game
 
 ## 🎯 Key Concepts
 
