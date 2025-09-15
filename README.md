@@ -2,6 +2,8 @@
 
 A sophisticated medieval economy simulation engine with intelligent AI agents, built with Rust and Bevy ECS. Features advanced AI behaviors using GOAP (Goal-Oriented Action Planning) and Utility AI systems for realistic peasant simulation.
 
+<img width="1416" height="1099" alt="image" src="https://github.com/user-attachments/assets/8703d922-7fa0-4480-8df2-a40d52a8ae83" />
+
 ## Features
 
 - 🎮 **Headless Simulation**: Pure simulation engine with optional visualization
