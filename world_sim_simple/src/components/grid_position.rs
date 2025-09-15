@@ -237,7 +237,18 @@ impl GridMovement {
     /// Update movement progress (called on ticks)
     /// Returns true if movement to a tile was completed
     pub fn tick_update(&mut self, current_pos: &mut GridPosition, ticks_per_tile: u32) -> bool {
-        if !self.is_moving || self.target.is_none() {
+        if !self.is_moving {
+            return false;
+        }
+
+        // If we have a path but no current target, get the next one
+        if self.target.is_none() && !self.path.is_empty() && self.current_path_index < self.path.len() {
+            self.target = self.path.get(self.current_path_index).cloned();
+        }
+
+        // If still no target, stop
+        if self.target.is_none() {
+            self.stop();
             return false;
         }
 
@@ -256,10 +267,10 @@ impl GridMovement {
                 *current_pos = target.clone();
 
                 // If following a path, advance to next target
-                if !self.path.is_empty() && self.current_path_index < self.path.len() {
+                if !self.path.is_empty() {
                     // Move to next position in path
                     self.current_path_index += 1;
-                    
+
                     if self.current_path_index < self.path.len() {
                         // Set next target
                         self.target = self.path.get(self.current_path_index).cloned();
@@ -269,7 +280,7 @@ impl GridMovement {
                         return true; // Movement complete
                     }
                 } else {
-                    // No path or reached end
+                    // No path, just moved to single target
                     self.stop();
                     return true; // Movement complete
                 }

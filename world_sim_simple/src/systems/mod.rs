@@ -64,6 +64,7 @@ impl Plugin for SystemsPlugin {
                 claim_cleanup_system,  // Release claims when units change targets
             )
                 .chain()
+                .after(crate::ai::bevy_dogoap_impl::GoapActionSet)
                 .run_if(crate::simulation::on_simulation_tick_legacy),
         );
 

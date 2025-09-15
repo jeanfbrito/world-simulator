@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use big_brain::prelude::*;
 use crate::ai::shared_state::*;
 use crate::debug::{DebugSystem, DebugLevel};
+use bevy_dogoap::prelude::Planner;
 
 // Define AIState as a simple container for hunger/energy values
 #[derive(Component, Clone, Debug)]
@@ -21,6 +22,10 @@ pub struct EnergyScorer;
 #[derive(Debug, Clone, Component, ScorerBuilder)]
 pub struct ResourceScorer;
 
+// PHASE 2: IdleScorer for baseline GOAP planning
+#[derive(Debug, Clone, Component, ScorerBuilder)]
+pub struct IdleScorer;
+
 // Actions - what the AI can do
 
 #[derive(Debug, Clone, Component, ActionBuilder)]
@@ -36,6 +41,10 @@ pub struct PanicGatherAction;
 pub struct MoveToTargetAction {
     pub target: Option<crate::components::GridPosition>,
 }
+
+// PHASE 2: StartPlanningAction Bridge to connect big-brain to GOAP
+#[derive(Debug, Clone, Component, ActionBuilder)]
+pub struct StartPlanningAction;
 
 // Scorer systems - evaluate current state
 
@@ -75,9 +84,19 @@ pub fn resource_scorer_system(
             let food_score: f32 = if food.0 < 2 { 0.8 } else { 0.0 };
             let wood_score: f32 = if wood.0 < 5 { 0.3 } else { 0.0 };
             let stone_score: f32 = if stone.0 < 3 { 0.2 } else { 0.0 };
-            
+
             score.set((food_score + wood_score + stone_score).min(1.0));
         }
+    }
+}
+
+// PHASE 2: IdleScorer system for baseline GOAP planning
+pub fn idle_scorer_system(
+    mut query: Query<(&Actor, &mut Score), With<IdleScorer>>,
+) {
+    for (_, mut score) in query.iter_mut() {
+        // Always have a baseline score to trigger planning when not in crisis
+        score.set(0.1);
     }
 }
 
@@ -213,31 +232,59 @@ pub fn move_to_target_action_system(
     }
 }
 
-// Create a Thinker for reactive behaviors
-pub fn create_reactive_thinker() -> ThinkerBuilder {
-    Thinker::build()
-        .picker(FirstToScore { threshold: 0.6 })
-        // Critical hunger response
-        .when(HungerScorer, EatQuickAction)
-        // Critical energy response
-        .when(EnergyScorer, RestQuickAction)
-        // Resource shortage response
-        .when(ResourceScorer, PanicGatherAction)
-}
-
-// System to add Thinkers to workers in reactive mode
-pub fn setup_reactive_thinkers_system(
-    mut commands: Commands,
-    query: Query<(Entity, &AIMode), (Without<Thinker>, With<AIState>)>,
+// PHASE 2: StartPlanningAction system - bridge to GOAP
+pub fn start_planning_action_system(
+    mut query: Query<(&Actor, &mut ActionState), With<StartPlanningAction>>,
+    mut planner_query: Query<&mut Planner>,
     debug: Res<DebugSystem>,
 ) {
-    for (entity, ai_mode) in query.iter() {
-        if *ai_mode == AIMode::Reactive {
-            debug.log(DebugLevel::Info, "BIG_BRAIN", "Setting up reactive thinker");
-            
-            let thinker = create_reactive_thinker();
-            commands.entity(entity).insert(thinker);
+    for (Actor(actor), mut state) in query.iter_mut() {
+        match *state {
+            ActionState::Requested => {
+                if let Ok(mut planner) = planner_query.get_mut(*actor) {
+                    // Force replanning by clearing current plan
+                    planner.current_plan.clear();
+                    debug.log(DebugLevel::Info, "BIG_BRAIN", "Triggered GOAP replanning");
+                    *state = ActionState::Success;
+                } else {
+                    // No planner found, fail
+                    *state = ActionState::Failure;
+                }
+            }
+            ActionState::Cancelled => {
+                *state = ActionState::Failure;
+            }
+            _ => {}
         }
+    }
+}
+
+// PHASE 3: Create a Thinker for hybrid AI (big-brain + GOAP)
+pub fn create_reactive_thinker() -> ThinkerBuilder {
+    Thinker::build()
+        .picker(FirstToScore { threshold: 0.7 })  // High threshold for emergencies
+        // Critical responses (score > 0.7)
+        .when(HungerScorer, EatQuickAction)
+        .when(EnergyScorer, RestQuickAction)
+        .when(ResourceScorer, PanicGatherAction)
+        // Fallback to GOAP planning (always scores 0.1)
+        .when(IdleScorer, StartPlanningAction)
+}
+
+// PHASE 3: System to add Thinkers to all units with GOAP planners
+pub fn setup_reactive_thinkers_system(
+    mut commands: Commands,
+    query: Query<Entity, (With<Planner>, Without<Thinker>)>,  // Changed condition
+    debug: Res<DebugSystem>,
+) {
+    for entity in query.iter() {
+        debug.log(DebugLevel::Info, "BIG_BRAIN", "Setting up hybrid AI thinker");
+
+        let thinker = create_reactive_thinker();
+        commands.entity(entity).insert((
+            thinker,
+            AIState { hunger: 0.5, energy: 0.5 },  // Initial state
+        ));
     }
 }
 
@@ -251,12 +298,14 @@ impl Plugin for BigBrainAIPlugin {
                 hunger_scorer_system,
                 energy_scorer_system,
                 resource_scorer_system,
+                idle_scorer_system,  // PHASE 2: Add IdleScorer
             ).in_set(BigBrainSet::Scorers))
             .add_systems(PreUpdate, (
                 eat_quick_action_system,
                 rest_quick_action_system,
                 panic_gather_action_system,
                 move_to_target_action_system,
+                start_planning_action_system,  // PHASE 2: Add StartPlanningAction
             ).in_set(BigBrainSet::Actions))
             .add_systems(Update, setup_reactive_thinkers_system);
     }
