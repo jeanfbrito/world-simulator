@@ -62,14 +62,26 @@ pub fn hunger_scorer_system(
 }
 
 pub fn energy_scorer_system(
-    stats_query: Query<&AIState>,
+    energy_query: Query<&crate::ai::bevy_dogoap_impl::Energy>,
     mut query: Query<(&Actor, &mut Score), With<EnergyScorer>>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
-        if let Ok(stats) = stats_query.get(*actor) {
+        if let Ok(energy) = energy_query.get(*actor) {
             // Critical energy levels get high scores
-            let energy_score = 1.0 - stats.energy;
-            score.set(energy_score);
+            // 10% energy = 0.9 score (emergency)
+            // 5% energy = 0.95 score (critical)
+            // 0% energy = 1.0 score (absolute emergency)
+            let energy_percent = energy.0 / 100.0;
+            let energy_score = if energy_percent <= 0.05 {
+                0.95 + (0.05 - energy_percent) // 0.95 to 1.0 for 5% to 0%
+            } else if energy_percent <= 0.1 {
+                0.9 + (0.1 - energy_percent) * 0.5 // 0.9 to 0.95 for 10% to 5%
+            } else if energy_percent <= 0.2 {
+                0.7 + (0.2 - energy_percent) * 2.0 // 0.7 to 0.9 for 20% to 10%
+            } else {
+                0.0 // No emergency above 20%
+            };
+            score.set(energy_score.min(1.0) as f32);
         }
     }
 }
@@ -130,30 +142,41 @@ pub fn eat_quick_action_system(
 }
 
 pub fn rest_quick_action_system(
-    mut stats_query: Query<&mut AIState>,
+    mut commands: Commands,
+    nap_query: Query<&crate::ai::bevy_dogoap_impl::NapAction>,
+    energy_query: Query<&crate::ai::bevy_dogoap_impl::Energy>,
     mut query: Query<(&Actor, &mut ActionState), With<RestQuickAction>>,
-    time: Res<Time>,
     debug: Res<DebugSystem>,
 ) {
     for (Actor(actor), mut state) in query.iter_mut() {
-        if let Ok(mut stats) = stats_query.get_mut(*actor) {
-            match *state {
-                ActionState::Requested => {
-                    *state = ActionState::Executing;
-                }
-                ActionState::Executing => {
-                    stats.energy = (stats.energy + time.delta_secs() * 0.5).min(1.0);
-                    
-                    if stats.energy >= 0.6 {
-                        debug.log(DebugLevel::Info, "BIG_BRAIN", "Quick rest complete");
-                        *state = ActionState::Success;
+        match *state {
+            ActionState::Requested => {
+                // Check if NapAction already exists
+                if nap_query.get(*actor).is_ok() {
+                    debug.log(DebugLevel::Info, "BIG_BRAIN", "NapAction already active");
+                    *state = ActionState::Success;
+                } else {
+                    // Spawn NapAction for emergency nap
+                    if let Ok(energy) = energy_query.get(*actor) {
+                        debug.log(DebugLevel::Info, "BIG_BRAIN",
+                            &format!("Emergency nap triggered at {:.1}% energy", energy.0));
+                        commands.entity(*actor).insert(crate::ai::bevy_dogoap_impl::NapAction::default());
+                        *state = ActionState::Executing;
                     }
                 }
-                ActionState::Cancelled => {
-                    *state = ActionState::Failure;
-                }
-                _ => {}
             }
+            ActionState::Executing => {
+                // Check if nap is still active
+                if nap_query.get(*actor).is_err() {
+                    // Nap completed
+                    debug.log(DebugLevel::Info, "BIG_BRAIN", "Emergency nap complete");
+                    *state = ActionState::Success;
+                }
+            }
+            ActionState::Cancelled => {
+                *state = ActionState::Failure;
+            }
+            _ => {}
         }
     }
 }

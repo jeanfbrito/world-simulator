@@ -558,7 +558,12 @@ pub fn setup_dogoap_planners(
 
         // Goal to stay rested and avoid exhaustion
         let goal_rested = Goal::from_reqs(&[
-            Energy::is_more(15.0),  // Trigger nap when energy drops below 15 (before exhaustion)
+            Energy::is_more(15.0),  // Critical: trigger nap when energy drops below 15
+        ]);
+
+        // Early planning goal for preventive rest
+        let goal_well_rested = Goal::from_reqs(&[
+            Energy::is_more(30.0),  // Preventive: plan nap when energy drops below 30
         ]);
 
         // Define actions with their preconditions and effects
@@ -604,7 +609,7 @@ pub fn setup_dogoap_planners(
                 FoodCount(2.0),  // Start with some food
                 NearBerryBush(0.0),  // Not near a bush initially
             ],
-            goals: [goal_not_hungry, goal_rested],  // Multiple goals to maintain
+            goals: [goal_not_hungry, goal_rested, goal_well_rested],  // Multiple goals with priorities
         });
         
         // Configure the planner
@@ -630,7 +635,9 @@ pub fn setup_dogoap_planners(
 // System to update hunger and energy over time (on simulation ticks)
 pub fn update_needs_system(
     sim_state: Res<crate::SimulationState>,
+    mut commands: Commands,
     mut query: Query<(
+        Entity,
         &mut Satiety,
         &mut Energy,
         Option<&crate::components::GridMovement>,
@@ -644,10 +651,20 @@ pub fn update_needs_system(
         return;
     }
     
-    for (mut satiety, mut energy, movement, work, nap) in query.iter_mut() {
+    for (entity, mut satiety, mut energy, movement, work, nap) in query.iter_mut() {
         // Satiety decreases over time (lower means more hungry)
         // Decrease by 0.4 per tick (4 per second at 10 ticks per second)
         satiety.0 = (satiety.0 - 0.4).max(0.0);
+
+        // FAILSAFE: Force nap if energy is critically low
+        if energy.0 <= 2.0 && nap.is_none() {
+            debug.log(DebugLevel::Warn, "DOGOAP_FAILSAFE",
+                &format!("EMERGENCY: Forcing nap at {:.1}% energy!", energy.0));
+            commands.entity(entity).insert(NapAction::default());
+            // Clear any work in progress
+            commands.entity(entity).remove::<crate::components::WorkProgress>();
+            continue;  // Skip normal energy update this tick
+        }
 
         // Skip energy update if napping (handled by handle_nap_action)
         if nap.is_some() {
