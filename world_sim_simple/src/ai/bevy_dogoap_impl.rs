@@ -15,7 +15,22 @@ pub struct GoapActionSet;
 #[reflect(Component)]
 pub struct EatAction;
 
-// RestAction removed - energy now recovers when idle
+// NapAction for recovering energy when drowsy
+#[derive(Component, Clone, Reflect, ActionComponent)]
+#[reflect(Component)]
+pub struct NapAction {
+    pub ticks_remaining: u32,
+    pub started: bool,
+}
+
+impl Default for NapAction {
+    fn default() -> Self {
+        Self {
+            ticks_remaining: 50, // 5 seconds at 10 TPS
+            started: false,
+        }
+    }
+}
 
 #[derive(Component, Clone, Reflect, Default, ActionComponent)]
 #[reflect(Component)]
@@ -88,7 +103,56 @@ pub fn handle_eat_action(
     }
 }
 
-// RestAction handler removed - energy now recovers automatically when idle
+// System to handle NapAction execution
+pub fn handle_nap_action(
+    sim_state: Res<crate::SimulationState>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut NapAction, &mut Energy, Option<&mut crate::components::GridMovement>)>,
+    mut planner_query: Query<&mut Planner>,
+    debug: Res<DebugSystem>,
+) {
+    // Only update on simulation ticks
+    if !sim_state.just_ticked {
+        return;
+    }
+
+    for (entity, mut nap_action, mut energy, movement_opt) in query.iter_mut() {
+        // Initialize nap if first tick
+        if !nap_action.started {
+            nap_action.started = true;
+
+            // Stop movement during nap
+            if let Some(mut movement) = movement_opt {
+                movement.is_moving = false;
+                movement.path.clear();
+            }
+
+            debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                &format!("Worker starting nap for {} ticks, current energy: {:.1}",
+                    nap_action.ticks_remaining, energy.0));
+        }
+
+        // Recover energy during nap (DOGOAP uses 0-100 scale)
+        let recovery = 1.6;  // 1.6% per tick (vs 0.5% idle recovery)
+        energy.0 = (energy.0 + recovery).min(100.0);
+
+        // Decrease remaining ticks
+        nap_action.ticks_remaining = nap_action.ticks_remaining.saturating_sub(1);
+
+        // Check if nap is complete
+        if nap_action.ticks_remaining == 0 || energy.0 >= 80.0 {
+            debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                &format!("Worker finished napping, energy restored to: {:.1}", energy.0));
+
+            // Remove action and force replanning
+            commands.entity(entity).remove::<NapAction>();
+
+            if let Ok(mut planner) = planner_query.get_mut(entity) {
+                planner.current_plan.clear();
+            }
+        }
+    }
+}
 
 // PHASE 4: System to handle GatherFoodAction execution with proper completion detection
 pub fn handle_gather_food_action(
@@ -345,7 +409,10 @@ pub fn handle_move_to_resource_action(
         &mut crate::components::ClaimedResource,
         &crate::components::NameComponent,
     )>,
-    mut berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    mut berry_bush_queries: ParamSet<(
+        Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+        Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    )>,
     mut planner_query: Query<&mut Planner>,
     debug: Res<DebugSystem>,
 ) {
@@ -356,10 +423,15 @@ pub fn handle_move_to_resource_action(
     for (entity, mut action, grid_pos, mut movement, mut mind, mut claimed_resource, name) in query.iter_mut() {
         if !action.started {
             // PHASE 1: Find and claim a berry bush atomically
-            if let Some((bush_entity, bush_pos, distance)) =
-                find_closest_unclaimed_berry_bush(grid_pos, &berry_bush_query, sim_state.tick) {
+            // First, find the closest unclaimed bush using the immutable query
+            let closest_bush = {
+                let berry_bush_query_immutable = berry_bush_queries.p0();
+                find_closest_unclaimed_berry_bush(grid_pos, &berry_bush_query_immutable, sim_state.tick)
+            };
 
+            if let Some((bush_entity, bush_pos, distance)) = closest_bush {
                 // Try to claim the resource directly (it tracks its own claims)
+                let mut berry_bush_query = berry_bush_queries.p1();
                 if let Ok((_, _, mut resource)) = berry_bush_query.get_mut(bush_entity) {
                     if resource.try_claim_with_timeout(entity, sim_state.tick) {
                         // SUCCESS: We have exclusive claim
@@ -414,7 +486,8 @@ pub fn handle_move_to_resource_action(
             // PHASE 3: Validate that our claim is still valid
             if let Some(target_entity) = action.target_entity {
                 // Check if the resource still has our claim
-                if let Ok((_, _, resource)) = berry_bush_query.get(target_entity) {
+                let berry_bush_query_immutable = berry_bush_queries.p0();
+                if let Ok((_, _, resource)) = berry_bush_query_immutable.get(target_entity) {
                     if !resource.is_claimed_by(entity) {
                         // Our claim was lost somehow (expired?), replan
                         debug.log(DebugLevel::Warn, "CLAIM_LOST",
@@ -482,13 +555,24 @@ pub fn setup_dogoap_planners(
         let goal_not_hungry = Goal::from_reqs(&[
             Satiety::is_more(30.0),  // Trigger food gathering when satiety drops below 30
         ]);
-        
+
+        // Goal to stay rested and avoid exhaustion
+        let goal_rested = Goal::from_reqs(&[
+            Energy::is_more(15.0),  // Trigger nap when energy drops below 15 (before exhaustion)
+        ]);
+
         // Define actions with their preconditions and effects
         let eat_action = EatAction::new()
             .add_precondition(FoodCount::is_more(0.0))
             .add_mutator(Satiety::increase(20.0))  // Increased effect to make it worthwhile
             .add_mutator(FoodCount::decrease(1.0))
             .set_cost(1);
+
+        // NapAction - can be performed even at 0 energy (emergency recovery)
+        let nap_action = NapAction::new()
+            // No energy precondition - can nap even when exhausted
+            .add_mutator(Energy::increase(40.0))  // Restore significant energy
+            .set_cost(0);  // Highest priority (lowest cost)
         
         // Move to resource action - handled by manual systems, not GOAP directly
         // Using WanderAction as placeholder in GOAP - actual movement logic is in manual systems
@@ -509,6 +593,7 @@ pub fn setup_dogoap_planners(
         // Create the planner with the macro
         let (mut planner, components) = create_planner!({
             actions: [
+                (NapAction, nap_action),  // Highest priority action
                 (EatAction, eat_action),
                 (WanderAction, wander_action),
                 (GatherFoodAction, gather_food_action),
@@ -519,13 +604,14 @@ pub fn setup_dogoap_planners(
                 FoodCount(2.0),  // Start with some food
                 NearBerryBush(0.0),  // Not near a bush initially
             ],
-            goals: [goal_not_hungry],
+            goals: [goal_not_hungry, goal_rested],  // Multiple goals to maintain
         });
         
         // Configure the planner
         planner.always_plan = true;
         planner.remove_goal_on_no_plan_found = false;
-        planner.current_goal = Some(goal_not_hungry.clone());
+        // Let the planner choose the most critical goal based on current state
+        planner.current_goal = None;  // Will be selected automatically
 
         debug.log(DebugLevel::Info, "GOAP_SETUP",
             &format!("Created planner for entity {:?} with initial plan: {:?}",
@@ -545,10 +631,11 @@ pub fn setup_dogoap_planners(
 pub fn update_needs_system(
     sim_state: Res<crate::SimulationState>,
     mut query: Query<(
-        &mut Satiety, 
+        &mut Satiety,
         &mut Energy,
         Option<&crate::components::GridMovement>,
         Option<&crate::components::WorkProgress>,
+        Option<&NapAction>,  // Check if unit is napping
     )>,
     debug: Res<DebugSystem>,
 ) {
@@ -557,11 +644,16 @@ pub fn update_needs_system(
         return;
     }
     
-    for (mut satiety, mut energy, movement, work) in query.iter_mut() {
+    for (mut satiety, mut energy, movement, work, nap) in query.iter_mut() {
         // Satiety decreases over time (lower means more hungry)
         // Decrease by 0.4 per tick (4 per second at 10 ticks per second)
         satiety.0 = (satiety.0 - 0.4).max(0.0);
-        
+
+        // Skip energy update if napping (handled by handle_nap_action)
+        if nap.is_some() {
+            continue;  // Nap system handles energy recovery
+        }
+
         // Energy changes based on activity
         let is_moving = movement.map_or(false, |m| m.is_moving);
         
@@ -579,7 +671,7 @@ pub fn update_needs_system(
                     Some(WorkType::Repair(_)) => -0.5,      // Repair is physical
                     _ => -0.3,  // Generic work
                 };
-                
+
                 if sim_state.tick % 20 == 0 {
                     let work_name = match &w.work_type {
                         Some(WorkType::Mining(_)) => "mining",
@@ -591,7 +683,7 @@ pub fn update_needs_system(
                         Some(WorkType::Repair(_)) => "repairing",
                         _ => "working",
                     };
-                    debug.log(DebugLevel::Debug, "DOGOAP_STATE", 
+                    debug.log(DebugLevel::Debug, "DOGOAP_STATE",
                         &format!("Unit {}, energy: {:.1}, cost: {:.1}/tick", work_name, energy.0, cost));
                 }
                 cost
@@ -917,6 +1009,7 @@ impl Plugin for BevyDogoapPlugin {
             .add_plugins(DogoapPlugin)
             // Register our components
             .register_type::<EatAction>()
+            .register_type::<NapAction>()
             .register_type::<GatherFoodAction>()
             .register_type::<WanderAction>()
             .register_type::<MoveToResourceAction>()
@@ -935,6 +1028,7 @@ impl Plugin for BevyDogoapPlugin {
                 debug_active_actions,           // Debug what actions are active
                 execute_goap_plans,             // CORE FIX: Execute plans by spawning actions
                 handle_eat_action,
+                handle_nap_action,              // Handle nap action for energy recovery
                 handle_gather_food_action,
                 handle_wander_action,
                 assign_resource_targets,        // Assign targets to MoveToResourceAction

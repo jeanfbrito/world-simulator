@@ -30,10 +30,12 @@ pub const MORALE_LOSS_PER_TICK: u32 = 200; // When unhappy
 pub const HUNGER_THRESHOLD_HUNGRY: u32 = 50_000; // 50% = hungry
 pub const HUNGER_THRESHOLD_STARVING: u32 = 80_000; // 80% = starving
 pub const ENERGY_THRESHOLD_TIRED: u32 = 30_000; // 30% = tired
+pub const ENERGY_THRESHOLD_NAP: u32 = 15_000; // 15% = need to nap (prevents exhaustion)
 pub const ENERGY_THRESHOLD_EXHAUSTED: u32 = 10_000; // 10% = exhausted
 
 /// Recovery rates when resting/eating
 pub const ENERGY_RECOVERY_PER_TICK: u32 = 2000; // When resting
+pub const ENERGY_NAP_RECOVERY_PER_TICK: u32 = 8000; // When napping (4x faster than resting)
 pub const HUNGER_REDUCTION_PER_FOOD: u32 = 20_000; // Per food item consumed
 
 // ============================================================================

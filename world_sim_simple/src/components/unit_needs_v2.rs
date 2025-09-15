@@ -18,6 +18,7 @@ pub struct UnitNeedsV2 {
     is_hungry: bool,
     is_starving: bool,
     is_tired: bool,
+    is_drowsy: bool,     // Needs to nap (before exhaustion)
     is_exhausted: bool,
 
     /// Shelter status
@@ -42,6 +43,7 @@ impl UnitNeedsV2 {
             is_hungry: false,
             is_starving: false,
             is_tired: false,
+            is_drowsy: false,
             is_exhausted: false,
 
             has_shelter: false,
@@ -57,6 +59,7 @@ impl UnitNeedsV2 {
             is_hungry: false,
             is_starving: false,
             is_tired: false,
+            is_drowsy: false,
             is_exhausted: false,
             has_shelter: shelter,
         };
@@ -177,6 +180,10 @@ impl UnitNeedsV2 {
         self.is_tired
     }
 
+    pub fn is_drowsy(&self) -> bool {
+        self.is_drowsy
+    }
+
     pub fn is_exhausted(&self) -> bool {
         self.is_exhausted
     }
@@ -233,6 +240,7 @@ impl UnitNeedsV2 {
         self.is_hungry = self.hunger_counter >= HUNGER_THRESHOLD_HUNGRY;
         self.is_starving = self.hunger_counter >= HUNGER_THRESHOLD_STARVING;
         self.is_tired = self.energy_counter <= ENERGY_THRESHOLD_TIRED;
+        self.is_drowsy = self.energy_counter <= ENERGY_THRESHOLD_NAP;
         self.is_exhausted = self.energy_counter <= ENERGY_THRESHOLD_EXHAUSTED;
     }
 
@@ -258,6 +266,8 @@ impl UnitNeedsV2 {
             },
             if self.is_exhausted {
                 "EXHAUSTED "
+            } else if self.is_drowsy {
+                "Drowsy "
             } else if self.is_tired {
                 "Tired "
             } else {
