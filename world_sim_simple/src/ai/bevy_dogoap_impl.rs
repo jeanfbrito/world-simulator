@@ -30,6 +30,9 @@ pub struct WanderAction;
 pub struct MoveToResourceAction {
     pub target: Option<Entity>,
     pub resource_type: crate::resources::ResourceType,
+    pub started: bool,
+    pub target_position: Option<(u32, u32)>,
+    pub target_entity: Option<Entity>,
 }
 
 impl Default for MoveToResourceAction {
@@ -37,7 +40,16 @@ impl Default for MoveToResourceAction {
         Self {
             target: None,
             resource_type: crate::resources::ResourceType::Berries,
+            started: false,
+            target_position: None,
+            target_entity: None,
         }
+    }
+}
+
+impl MoveToResourceAction {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -246,6 +258,36 @@ pub fn handle_wander_action(
     }
 }
 
+// Function to find the closest unclaimed berry bush
+pub fn find_closest_unclaimed_berry_bush(
+    unit_pos: &crate::components::grid_position::GridPosition,
+    berry_bush_query: &Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    global_claims: &crate::components::GlobalResourceClaims,
+) -> Option<(Entity, crate::components::grid_position::GridPosition, u32)> {
+    let mut closest = None;
+    let mut min_distance = u32::MAX;
+
+    for (entity, bush_pos, resource_node) in berry_bush_query.iter() {
+        // Check if bush has berries
+        if resource_node.amount == 0 {
+            continue;
+        }
+
+        // Check if bush is already claimed (either by entity or position)
+        if global_claims.is_claimed(entity) || global_claims.is_position_claimed((bush_pos.x, bush_pos.y)) {
+            continue;
+        }
+
+        let distance = unit_pos.distance_to(bush_pos);
+        if distance < min_distance {
+            min_distance = distance;
+            closest = Some((entity, bush_pos.clone(), distance));
+        }
+    }
+
+    closest
+}
+
 // System to assign resource targets to MoveToResourceAction
 pub fn assign_resource_targets(
     sim_state: Res<crate::SimulationState>,
@@ -254,55 +296,34 @@ pub fn assign_resource_targets(
         Entity,
         &mut MoveToResourceAction,
         &crate::components::grid_position::GridPosition,
+        &crate::components::NameComponent,
     ), Without<crate::components::ClaimedResource>>,
-    resource_query: Query<(
-        Entity,
-        &crate::components::grid_position::GridPosition,
-        &crate::components::resource::ResourceNode,
-    )>,
+    berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    global_claims: Res<crate::components::GlobalResourceClaims>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
     if !sim_state.just_ticked {
         return;
     }
-    
-    for (entity, mut action, unit_pos) in query.iter_mut() {
+
+    for (entity, mut action, unit_pos, name) in query.iter_mut() {
         // Skip if target already assigned
         if action.target.is_some() {
             continue;
         }
-        
-        // Find nearest unclaimed berry bush
-        let mut best_target = None;
-        let mut best_distance = u32::MAX;
-        
-        for (resource_entity, resource_pos, resource_node) in resource_query.iter() {
-            // Check if it's a berry bush
-            if resource_node.resource_type != action.resource_type {
-                continue;
-            }
-            
-            // Skip if claimed or empty
-            if resource_node.is_fully_claimed() || resource_node.amount == 0 {
-                continue;
-            }
-            
-            let distance = unit_pos.distance_to(resource_pos);
-            if distance < best_distance {
-                best_target = Some(resource_entity);
-                best_distance = distance;
-            }
-        }
-        
-        if let Some(target) = best_target {
-            action.target = Some(target);
-            debug.log(DebugLevel::Info, "ASSIGN_TARGET", 
-                &format!("Assigned resource target {:?} at distance {} to entity {:?}", 
-                    target, best_distance, entity));
+
+        // Use the new function to find the closest unclaimed berry bush
+        if let Some((bush_entity, bush_pos, distance)) =
+            find_closest_unclaimed_berry_bush(unit_pos, &berry_bush_query, &global_claims) {
+
+            action.target = Some(bush_entity);
+            debug.log(DebugLevel::Info, "ASSIGN_TARGET",
+                &format!("{} assigned unclaimed berry bush {:?} at ({},{}) distance {} for gathering",
+                    name.name, bush_entity, bush_pos.x, bush_pos.y, distance));
         } else {
-            debug.log(DebugLevel::Debug, "NO_TARGET", 
-                &format!("No unclaimed resources found for entity {:?}", entity));
+            debug.log(DebugLevel::Debug, "NO_TARGET",
+                &format!("{} found no unclaimed berry bushes available", name.name));
             // Remove action if no targets available
             commands.entity(entity).remove::<MoveToResourceAction>();
         }
@@ -315,13 +336,15 @@ pub fn handle_move_to_resource_action(
     mut commands: Commands,
     mut query: Query<(
         Entity,
-        &MoveToResourceAction,
+        &mut MoveToResourceAction,
         &crate::components::grid_position::GridPosition,
         &mut crate::components::grid_position::GridMovement,
         &mut crate::components::UnitMind,
         &mut crate::components::ClaimedResource,
+        &crate::components::NameComponent,
     )>,
-    mut resource_query: Query<(&crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode)>,
+    berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    mut global_claims: ResMut<crate::components::GlobalResourceClaims>,
     mut planner_query: Query<&mut Planner>,
     debug: Res<DebugSystem>,
 ) {
@@ -329,80 +352,83 @@ pub fn handle_move_to_resource_action(
         return;
     }
 
-    for (entity, action, grid_pos, mut movement, mut mind, mut claimed_resource) in query.iter_mut() {
-        // PHASE 4: Check if we reached the target
-        if let Some(target) = action.target {
-            if let Ok((target_pos, _)) = resource_query.get_mut(target) {
-                // Check if we're at the target position
-                if grid_pos.distance_to(target_pos) <= 1 {
-                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
-                        "Reached resource location!");
+    for (entity, mut action, grid_pos, mut movement, mut mind, mut claimed_resource, name) in query.iter_mut() {
+        if !action.started {
+            // PHASE 1: Find and claim a berry bush atomically
+            if let Some((bush_entity, bush_pos, distance)) =
+                find_closest_unclaimed_berry_bush(grid_pos, &berry_bush_query, &global_claims) {
 
-                    // Remove action and let plan continue to next action
-                    commands.entity(entity).remove::<MoveToResourceAction>();
+                // Try to claim both resource and position atomically
+                if global_claims.try_claim_both(bush_entity, (bush_pos.x, bush_pos.y), entity) {
+                    // SUCCESS: We have exclusive claim
+                    debug.log(DebugLevel::Info, "EXCLUSIVE_CLAIM",
+                        &format!("{} exclusively claimed berry bush {:?} at ({},{}) [distance: {}]",
+                                name.name, bush_entity, bush_pos.x, bush_pos.y, distance));
 
-                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
-                        "MoveToResourceAction completed - proceeding to next action in plan");
-                    continue;
+                    // Set movement target
+                    movement.set_target_from(grid_pos, bush_pos.clone());
+                    action.started = true;
+                    action.target_position = Some((bush_pos.x, bush_pos.y));
+                    action.target_entity = Some(bush_entity);
+                    action.target = Some(bush_entity);
+
+                    // Update local claimed resource
+                    claimed_resource.claim_with_position(bush_entity, (bush_pos.x, bush_pos.y));
+
+                    // Set mind state
+                    *mind = crate::components::UnitMind::GoingThere {
+                        destination: format!("Berry bush at ({}, {})", bush_pos.x, bush_pos.y),
+                    };
+
+                    debug.log(DebugLevel::Info, "MOVE_START",
+                        &format!("{} starting movement to claimed berry bush at ({},{})",
+                                name.name, bush_pos.x, bush_pos.y));
+                } else {
+                    // FAILED: Someone else claimed it, try again next tick
+                    debug.log(DebugLevel::Debug, "CLAIM_FAILED",
+                        &format!("{} failed to claim berry bush at ({},{}) - already taken",
+                                name.name, bush_pos.x, bush_pos.y));
                 }
-            }
-        }
-        // Only start movement if not already moving and target exists
-        if let Some(target) = action.target {
-            if let Ok((target_pos, mut resource_node)) = resource_query.get_mut(target) {
-                // Only claim and start movement if not already moving
-                if !movement.is_moving {
-                    // Claim the resource before moving to it
-                    if !resource_node.is_fully_claimed() && resource_node.amount > 0 {
-                        if resource_node.try_claim(entity) {
-                            claimed_resource.claim(target);
-
-                            debug.log(DebugLevel::Info, "CLAIM",
-                                &format!("Entity {:?} claimed resource {:?} at ({}, {}) before moving",
-                                    entity, target, target_pos.x, target_pos.y));
-
-                            // Move to the resource location with proper path generation
-                            movement.set_target_from(grid_pos, target_pos.clone());
-
-                            *mind = crate::components::UnitMind::GoingThere {
-                                destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
-                            };
-
-                            debug.log(DebugLevel::Info, "DOGOAP_ACTION",
-                                &format!("Worker moving to claimed resource at ({}, {})", target_pos.x, target_pos.y));
-                        } else {
-                            // Failed to claim despite not being fully claimed - should not happen
-                            debug.log(DebugLevel::Debug, "CLAIM_ISSUE",
-                                &format!("Failed to claim resource {:?} despite availability", target));
-                        }
-                    } else {
-                        // Resource is already claimed or empty, need to find another
-                        debug.log(DebugLevel::Info, "CLAIM_FAILED",
-                            &format!("Resource {:?} already claimed or empty, clearing plan", target));
-
-                        // Force replanning
-                        if let Ok(mut planner) = planner_query.get_mut(entity) {
-                            planner.current_plan.clear();
-                        }
-                        // Remove action since target is invalid
-                        commands.entity(entity).remove::<MoveToResourceAction>();
-                    }
-                }
-                // If already moving, just wait for completion (handled above)
             } else {
-                // Target no longer exists, remove action and replan
-                debug.log(DebugLevel::Debug, "TARGET_GONE", "Target resource no longer exists");
+                // No unclaimed berry bushes available
+                debug.log(DebugLevel::Debug, "NO_BUSHES",
+                    &format!("{} found no unclaimed berry bushes - removing action", name.name));
                 commands.entity(entity).remove::<MoveToResourceAction>();
                 if let Ok(mut planner) = planner_query.get_mut(entity) {
                     planner.current_plan.clear();
                 }
             }
         } else {
-            // No target assigned, remove action and replan
-            debug.log(DebugLevel::Debug, "NO_TARGET", "MoveToResourceAction has no target");
-            commands.entity(entity).remove::<MoveToResourceAction>();
-            if let Ok(mut planner) = planner_query.get_mut(entity) {
-                planner.current_plan.clear();
+            // PHASE 2: Check if we've reached the target
+            if let Some(target_pos) = action.target_position {
+                if grid_pos.distance_to(&crate::components::grid_position::GridPosition::new(target_pos.0, target_pos.1)) <= 1 {
+                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                        &format!("{} reached berry bush at ({},{}) - MoveToResourceAction complete!",
+                                name.name, target_pos.0, target_pos.1));
+
+                    // Remove action and let plan continue to next action (gathering)
+                    commands.entity(entity).remove::<MoveToResourceAction>();
+                    continue;
+                }
+            }
+
+            // PHASE 3: Validate that our claim is still valid
+            if let Some(target_entity) = action.target_entity {
+                if !global_claims.is_claimed(target_entity) ||
+                   global_claims.get_claimant(target_entity) != Some(entity) {
+                    // Our claim was lost somehow, replan
+                    debug.log(DebugLevel::Warn, "CLAIM_LOST",
+                        &format!("{} lost claim to berry bush {:?} - replanning", name.name, target_entity));
+
+                    // Release any remaining claims
+                    global_claims.release_claimant_claims(entity);
+                    claimed_resource.release();
+
+                    commands.entity(entity).remove::<MoveToResourceAction>();
+                    if let Ok(mut planner) = planner_query.get_mut(entity) {
+                        planner.current_plan.clear();
+                    }
+                }
             }
         }
     }
@@ -464,8 +490,9 @@ pub fn setup_dogoap_planners(
             .add_mutator(FoodCount::decrease(1.0))
             .set_cost(1);
         
-        // Move to resource action - finds and moves to berry bushes
-        let move_to_resource_action = MoveToResourceAction::new()
+        // Move to resource action - handled by manual systems, not GOAP directly
+        // Using WanderAction as placeholder in GOAP - actual movement logic is in manual systems
+        let wander_action = WanderAction::new()
             .add_precondition(NearBerryBush::is(0.0))  // Not near a bush
             .add_precondition(FoodCount::is_less(5.0)) // Need food
             .add_mutator(NearBerryBush::set(1.0))      // Will find a bush
@@ -483,7 +510,7 @@ pub fn setup_dogoap_planners(
         let (mut planner, components) = create_planner!({
             actions: [
                 (EatAction, eat_action),
-                (MoveToResourceAction, move_to_resource_action),
+                (WanderAction, wander_action),
                 (GatherFoodAction, gather_food_action),
             ],
             state: [
@@ -771,6 +798,86 @@ pub fn execute_goap_plans(
     }
 }
 
+// System to cleanup stale claims when gathering is complete or entities die
+pub fn cleanup_stale_claims(
+    mut global_claims: ResMut<crate::components::GlobalResourceClaims>,
+    mut claimed_query: Query<(Entity, &mut crate::components::ClaimedResource, &crate::components::NameComponent)>,
+    gather_query: Query<&GatherFoodAction>,
+    move_query: Query<&MoveToResourceAction>,
+    debug: Res<DebugSystem>,
+) {
+    // Find entities that have claims but no active gathering or move actions
+    for (entity, mut claimed, name) in claimed_query.iter_mut() {
+        if claimed.has_claim() {
+            let has_gather = gather_query.get(entity).is_ok();
+            let has_move = move_query.get(entity).is_ok();
+
+            // If no active gathering or movement actions, release claims
+            if !has_gather && !has_move {
+                if let Some(resource_entity) = claimed.get_claimed() {
+                    global_claims.release_claim(resource_entity);
+                    debug.log(DebugLevel::Info, "CLAIM_CLEANUP",
+                        &format!("{} released resource claim on {:?} (no active actions)",
+                                name.name, resource_entity));
+                }
+
+                if let Some(position) = claimed.get_claimed_position() {
+                    global_claims.release_position_claim(position);
+                    debug.log(DebugLevel::Info, "CLAIM_CLEANUP",
+                        &format!("{} released position claim on ({},{}) (no active actions)",
+                                name.name, position.0, position.1));
+                }
+
+                claimed.release();
+            }
+        }
+    }
+}
+
+// System to cleanup claims when gather actions complete
+pub fn cleanup_completed_gather_claims(
+    mut commands: Commands,
+    mut global_claims: ResMut<crate::components::GlobalResourceClaims>,
+    mut query: Query<(Entity, &mut crate::components::ClaimedResource, &crate::components::NameComponent), (Without<GatherFoodAction>, Without<MoveToResourceAction>)>,
+    debug: Res<DebugSystem>,
+) {
+    for (entity, mut claimed, name) in query.iter_mut() {
+        if claimed.has_claim() {
+            // Release global claims
+            if let Some(resource_entity) = claimed.get_claimed() {
+                global_claims.release_claim(resource_entity);
+                debug.log(DebugLevel::Info, "GATHER_COMPLETE_CLEANUP",
+                    &format!("{} released resource claim on {:?} (gather complete)",
+                            name.name, resource_entity));
+            }
+
+            if let Some(position) = claimed.get_claimed_position() {
+                global_claims.release_position_claim(position);
+                debug.log(DebugLevel::Info, "GATHER_COMPLETE_CLEANUP",
+                    &format!("{} released position claim on ({},{}) (gather complete)",
+                            name.name, position.0, position.1));
+            }
+
+            // Clear local claim
+            claimed.release();
+        }
+    }
+}
+
+// System to cleanup claims when entities are despawned
+pub fn cleanup_despawned_entity_claims(
+    mut global_claims: ResMut<crate::components::GlobalResourceClaims>,
+    mut removed: RemovedComponents<crate::components::ClaimedResource>,
+    debug: Res<DebugSystem>,
+) {
+    for entity in removed.read() {
+        // Release all claims by this entity
+        global_claims.release_claimant_claims(entity);
+        debug.log(DebugLevel::Info, "DESPAWN_CLEANUP",
+            &format!("Released all claims for despawned entity {:?}", entity));
+    }
+}
+
 // Plugin to register all bevy_dogoap systems
 pub struct BevyDogoapPlugin;
 
@@ -803,6 +910,10 @@ impl Plugin for BevyDogoapPlugin {
                 handle_wander_action,
                 assign_resource_targets,        // Assign targets to MoveToResourceAction
                 handle_move_to_resource_action,
+                // Cleanup systems for global resource claims
+                cleanup_stale_claims,           // Cleanup claims when actions complete
+                cleanup_completed_gather_claims, // Cleanup when gathering finishes
+                cleanup_despawned_entity_claims, // Cleanup when entities are removed
                 // Sync dogoap values to UnitNeedsV2 for display
                 crate::ai::shared_state::sync_dogoap_to_unit_needs,
             )
