@@ -4,7 +4,7 @@ use crate::resources::ResourceType;
 /// Uses tick-based regeneration with integer counters
 /// for deterministic resource respawning.
 use bevy::prelude::*;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 /// Resource node that can be harvested and regenerates over time
 #[derive(Component, Clone, Debug, Reflect)]
@@ -27,10 +27,11 @@ pub struct ResourceNode {
     pub quality_modifier: f32,  // Affects yield quality
     pub seasonal_modifier: f32, // Changes with seasons
     
-    // Resource claiming system
+    // Resource claiming system with timeout
     #[reflect(ignore)]
-    pub claimed_by: HashSet<Entity>, // Entities currently claiming this resource
-    pub max_workers: usize,           // Maximum simultaneous workers (1 for berries, 4 for rocks, etc.)
+    pub claimed_by: HashMap<Entity, u32>, // Map entity to claim timestamp (tick)
+    pub max_workers: usize,               // Maximum simultaneous workers (1 for berries, 4 for rocks, etc.)
+    pub claim_timeout: u32,               // Ticks before a claim expires (default: 100 ticks = 10 seconds)
 }
 
 impl ResourceNode {
@@ -60,9 +61,10 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
-            
-            claimed_by: HashSet::new(),
+
+            claimed_by: HashMap::new(),
             max_workers,
+            claim_timeout: 100,  // 10 seconds default timeout
         }
     }
 
@@ -85,9 +87,10 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
-            
-            claimed_by: HashSet::new(),
+
+            claimed_by: HashMap::new(),
             max_workers: 1,  // Only one person can pick berries at a time
+            claim_timeout: 150,  // 15 seconds for berry picking
         }
     }
 
@@ -110,9 +113,10 @@ impl ResourceNode {
 
             quality_modifier: 1.0,
             seasonal_modifier: 1.0,
-            
-            claimed_by: HashSet::new(),
-            max_workers: 2,  // Two lumberjacks can work on the same tree
+
+            claimed_by: HashMap::new(),
+            max_workers: 2,  // Two lumberjacks
+            claim_timeout: 200,  // 20 seconds for tree chopping can work on the same tree
         }
     }
 
@@ -151,35 +155,68 @@ impl ResourceNode {
         // Could affect regeneration rate or yield
     }
     
-    /// Try to claim this resource for a unit
+    /// Try to claim this resource for a unit with timeout tracking
     /// Returns true if claim was successful
-    pub fn try_claim(&mut self, claimer: Entity) -> bool {
-        // Check if already claimed by this entity
-        if self.claimed_by.contains(&claimer) {
-            return true;  // Already claimed by this entity
+    pub fn try_claim_with_timeout(&mut self, claimer: Entity, current_tick: u32) -> bool {
+        // First cleanup any expired claims
+        self.cleanup_expired_claims(current_tick);
+
+        // Check if already claimed by this entity - refresh the timestamp
+        if self.claimed_by.contains_key(&claimer) {
+            self.claimed_by.insert(claimer, current_tick);
+            return true;  // Already claimed, timestamp refreshed
         }
-        
+
         // Check if there's room for another worker
         if self.claimed_by.len() < self.max_workers {
-            self.claimed_by.insert(claimer);
+            self.claimed_by.insert(claimer, current_tick);
             return true;
         }
-        
+
         false  // No room for more workers
+    }
+
+    /// Legacy claim method (without timeout) - for backwards compatibility
+    pub fn try_claim(&mut self, claimer: Entity) -> bool {
+        // Use a very high tick value so it doesn't expire
+        self.try_claim_with_timeout(claimer, u32::MAX)
     }
     
     /// Release a claim on this resource
     pub fn release_claim(&mut self, claimer: Entity) {
         self.claimed_by.remove(&claimer);
     }
+
+    /// Cleanup expired claims based on timeout
+    pub fn cleanup_expired_claims(&mut self, current_tick: u32) {
+        self.claimed_by.retain(|_, timestamp| {
+            // Keep claims that haven't expired yet
+            // Handle wraparound for u32::MAX (legacy claims)
+            *timestamp == u32::MAX || current_tick.saturating_sub(*timestamp) < self.claim_timeout
+        });
+    }
+
+    /// Refresh a claim to prevent timeout
+    pub fn refresh_claim(&mut self, claimer: Entity, current_tick: u32) {
+        if self.claimed_by.contains_key(&claimer) {
+            self.claimed_by.insert(claimer, current_tick);
+        }
+    }
     
     /// Check if a specific entity has claimed this resource
     pub fn is_claimed_by(&self, entity: Entity) -> bool {
-        self.claimed_by.contains(&entity)
+        self.claimed_by.contains_key(&entity)
     }
     
     /// Check if resource is fully claimed (no room for more workers)
+    /// Note: This doesn't clean expired claims - call cleanup_expired_claims first if needed
     pub fn is_fully_claimed(&self) -> bool {
+        self.claimed_by.len() >= self.max_workers
+    }
+
+    /// Check if resource is fully claimed after cleaning expired claims
+    pub fn is_fully_claimed_with_cleanup(&mut self, current_tick: u32) -> bool {
+        self.cleanup_expired_claims(current_tick);
         self.claimed_by.len() >= self.max_workers
     }
     

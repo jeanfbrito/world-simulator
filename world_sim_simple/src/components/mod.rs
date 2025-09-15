@@ -24,7 +24,10 @@ pub mod unit_needs_v2;
 pub mod unit_state;
 pub mod work_progress;
 
-/// Global resource claims registry to prevent multiple peasants claiming the same resource
+// DEPRECATED: GlobalResourceClaims is no longer used
+// Resources now track their own claims with timeout in ResourceNode.claimed_by
+// This provides better performance and automatic cleanup of expired claims
+// Keeping stub for backwards compatibility during migration
 #[derive(Resource, Default)]
 pub struct GlobalResourceClaims {
     /// Map from resource entity to claimant entity

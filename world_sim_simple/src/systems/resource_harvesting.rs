@@ -180,6 +180,46 @@ pub fn resource_harvesting_system(
     }
 }
 
+/// System to periodically clean up expired claims on all resources
+/// This runs every 50 ticks to remove claims from disconnected or dead units
+pub fn cleanup_expired_resource_claims(
+    sim_state: Res<SimulationState>,
+    mut resources: Query<&mut ResourceNode>,
+    debug: Res<DebugSystem>,
+) {
+    // Only run every 50 ticks to reduce overhead
+    if sim_state.tick % 50 != 0 {
+        return;
+    }
+
+    let mut total_expired = 0;
+    for mut resource in resources.iter_mut() {
+        let before_count = resource.claim_count();
+        resource.cleanup_expired_claims(sim_state.tick);
+        let after_count = resource.claim_count();
+
+        if before_count > after_count {
+            total_expired += before_count - after_count;
+            debug.log(
+                DebugLevel::Debug,
+                "CLAIM_EXPIRY",
+                &format!(
+                    "Cleaned up {} expired claims on resource (was {}, now {})",
+                    before_count - after_count, before_count, after_count
+                ),
+            );
+        }
+    }
+
+    if total_expired > 0 {
+        debug.log(
+            DebugLevel::Info,
+            "CLAIM_CLEANUP",
+            &format!("Cleaned up {} total expired resource claims", total_expired),
+        );
+    }
+}
+
 /// System to handle releasing claims when units change targets
 pub fn claim_cleanup_system(
     sim_state: Res<SimulationState>,

@@ -62,6 +62,7 @@ impl Plugin for SystemsPlugin {
                 tick_movement_system,
                 sync_tile_entity_system,  // Sync TileEntity with GridPosition
                 claim_cleanup_system,  // Release claims when units change targets
+                cleanup_expired_resource_claims,  // Periodic cleanup of expired claims
             )
                 .chain()
                 .after(crate::ai::bevy_dogoap_impl::GoapActionSet)
