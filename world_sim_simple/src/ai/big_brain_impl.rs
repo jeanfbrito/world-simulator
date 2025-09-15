@@ -242,9 +242,17 @@ pub fn start_planning_action_system(
         match *state {
             ActionState::Requested => {
                 if let Ok(mut planner) = planner_query.get_mut(*actor) {
-                    // Force replanning by clearing current plan
-                    planner.current_plan.clear();
-                    debug.log(DebugLevel::Info, "BIG_BRAIN", "Triggered GOAP replanning");
+                    // Trigger replanning by setting always_plan flag instead of clearing plan
+                    // This is safer and lets the planner manage its own state properly
+                    planner.always_plan = true;
+                    // Also clear the current goal to force a replan
+                    if planner.current_goal.is_some() {
+                        let goal = planner.current_goal.clone();
+                        planner.current_goal = None;
+                        // Immediately set it back to trigger replanning
+                        planner.current_goal = goal;
+                    }
+                    debug.log(DebugLevel::Info, "BIG_BRAIN", "Triggered GOAP replanning safely");
                     *state = ActionState::Success;
                 } else {
                     // No planner found, fail
@@ -307,6 +315,6 @@ impl Plugin for BigBrainAIPlugin {
                 move_to_target_action_system,
                 start_planning_action_system,  // PHASE 2: Add StartPlanningAction
             ).in_set(BigBrainSet::Actions))
-            .add_systems(Update, setup_reactive_thinkers_system);
+            .add_systems(PostStartup, setup_reactive_thinkers_system);
     }
 }
