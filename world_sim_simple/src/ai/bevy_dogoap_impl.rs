@@ -100,6 +100,10 @@ pub fn handle_gather_food_action(
     }
 
     for (entity, _action, mut food, mut energy, near_bush, work_progress_opt, unit_pos) in query.iter_mut() {
+        // DEBUG: Log entry into gather handler
+        debug.log(DebugLevel::Info, "GATHER_CHECK",
+            &format!("Checking gather for entity {:?}, near_bush: {}, work_progress: {}",
+                entity, near_bush.0, work_progress_opt.is_some()));
         // PHASE 4: Check if work is complete FIRST
         if let Some(work_progress) = work_progress_opt {
             if work_progress.progress_counter >= crate::simulation::MAX_WORK_PROGRESS && !work_progress.is_working {
@@ -132,6 +136,8 @@ pub fn handle_gather_food_action(
         }
         // Only gather if actually near a berry bush
         if near_bush.0 > 0.0 {
+            debug.log(DebugLevel::Info, "GATHER",
+                &format!("Entity {:?} is near berry bush, checking for work", entity));
             // Find the nearest berry bush entity
             let mut closest_bush = None;
             let mut closest_distance = u32::MAX;
@@ -151,7 +157,7 @@ pub fn handle_gather_food_action(
                 if work_progress_opt.is_none() {
                     // No WorkProgress component, need to add it first
                     debug.log(DebugLevel::Info, "GATHER",
-                        &format!("Adding WorkProgress component to entity {:?}", entity));
+                        &format!("Adding WorkProgress component to entity {:?} at bush {:?}", entity, bush_entity));
 
                     // Create and start work in new WorkProgress component
                     let mut new_work_progress = crate::components::WorkProgress::new();
@@ -176,10 +182,15 @@ pub fn handle_gather_food_action(
                     energy.0 = (energy.0 - 5.0).max(0.0);
 
                     debug.log(DebugLevel::Info, "DOGOAP_ACTION",
-                        &format!("Worker starting to gather berries from bush"));
+                        &format!("Worker starting to gather berries from bush {:?}", bush_entity));
                 }
                 // If WorkProgress exists and is working, just wait for completion
                 // If WorkProgress exists but isn't working, the work system will handle it
+                else {
+                    debug.log(DebugLevel::Info, "GATHER",
+                        &format!("Entity {:?} already has WorkProgress, work_in_progress: {}",
+                            entity, work_progress_opt.map_or(false, |wp| wp.is_working)));
+                }
             } else {
                 debug.log(DebugLevel::Debug, "GATHER", "No berry bush found near peasant");
                 // No berry bush found, remove action and replan
@@ -488,11 +499,18 @@ pub fn setup_dogoap_planners(
         planner.always_plan = true;
         planner.remove_goal_on_no_plan_found = false;
         planner.current_goal = Some(goal_not_hungry.clone());
-        
+
+        debug.log(DebugLevel::Info, "GOAP_SETUP",
+            &format!("Created planner for entity {:?} with initial plan: {:?}",
+                entity, planner.current_plan));
+
         // Add planner and components to the entity
         commands.entity(entity)
             .insert(planner)
             .insert(components);
+
+        debug.log(DebugLevel::Info, "GOAP_SETUP",
+            &format!("Entity {:?} now has Planner and components", entity));
     }
 }
 
@@ -639,10 +657,10 @@ pub fn update_near_berry_bush(
                             &format!("Worker found berry bush at distance {}", distance));
                         
                         // Force replanning when we reach a berry bush
-                        // Clear current plan to trigger replanning
-                        planner.current_plan.clear();
-                        debug.log(DebugLevel::Info, "DOGOAP_STATE", 
-                            &format!("Entity {:?} triggering replan at berry bush", entity));
+                        // DON'T clear current plan - let execute_goap_plans handle it
+                        // planner.current_plan.clear(); // REMOVED: This was preventing execution
+                        debug.log(DebugLevel::Info, "DOGOAP_STATE",
+                            &format!("Entity {:?} near berry bush - keeping existing plan", entity));
                     }
                     break;
                 }
@@ -656,8 +674,8 @@ pub fn update_near_berry_bush(
         // Log when leaving bush proximity
         if old_value > 0.5 && near_bush.0 < 0.5 {
             debug.log(DebugLevel::Debug, "DOGOAP_STATE", "Worker left berry bush area");
-            // Also trigger replan when leaving
-            planner.current_plan.clear();
+            // DON'T clear plan when leaving - let natural plan progression handle it
+            // planner.current_plan.clear(); // REMOVED: This was preventing execution
         }
     }
 }
@@ -682,41 +700,73 @@ pub fn execute_goap_plans(
     }
 
     for (entity, mut planner, eat, gather, move_to, wander) in query.iter_mut() {
+        // DEBUG: Log current plan contents for entity
+        if !planner.current_plan.is_empty() {
+            debug.log(DebugLevel::Info, "GOAP_PLAN",
+                &format!("Entity {:?} current plan: {:?} (sim time: {:.1}s)",
+                         entity, planner.current_plan, sim_state.accumulated_time));
+        }
+
         // Skip if any action is already active
         if eat.is_some() || gather.is_some() || move_to.is_some() || wander.is_some() {
+            debug.log(DebugLevel::Info, "GOAP_EXEC",
+                &format!("Entity {:?} skipping - action already active: eat={}, gather={}, move={}, wander={}",
+                    entity, eat.is_some(), gather.is_some(), move_to.is_some(), wander.is_some()));
             continue;
         }
+
+        debug.log(DebugLevel::Info, "GOAP_EXEC",
+            &format!("Entity {:?} ready to execute - plan has {} actions (sim time: {:.1}s)",
+                     entity, planner.current_plan.len(), sim_state.accumulated_time));
 
         // Pop and execute next action from plan
         if let Some(action_type) = planner.current_plan.front() {
             let action_name = format!("{:?}", action_type);
 
+            debug.log(DebugLevel::Info, "GOAP_EXEC",
+                &format!("Entity {:?} executing action: {} (raw: {:?})", entity, action_name, action_type));
+
             // Spawn the appropriate action component
+            // The action names from GOAP are in snake_case format
             match action_name.as_str() {
-                name if name.contains("EatAction") => {
+                name if name.contains("eat_action") => {
                     commands.entity(entity).insert(EatAction);
-                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning EatAction");
+                    debug.log(DebugLevel::Info, "GOAP_EXEC",
+                        &format!("Spawning EatAction for entity {:?}", entity));
                 }
-                name if name.contains("GatherFoodAction") => {
+                name if name.contains("gather_food_action") => {
                     commands.entity(entity).insert(GatherFoodAction);
-                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning GatherFoodAction");
+                    debug.log(DebugLevel::Info, "GOAP_EXEC",
+                        &format!("Spawning GatherFoodAction for entity {:?}", entity));
                 }
-                name if name.contains("MoveToResourceAction") => {
+                name if name.contains("move_to_resource_action") => {
                     commands.entity(entity).insert(MoveToResourceAction::default());
-                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning MoveToResourceAction");
+                    debug.log(DebugLevel::Info, "GOAP_EXEC",
+                        &format!("Spawning MoveToResourceAction for entity {:?}", entity));
                 }
-                name if name.contains("WanderAction") => {
+                name if name.contains("wander_action") => {
                     commands.entity(entity).insert(WanderAction);
-                    debug.log(DebugLevel::Info, "GOAP_EXEC", "Spawning WanderAction");
+                    debug.log(DebugLevel::Info, "GOAP_EXEC",
+                        &format!("Spawning WanderAction for entity {:?}", entity));
                 }
                 _ => {
                     debug.log(DebugLevel::Info, "GOAP_EXEC",
-                        &format!("Unknown action type: {}", action_name));
+                        &format!("Unknown action type: {} for entity {:?}", action_name, entity));
                 }
             }
 
             // Remove from plan after spawning
             planner.current_plan.pop_front();
+            debug.log(DebugLevel::Info, "GOAP_EXEC",
+                &format!("Removed action from plan, remaining: {}", planner.current_plan.len()));
+        } else {
+            // Only log empty plans if we've been running for a while
+            // This avoids spam during the initial 5+ seconds when GOAP is still planning
+            if sim_state.accumulated_time > 10.0 {
+                debug.log(DebugLevel::Debug, "GOAP_EXEC",
+                    &format!("Entity {:?} has empty plan when trying to execute (sim time: {:.1}s)",
+                             entity, sim_state.accumulated_time));
+            }
         }
     }
 }
@@ -735,11 +785,17 @@ impl Plugin for BevyDogoapPlugin {
             .register_type::<WanderAction>()
             .register_type::<MoveToResourceAction>()
             // Add our systems - run on simulation ticks
+            // Split into two groups: setup/state updates first, then execution
             .add_systems(Update, (
                 setup_dogoap_planners,
                 update_needs_system,
                 sync_inventory_to_food_count,  // Sync inventory berries to FoodCount
                 update_near_berry_bush,         // Detect proximity to berry bushes
+            )
+            .in_set(GoapActionSet)
+            .run_if(crate::simulation::on_simulation_tick_legacy))
+            // Execution systems run after planning (in the same frame but later)
+            .add_systems(Update, (
                 debug_active_actions,           // Debug what actions are active
                 execute_goap_plans,             // CORE FIX: Execute plans by spawning actions
                 handle_eat_action,
@@ -750,7 +806,7 @@ impl Plugin for BevyDogoapPlugin {
                 // Sync dogoap values to UnitNeedsV2 for display
                 crate::ai::shared_state::sync_dogoap_to_unit_needs,
             )
-            .in_set(GoapActionSet)
+            .after(GoapActionSet)  // Run after the state update systems
             .run_if(crate::simulation::on_simulation_tick_legacy));
         
         // CRITICAL: Register the DatumComponents with dogoap
