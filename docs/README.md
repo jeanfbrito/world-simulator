@@ -27,6 +27,9 @@ Welcome to the World Simulator documentation! This guide will help you understan
 - [Adding Behaviors](guides/adding-behaviors.md) - Extend the AI system
 - [Debugging Guide](guides/debugging.md) - Troubleshooting and tips
 
+### 📚 War Stories & Caveats
+- [The Great Berry Bush Regeneration Fiasco](caveats/the-great-berry-bush-regeneration-fiasco.md) - How 7.5 hours were lost to `&mut`
+
 ## 🎯 Key Concepts
 
 ### Autonomous Agents
