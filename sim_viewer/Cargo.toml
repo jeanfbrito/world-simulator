@@ -1,0 +1,28 @@
+[package]
+name = "world_sim_viewer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IPC-to-WebSocket bridge for World Simulator viewer"
+
+[dependencies]
+# Async runtime and WebSocket
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = "0.20"
+futures-util = "0.3"
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { version = "1.0", features = ["v4"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
+
+# Internal crates
+world_sim_interface = { path = "../world_sim_interface" }

@@ -3,7 +3,9 @@ resolver = "2"
 members = [
     "world_sim_interface",
     "world_sim_simple",
+    "sim_viewer",
 ]
+
 
 [workspace.package]
 version = "0.1.0"
@@ -36,6 +38,9 @@ log = "0.4"
 # Testing
 proptest = "1.4"
 criterion = "0.5"
+
+# Package aliases for easier usage
+world_sim_viewer = { path = "sim_viewer" }
 
 [profile.dev]
 opt-level = 1
