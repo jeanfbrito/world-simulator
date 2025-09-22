@@ -114,7 +114,7 @@ impl UnitInventory {
 
     /// Get all resources in inventory
     pub fn get_all_resources(&self) -> Vec<(ResourceType, u32)> {
-        self.items.iter().map(|(k, v)| (*k, *v)).collect()
+        self.items.iter().map(|(k, v)| (k.clone(), *v)).collect()
     }
 
     /// Get remaining weight capacity

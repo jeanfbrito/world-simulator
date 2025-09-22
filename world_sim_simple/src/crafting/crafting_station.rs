@@ -8,6 +8,7 @@ pub enum CraftingStationType {
     Furnace,      // Smelting and cooking
     Anvil,        // Advanced metalworking
     Kitchen,      // Food preparation
+    Sawmill,      // Wood processing
     AlchemyTable, // Potions and magic
 }
 
@@ -19,6 +20,7 @@ impl CraftingStationType {
             Self::Furnace => "Furnace",
             Self::Anvil => "Anvil",
             Self::Kitchen => "Kitchen",
+            Self::Sawmill => "Sawmill",
             Self::AlchemyTable => "Alchemy Table",
         }
     }
@@ -30,6 +32,7 @@ impl CraftingStationType {
             Self::Furnace => 1.2,
             Self::Anvil => 2.0,
             Self::Kitchen => 1.3,
+            Self::Sawmill => 1.4,
             Self::AlchemyTable => 1.1,
         }
     }
@@ -41,6 +44,7 @@ impl CraftingStationType {
             Self::Furnace => 0.15,
             Self::Anvil => 0.25,
             Self::Kitchen => 0.1,
+            Self::Sawmill => 0.15,
             Self::AlchemyTable => 0.2,
         }
     }
@@ -63,6 +67,7 @@ impl CraftingStation {
             CraftingStationType::Furnace => 5,
             CraftingStationType::Anvil => 2,
             CraftingStationType::Kitchen => 4,
+            CraftingStationType::Sawmill => 3,
             CraftingStationType::AlchemyTable => 2,
         };
 

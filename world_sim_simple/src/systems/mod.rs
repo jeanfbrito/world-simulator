@@ -11,6 +11,7 @@ pub mod work;
 pub mod resource_harvesting;
 pub mod consumption;
 pub mod grid_occupation;
+pub mod entity_spawning;
 
 pub use movement::*;
 pub use movement_effects::*;
@@ -22,6 +23,7 @@ pub use work::*;
 pub use resource_harvesting::*;
 pub use consumption::*;
 pub use grid_occupation::*;
+pub use entity_spawning::*;
 
 use bevy::prelude::*;
 
@@ -30,6 +32,9 @@ pub struct SystemsPlugin;
 
 impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
+        // Add entity spawning plugin
+        app.add_plugins(EntitySpawnerPlugin);
+
         // Register resources
         app.init_resource::<GridOccupationMap>();
 

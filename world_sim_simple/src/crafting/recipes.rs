@@ -1,4 +1,5 @@
-use crate::resources::{Item, ItemType, ResourceType, ToolType};
+use crate::resources::{Item, ItemRarity, ItemType, ResourceType, ToolType, ResourceRegistry, ItemRegistry};
+use crate::packs::definitions::{RecipeDefinition, RecipeRequirement as PackRecipeRequirement, RecipeOutput as PackRecipeOutput, CraftingConfig};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -64,6 +65,11 @@ impl Recipe {
         self
     }
 
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = description.into();
+        self
+    }
+
     pub fn can_craft(&self, inventory: &HashMap<ItemType, u32>) -> bool {
         for req in &self.requirements {
             if inventory.get(&req.item_type).copied().unwrap_or(0) < req.quantity {
@@ -78,6 +84,7 @@ impl Recipe {
 pub struct RecipeRegistry {
     recipes: HashMap<String, Recipe>,
     recipes_by_station: HashMap<super::CraftingStationType, Vec<String>>,
+    pack_recipes: HashMap<String, RecipeDefinition>, // Store pack-loaded recipes
 }
 
 impl RecipeRegistry {
@@ -94,8 +101,154 @@ impl RecipeRegistry {
         self.recipes.insert(recipe.id.clone(), recipe);
     }
 
+    pub fn register_pack_recipe(&mut self, definition: RecipeDefinition, resource_registry: &ResourceRegistry, item_registry: &ItemRegistry) {
+        info!("[RECIPES] Registering pack recipe: {}", definition.name);
+
+        // Convert pack recipe definition to internal recipe
+        let recipe = self.convert_pack_recipe(definition, resource_registry, item_registry);
+
+        if let Some(station) = recipe.station_required {
+            self.recipes_by_station
+                .entry(station)
+                .or_default()
+                .push(recipe.id.clone());
+        }
+
+        self.recipes.insert(recipe.id.clone(), recipe);
+    }
+
+    pub fn register_pack_recipes(&mut self, definitions: Vec<RecipeDefinition>, resource_registry: &ResourceRegistry, item_registry: &ItemRegistry) {
+        for definition in definitions {
+            self.pack_recipes.insert(definition.id.clone(), definition.clone());
+            self.register_pack_recipe(definition, resource_registry, item_registry);
+        }
+    }
+
+    fn convert_pack_recipe(&self, definition: RecipeDefinition, resource_registry: &ResourceRegistry, item_registry: &ItemRegistry) -> Recipe {
+        let mut recipe = Recipe::new(&definition.id, &definition.name)
+            .with_description(definition.description.unwrap_or_default())
+            .with_time(definition.crafting.time);
+
+        // Convert requirements
+        for req in definition.requirements {
+            let item_type = ItemType::from_str(&req.item)
+                .unwrap_or_else(|| ItemType::Custom(req.item.clone()));
+            recipe = recipe.with_requirement(item_type, req.count as u32);
+        }
+
+        // Convert outputs
+        for output in definition.outputs {
+            let item_type = ItemType::from_str(&output.item)
+                .unwrap_or_else(|| ItemType::Custom(output.item.clone()));
+
+            // Create item based on type
+            let item = self.create_item_from_type(item_type, item_registry);
+            recipe = recipe.with_output(item, output.count as u32);
+        }
+
+        // Convert station requirement
+        if let Some(station_name) = definition.crafting.station {
+            if let Some(station_type) = self.parse_station_type(&station_name) {
+                recipe = recipe.with_station(station_type);
+            }
+        }
+
+        recipe
+    }
+
+    fn create_item_from_type(&self, item_type: ItemType, item_registry: &ItemRegistry) -> Item {
+        match item_type {
+            ItemType::Resource(resource_type) => Item::new_resource(resource_type),
+            ItemType::Tool(tool_type) => {
+                // Default material for tools
+                let material = ResourceType::Wood;
+                Item::new_tool(tool_type, material)
+            },
+            ItemType::Weapon(weapon_type) => {
+                // Create a basic weapon item
+                Item {
+                    item_type: ItemType::Weapon(weapon_type.clone()),
+                    name: format!("{:?}", weapon_type),
+                    description: format!("A {:?}", weapon_type),
+                    rarity: ItemRarity::Common,
+                    weight: 1.0,
+                    value: 10,
+                    durability: Some(100.0),
+                    max_durability: Some(100.0),
+                }
+            },
+            ItemType::Armor(armor_type) => {
+                // Create a basic armor item
+                Item {
+                    item_type: ItemType::Armor(armor_type.clone()),
+                    name: format!("{:?}", armor_type),
+                    description: format!("A {:?}", armor_type),
+                    rarity: ItemRarity::Common,
+                    weight: 2.0,
+                    value: 15,
+                    durability: Some(100.0),
+                    max_durability: Some(100.0),
+                }
+            },
+            ItemType::Consumable(consumable_type) => {
+                // Create a basic consumable item
+                Item {
+                    item_type: ItemType::Consumable(consumable_type.clone()),
+                    name: format!("{:?}", consumable_type),
+                    description: format!("A {:?}", consumable_type),
+                    rarity: ItemRarity::Common,
+                    weight: 0.5,
+                    value: 5,
+                    durability: None,
+                    max_durability: None,
+                }
+            },
+            ItemType::Custom(name) => {
+                // Try to get from item registry, otherwise create basic item
+                if let Some(definition) = item_registry.get_definition(&ItemType::Custom(name.clone())) {
+                    Item {
+                        item_type: ItemType::Custom(name),
+                        name: definition.name.clone(),
+                        description: definition.description.clone().unwrap_or_default(),
+                        rarity: ItemRarity::Common,
+                        weight: definition.properties.weight,
+                        value: definition.properties.value as u32,
+                        durability: None,
+                        max_durability: None,
+                    }
+                } else {
+                    Item {
+                        item_type: ItemType::Custom(name),
+                        name: "Custom Item".to_string(),
+                        description: "A custom item".to_string(),
+                        rarity: ItemRarity::Common,
+                        weight: 1.0,
+                        value: 10,
+                        durability: None,
+                        max_durability: None,
+                    }
+                }
+            }
+        }
+    }
+
+    fn parse_station_type(&self, station_name: &str) -> Option<super::CraftingStationType> {
+        match station_name {
+            "workbench" => Some(super::CraftingStationType::Workbench),
+            "furnace" => Some(super::CraftingStationType::Furnace),
+            "anvil" => Some(super::CraftingStationType::Anvil),
+            "kitchen" => Some(super::CraftingStationType::Kitchen),
+            "sawmill" => Some(super::CraftingStationType::Sawmill),
+            _ => None,
+        }
+    }
+
     pub fn get(&self, id: &str) -> Option<&Recipe> {
         self.recipes.get(id)
+    }
+
+    pub fn get_pack_definition(&self, id: &str) -> Option<&RecipeDefinition> {
+        self.pack_recipes.get(id)
     }
 
     pub fn get_for_station(&self, station: super::CraftingStationType) -> Vec<&Recipe> {
@@ -116,6 +269,11 @@ impl RecipeRegistry {
         self.recipes.len()
     }
 
+    pub fn pack_count(&self) -> usize {
+        self.pack_recipes.len()
+    }
+
+    // Legacy method for backward compatibility
     pub fn register_default_recipes(&mut self) {
         use super::CraftingStationType;
 
