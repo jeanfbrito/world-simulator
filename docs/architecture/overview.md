@@ -214,7 +214,8 @@ App::new()
 - `SimulationState`: Current tick, speed, paused state
 - `TickAccumulator`: Manages tick timing
 - `DebugSystem`: Logging and debugging
-- `ResourceClaims`: Prevents resource conflicts
+- `GridOccupationMap`: Tracks entity positions and obstacles
+- `ResourceClaims`: Deprecated - see [Atomic Resource Claiming](atomic-resource-claiming.md)
 
 ### Component Storage
 - **Dense Storage**: Frequently accessed (Position, Energy)
@@ -232,6 +233,7 @@ App::new()
 ## Next Steps
 
 - Understand the [Tick System](tick-system.md) in detail
+- Learn about [Atomic Resource Claiming](atomic-resource-claiming.md)
 - Learn about [Core Components](components.md)
 - Explore the [Behavior System](../behavior-system/README.md)
 - See [Movement System](../movement-pathfinding.md)
