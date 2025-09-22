@@ -26,3 +26,6 @@ clap = { version = "4.0", features = ["derive"] }
 
 # Internal crates
 world_sim_interface = { path = "../world_sim_interface" }
+
+# Pack loading
+mlua = { version = "0.9", features = ["lua54", "vendored"] }

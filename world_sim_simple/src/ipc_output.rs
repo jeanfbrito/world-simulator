@@ -12,8 +12,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use world_sim_interface::ipc::{
     IpcMessage, MessagePayload, TileVisual, EntityVisual,
     VisualRegistry, GameStateData, GlobalStateData,
+    PackDefinitionsData, PackMetadata as IpcPackMetadata,
 };
 use world_sim_interface::{EntitySnapshot, Position, EntityId};
+use crate::packs::{PackSystem, Registry, EntityDefinition, VisualConfig};
 
 /// IPC output configuration
 #[derive(Resource)]
@@ -215,6 +217,8 @@ type Result<T> = std::result::Result<T, IpcOutputError>;
 fn setup_ipc_output(
     config: Res<IpcOutputConfig>,
     mut buffer: ResMut<IpcOutputBuffer>,
+    mut events: EventWriter<IpcOutputEvent>,
+    pack_system: Option<Res<crate::packs::PackSystem>>,
 ) {
     if !config.enabled {
         info!("IPC output disabled");
@@ -241,6 +245,14 @@ fn setup_ipc_output(
     if let Err(e) = buffer.flush() {
         error!("Failed to flush IPC buffer: {:?}", e);
     }
+
+    // Send pack definitions if pack system is available
+    if pack_system.is_some() {
+        events.write(IpcOutputEvent::SendPackMetadata);
+        println!("📦 IPC Debug: Requested pack metadata send");
+    } else {
+        println!("⚠️ IPC Debug: No pack system available during setup");
+    }
 }
 
 /// Handle IPC output events
@@ -248,6 +260,7 @@ fn handle_ipc_output_events(
     mut events: EventReader<IpcOutputEvent>,
     mut buffer: ResMut<IpcOutputBuffer>,
     config: Res<IpcOutputConfig>,
+    pack_system: Option<Res<crate::packs::PackSystem>>,
 ) {
     if !config.enabled {
         return;
@@ -276,8 +289,18 @@ fn handle_ipc_output_events(
                 }
             }
             IpcOutputEvent::SendPackMetadata => {
-                // TODO: Implement pack metadata sending
-                println!("🔧 IPC Debug: Pack metadata sending not yet implemented");
+                // Send pack metadata and definitions
+                if let Some(ref pack_system) = pack_system {
+                    let pack_data = create_pack_definitions_data(&pack_system);
+                    let payload = MessagePayload::PackDefinitions(pack_data);
+                    if let Err(e) = buffer.add_message(payload) {
+                        error!("Failed to send pack definitions: {:?}", e);
+                    } else {
+                        println!("📦 IPC Debug: Sent pack definitions");
+                    }
+                } else {
+                    println!("⚠️ IPC Debug: No pack system available for metadata");
+                }
             }
         }
     }
@@ -516,5 +539,36 @@ fn create_visual_registry() -> VisualRegistry {
     });
 
     registry
+}
+
+/// Create pack definitions data from pack system
+fn create_pack_definitions_data(pack_system: &crate::packs::PackSystem) -> PackDefinitionsData {
+    // Convert pack metadata to IPC format - minimal info for viewer to load packs
+    let ipc_pack_metadata = IpcPackMetadata {
+        id: pack_system.metadata.id.clone(),
+        name: pack_system.metadata.name.clone(),
+        version: pack_system.metadata.version.clone(),
+        author: pack_system.metadata.author.clone(),
+        description: pack_system.metadata.description.clone(),
+        dependencies: pack_system.metadata.dependencies.clone(),
+        features: vec!["entities".to_string(), "resources".to_string(), "items".to_string()],
+        priority: 0,
+        supports_hot_reload: pack_system.metadata.config.allow_hot_reload,
+    };
+
+    // Send empty visual registry - viewer will populate this from pack files
+    let visual_registry = VisualRegistry {
+        tiles: HashMap::new(),
+        entities: HashMap::new(),
+        ui_themes: HashMap::new(),
+        animations: HashMap::new(),
+        sprite_sheets: HashMap::new(),
+    };
+
+    PackDefinitionsData {
+        packs: vec![ipc_pack_metadata],
+        visual_registry,
+        load_order: vec![pack_system.metadata.id.clone()],
+    }
 }
 
