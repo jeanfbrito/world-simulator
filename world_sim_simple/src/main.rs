@@ -19,6 +19,7 @@ mod ai;
 mod buildings;
 mod components;
 mod crafting;
+mod packs;
 mod performance;
 mod plugin;
 mod plugins;
@@ -35,6 +36,7 @@ use ai::AIPlugin;
 use buildings::{BuildingComponent, BuildingType, BuildingsPlugin};
 use components::{ComponentsPlugin, NameComponent, PositionComponent};
 use crafting::CraftingPlugin;
+use packs::{PackSystemPlugin, Registry};
 use performance::PerformancePlugin;
 use plugin::{plugin_init_system, PluginManager};
 use plugins::{SimulationPlugin as SimPlugin, WorldPlugin};
@@ -71,6 +73,7 @@ fn main() {
         .add_plugins(WebSocketPlugin) // Re-enabled for web viewer
         .add_plugins(DebugPlugin)
         .add_plugins(ComponentsPlugin)
+        .add_plugins(PackSystemPlugin) // Load data-driven content
         .init_resource::<PluginManager>()
         .add_plugins(WorldPlugin)
         .add_plugins(SimPlugin)
@@ -249,7 +252,10 @@ pub struct TileEntity {
 
 // Worker entity is now composed of multiple components instead of a single struct
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    pack_system: Option<Res<packs::PackSystem>>,
+) {
     // Removed Camera2d for headless operation
 
     // Initialize world map for headless operation (no tile sprites)
@@ -336,6 +342,18 @@ fn setup(mut commands: Commands) {
     // Add many berry bushes spread across the map to encourage exploration
     // Spawn berry bushes in clusters for more realistic distribution
 
+    // Try to get berry bush data from pack system
+    let berry_bush_def = pack_system
+        .as_ref()
+        .and_then(|ps| ps.resource_registry.get("berry_bush"));
+
+    if let Some(def) = berry_bush_def {
+        println!(
+            "{}",
+            format!("[PACK] Using berry bush definition from pack: {}", def.name).cyan()
+        );
+    }
+
     // Spawn scattered berry bushes across the whole map
     let mut spawned_bushes = 0;
     let target_bushes = 25;
@@ -351,11 +369,22 @@ fn setup(mut commands: Commands) {
             let world_x = (x as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
             let world_y = (y as f32 - MAP_SIZE as f32 / 2.0) * TILE_SIZE;
 
+            // Use pack data if available, otherwise use defaults
+            let berry_count = if let Some(def) = berry_bush_def {
+                if let Some(harvestable) = &def.harvestable {
+                    rng.gen_range(harvestable.r#yield[0].min..=harvestable.r#yield[0].max)
+                } else {
+                    rng.gen_range(1..4)
+                }
+            } else {
+                rng.gen_range(1..4)
+            };
+
             commands.spawn((
-                NameComponent::new("Berry Bush".to_string()),
+                NameComponent::new(berry_bush_def.map(|d| d.name.clone()).unwrap_or("Berry Bush".to_string())),
                 PositionComponent::from_tile(x, y),
-                components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries so there's something to gather
-                components::GrowingResource::fruit_bush(rng.gen_range(1..4), 10), // GrowingResource for berry growth
+                components::ResourceNode::fruit_bush(berry_count as u32), // Use pack data for berry count
+                components::GrowingResource::fruit_bush(berry_count as u32, 10), // GrowingResource for berry growth
                 components::ResourceRegenerationTag,
                 components::GridPosition {
                     x: x as u32,
@@ -367,7 +396,10 @@ fn setup(mut commands: Commands) {
 
             println!(
                 "{}",
-                format!("[SPAWN] Berry Bush at ({}, {}) with berries", x, y).magenta()
+                format!("[SPAWN] {} at ({}, {}) with {} berries (from pack data)",
+                    berry_bush_def.map(|d| &d.name[..]).unwrap_or("Berry Bush"),
+                    x, y, berry_count
+                ).magenta()
             );
             spawned_bushes += 1;
         }
@@ -397,11 +429,24 @@ fn setup(mut commands: Commands) {
             let y = corner_y + rng.gen_range(0..5) as usize;
 
             if x < MAP_SIZE && y < MAP_SIZE && world_map.tiles[y][x] == TileType::Grass {
+                // Use pack data for corner bushes too
+                let berry_count = if let Some(def) = berry_bush_def {
+                    if let Some(harvestable) = &def.harvestable {
+                        rng.gen_range(harvestable.r#yield[0].min..=harvestable.r#yield[0].max)
+                    } else {
+                        rng.gen_range(1..4)
+                    }
+                } else {
+                    rng.gen_range(1..4)
+                };
+
                 commands.spawn((
-                    NameComponent::new("Berry Bush (Corner)".to_string()),
+                    NameComponent::new(format!("{} (Corner)",
+                        berry_bush_def.map(|d| &d.name[..]).unwrap_or("Berry Bush")
+                    )),
                     PositionComponent::from_tile(x, y),
-                    components::ResourceNode::fruit_bush(rng.gen_range(1..4)), // Start with 1-3 berries even in corners
-                    components::GrowingResource::fruit_bush(rng.gen_range(1..4), 10), // GrowingResource for berry growth
+                    components::ResourceNode::fruit_bush(berry_count as u32), // Use pack data
+                    components::GrowingResource::fruit_bush(berry_count as u32, 10), // GrowingResource for berry growth
                     components::ResourceRegenerationTag,
                     components::GridPosition {
                         x: x as u32,
