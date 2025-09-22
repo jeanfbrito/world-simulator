@@ -39,8 +39,8 @@ pub fn resource_harvesting_system(
         if let Some(resource_entity) = claimed_resource.get_claimed() {
             // Get the resource
             if let Ok((_, resource_pos, mut resource)) = resources.get_mut(resource_entity) {
-                // Check if unit is at the resource location
-                if unit_pos.x == resource_pos.x && unit_pos.y == resource_pos.y {
+                // Check if unit is adjacent to the resource (not on the same tile)
+                if unit_pos.is_adjacent_to(&resource_pos) {
                     // Check if resource still has items and inventory has space
                     if resource.amount > 0 && !inventory.is_full() {
                         // Start or continue harvesting work

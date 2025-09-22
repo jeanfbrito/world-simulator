@@ -7,6 +7,7 @@ use crate::{SimulationState, WorldMap, TILE_SIZE};
 use crate::resources::ResourceType;
 use crate::ai::BerryBushTag;
 use crate::debug::{DebugSystem, DebugLevel};
+use crate::systems::GridOccupationMap;
 /// Tick-based movement system
 ///
 /// This system handles all unit movement on the simulation tick,
@@ -31,6 +32,7 @@ fn is_position_walkable(world_map: &WorldMap, pos: &GridPosition) -> bool {
 pub fn tick_movement_system(
     sim_state: Res<SimulationState>,
     world_map: Res<WorldMap>,
+    occupation_map: Res<GridOccupationMap>,
     mut units: Query<
         (
             Entity,
@@ -55,7 +57,7 @@ pub fn tick_movement_system(
     // Debug: count units being processed
     let mut moving_count = 0;
     let total_count = units.iter().count();
-    
+
     // Check if any units exist
     if total_count == 0 {
         println!("WARNING: No units found with UnitTag, GridPosition, GridMovement, and VisualPosition!");
@@ -65,12 +67,12 @@ pub fn tick_movement_system(
     for (entity, mut grid_pos, mut movement, mut visual_pos, name, speed, effects) in
         units.iter_mut()
     {
-        
+
         // Skip if not moving
         if !movement.is_moving {
             continue;
         }
-        
+
         moving_count += 1;
 
         let old_pos = grid_pos.clone();
@@ -80,24 +82,50 @@ pub fn tick_movement_system(
         let modifier = effects.map(|e| e.get_total_modifier()).unwrap_or(1.0);
         let effective_ticks = ((base_ticks as f32 / modifier).max(1.0)) as u32;
 
+        // Store the target position before movement
+        let next_target = movement.target.clone();
+
         // Update movement progress with unit-specific speed
         let completed = movement.tick_update(&mut grid_pos, effective_ticks);
 
-        // If position changed, update visual target
+        // If position changed, check if the new position is valid
         if old_pos != *grid_pos {
-            visual_pos.set_target(&grid_pos, TILE_SIZE);
+            // Check if the new position is blocked by a solid obstacle (not including this unit)
+            if occupation_map.is_solid_obstacle(&grid_pos) {
+                // Movement blocked - revert to old position and stop moving
+                *grid_pos = old_pos.clone();
+                movement.stop();
 
-            // Log movement
-            debug.log(
-                DebugLevel::Debug,
-                "MOVEMENT",
-                &format!(
-                    "{} moved from ({},{}) to ({},{})",
-                    name.name, old_pos.x, old_pos.y, grid_pos.x, grid_pos.y
-                ),
-            );
+                debug.log(
+                    DebugLevel::Debug,
+                    "MOVEMENT_BLOCKED",
+                    &format!(
+                        "{} blocked at ({},{}) - stopping movement",
+                        name.name, grid_pos.x, grid_pos.y
+                    ),
+                );
 
-            // Check if new position is valid
+                // Try to find an alternative path
+                if let Some(target) = next_target {
+                    let obstacles = build_obstacle_map(&world_map, &occupation_map);
+                    movement.set_target_from_with_pathfinding(&grid_pos, target, &obstacles);
+                }
+            } else {
+                // Movement successful - update visual position
+                visual_pos.set_target(&grid_pos, TILE_SIZE);
+
+                // Log movement
+                debug.log(
+                    DebugLevel::Debug,
+                    "MOVEMENT",
+                    &format!(
+                        "{} moved from ({},{}) to ({},{})",
+                        name.name, old_pos.x, old_pos.y, grid_pos.x, grid_pos.y
+                    ),
+                );
+            }
+
+            // Check if new position is valid terrain-wise
             if !is_position_walkable(&world_map, &grid_pos) {
                 // Revert movement if blocked
                 *grid_pos = old_pos;
@@ -341,10 +369,11 @@ pub fn movement_performance_monitor_system(
 }
 */
 
-/// Build obstacle map from world tiles
-fn build_obstacle_map(world_map: &WorldMap) -> HashSet<(i32, i32)> {
+/// Build obstacle map from world tiles and entities
+fn build_obstacle_map(world_map: &WorldMap, occupation_map: &GridOccupationMap) -> HashSet<(i32, i32)> {
     let mut obstacles = HashSet::new();
-    
+
+    // Add terrain obstacles
     for y in 0..crate::MAP_SIZE {
         for x in 0..crate::MAP_SIZE {
             if !world_map.tiles[y][x].is_walkable() {
@@ -352,7 +381,11 @@ fn build_obstacle_map(world_map: &WorldMap) -> HashSet<(i32, i32)> {
             }
         }
     }
-    
+
+    // Add entity obstacles (resources, buildings, etc.)
+    let entity_obstacles = occupation_map.get_obstacle_set();
+    obstacles.extend(entity_obstacles);
+
     obstacles
 }
 
@@ -361,6 +394,7 @@ fn build_obstacle_map(world_map: &WorldMap) -> HashSet<(i32, i32)> {
 pub fn simple_random_movement_system(
     sim_state: Res<SimulationState>,
     world_map: Res<WorldMap>,
+    occupation_map: Res<GridOccupationMap>,
     mut units: Query<
         (
             Entity,
@@ -377,14 +411,14 @@ pub fn simple_random_movement_system(
     mut berry_bushes: Query<(Entity, &GridPosition, &mut ResourceNode), With<BerryBushTag>>,
     debug: Res<DebugSystem>,
 ) {
-    
+
     // Only process on ticks
     if !sim_state.just_ticked {
         return;
     }
-    
+
     // Build obstacle map for pathfinding
-    let obstacles = build_obstacle_map(&world_map);
+    let obstacles = build_obstacle_map(&world_map, &occupation_map);
     
     let mut rng = rand::thread_rng();
     
@@ -434,11 +468,28 @@ pub fn simple_random_movement_system(
                         if resource.try_claim(entity) {
                             // Save the claimed resource
                             claimed_resource.claim(bush_entity);
-                            
-                            movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
-                            *mind = UnitMind::GoingThere {
-                                destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
-                            };
+
+                            // Find an adjacent tile to move to (not the resource's tile itself)
+                            let adjacent_positions = target_pos.get_adjacent();
+                            let walkable_adjacent = adjacent_positions.into_iter()
+                                .filter(|pos| {
+                                    pos.x < 64 && pos.y < 64 &&
+                                    world_map.tiles[pos.y as usize][pos.x as usize].is_walkable() &&
+                                    !obstacles.contains(&(pos.x as i32, pos.y as i32))
+                                })
+                                .min_by_key(|pos| pos.distance_to(&grid_pos));
+
+                            if let Some(adjacent_target) = walkable_adjacent {
+                                movement.set_target_from_with_pathfinding(&grid_pos, adjacent_target.clone(), &obstacles);
+                                *mind = UnitMind::GoingThere {
+                                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                                };
+                            } else {
+                                // No walkable adjacent tiles - release claim
+                                resource.release_claim(entity);
+                                claimed_resource.release();
+                                continue; // Skip to next unit
+                            }
                             
                             debug.log(
                                 DebugLevel::Info,
@@ -529,15 +580,16 @@ pub fn food_search_movement_system(
     ), With<UnitTag>>,
     mut berry_bushes: Query<(Entity, &GridPosition, &mut ResourceNode), With<BerryBushTag>>,
     world_map: Res<WorldMap>,
+    occupation_map: Res<GridOccupationMap>,
     debug: Res<DebugSystem>,
 ) {
     // Only process on ticks
     if !sim_state.just_ticked {
         return;
     }
-    
+
     // Build obstacle map for pathfinding
-    let obstacles = build_obstacle_map(&world_map);
+    let obstacles = build_obstacle_map(&world_map, &occupation_map);
     
     for (entity, grid_pos, mut movement, mut mind, mut claimed_resource, needs, inventory, name) in units.iter_mut() {
         // Only process units that are searching for food
@@ -594,10 +646,28 @@ pub fn food_search_movement_system(
                 if let Ok((_, _, mut resource)) = berry_bushes.get_mut(bush_entity) {
                     if resource.try_claim(entity) {
                         claimed_resource.claim(bush_entity);
-                        movement.set_target_from_with_pathfinding(&grid_pos, target_pos.clone(), &obstacles);
-                        *mind = UnitMind::GoingThere { 
-                            destination: format!("berry bush at ({},{})", target_pos.x, target_pos.y) 
-                        };
+
+                        // Find an adjacent tile to move to (not the resource's tile itself)
+                        let adjacent_positions = target_pos.get_adjacent();
+                        let walkable_adjacent = adjacent_positions.into_iter()
+                            .filter(|pos| {
+                                pos.x < 64 && pos.y < 64 &&
+                                world_map.tiles[pos.y as usize][pos.x as usize].is_walkable() &&
+                                !obstacles.contains(&(pos.x as i32, pos.y as i32))
+                            })
+                            .min_by_key(|pos| pos.distance_to(&grid_pos));
+
+                        if let Some(adjacent_target) = walkable_adjacent {
+                            movement.set_target_from_with_pathfinding(&grid_pos, adjacent_target.clone(), &obstacles);
+                            *mind = UnitMind::GoingThere {
+                                destination: format!("berry bush at ({},{})", target_pos.x, target_pos.y)
+                            };
+                        } else {
+                            // No walkable adjacent tiles - release claim
+                            resource.release_claim(entity);
+                            claimed_resource.release();
+                            continue; // Skip to next unit
+                        }
                         
                         debug.log(
                             DebugLevel::Info,

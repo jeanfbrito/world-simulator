@@ -10,6 +10,7 @@ pub mod unit_mind;
 pub mod work;
 pub mod resource_harvesting;
 pub mod consumption;
+pub mod grid_occupation;
 
 pub use movement::*;
 pub use movement_effects::*;
@@ -20,6 +21,7 @@ pub use unit_mind::*;
 pub use work::*;
 pub use resource_harvesting::*;
 pub use consumption::*;
+pub use grid_occupation::*;
 
 use bevy::prelude::*;
 
@@ -28,11 +30,15 @@ pub struct SystemsPlugin;
 
 impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
+        // Register resources
+        app.init_resource::<GridOccupationMap>();
+
         // Register events
         app.add_event::<crate::components::StorageChangedEvent>()
             .add_event::<crate::components::ResourceRegeneratedEvent>()
             .add_event::<crate::components::ResourceDepletedEvent>()
-            .add_event::<crate::components::ResourceGrowthEvent>();
+            .add_event::<crate::components::ResourceGrowthEvent>()
+            .add_event::<crate::components::OccupationChangedEvent>();
 
         // Add migration systems to run once at startup
         app.add_systems(
@@ -47,6 +53,7 @@ impl Plugin for SystemsPlugin {
                 spawn_regenerating_resources_system,
                 add_regeneration_to_trees_system,
                 ensure_unit_mind_system,
+                init_grid_occupation_system,  // Initialize grid occupation tracking
             ),
         );
 
@@ -60,6 +67,7 @@ impl Plugin for SystemsPlugin {
                 simple_random_movement_system,  // Random movement to get units moving
                 food_search_movement_system,  // Handle SearchingForFood state
                 tick_movement_system,
+                update_grid_occupation_system,  // Update occupation map after movement
                 sync_tile_entity_system,  // Sync TileEntity with GridPosition
                 claim_cleanup_system,  // Release claims when units change targets
                 cleanup_expired_resource_claims,  // Periodic cleanup of expired claims

@@ -18,6 +18,7 @@ pub mod claimed_resource;
 pub mod grid_position;
 pub mod movement_config;
 pub mod movement_tracker;
+pub mod occupation;
 pub mod storage;
 pub mod unit_mind;
 pub mod unit_needs_v2;
@@ -134,6 +135,7 @@ pub use claimed_resource::ClaimedResource;
 pub use grid_position::{migrate_positions_system, GridMovement, GridPosition, VisualPosition};
 pub use movement_config::{MovementEffects, MovementSpeed};
 pub use movement_tracker::TilesWalked;
+pub use occupation::{GridOccupant, SolidObstacle, Walkable, OccupationSize, OccupationChangedEvent};
 pub use storage::{
     Stockpile, StorageBuilding, StorageChangeType, StorageChangedEvent, StorageTask,
     StorageTaskState, StorageUpdateTag, Warehouse,
