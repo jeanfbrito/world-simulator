@@ -826,14 +826,17 @@
             
             // Use entities or cached entities to ensure units always appear
             const entitiesToDraw = entities.length > 0 ? entities : cachedEntities;
-
+            
             // Sort entities by y position to ensure proper layering (higher y rendered last)
             const sortedEntities = [...entitiesToDraw].sort((a, b) => a.y - b.y);
+            
+            console.log('Rendering', sortedEntities.length, 'entities:', sortedEntities);
             sortedEntities.forEach((entity, index) => {
                 const x = entity.x * TILE_SIZE + TILE_SIZE / 2 + offsetX;
                 const y = entity.y * TILE_SIZE + TILE_SIZE / 2 + offsetY;
 
-                
+                console.log(`Drawing entity ${entity.id} at (${entity.x}, ${entity.y}) -> canvas (${x}, ${y})`);
+
                 let emoji = null;
 
                 // Use pack-defined entity visuals if available
