@@ -152,7 +152,7 @@ impl Plugin for WebSocketPlugin {
 }
 
 fn start_websocket_server() {
-    info!("WebSocket server starting on ws://localhost:8080");
+    info!("WebSocket server starting on ws://localhost:11748");
 }
 
 async fn run_websocket_server(
@@ -160,8 +160,8 @@ async fn run_websocket_server(
     mut rx: mpsc::UnboundedReceiver<ServerMessage>,
     message_queue: Arc<Mutex<Vec<ClientMessage>>>,
 ) {
-    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
-    println!("WebSocket server listening on ws://localhost:8080");
+    let listener = TcpListener::bind("127.0.0.1:11748").await.unwrap();
+    println!("WebSocket server listening on ws://localhost:11748");
 
     let clients: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<Message>>>> =
         Arc::new(Mutex::new(HashMap::new()));
