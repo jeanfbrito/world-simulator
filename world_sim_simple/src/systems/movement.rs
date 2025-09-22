@@ -438,82 +438,117 @@ pub fn simple_random_movement_system(
             claimed_resource.release();
         }
         
-        // If hungry and no food in inventory, look for berry bushes to harvest
+        // If hungry and no food in inventory, look for berry bushes to harvest with atomic claiming
         if needs.is_hungry() && inventory.get_amount(crate::resources::ResourceType::Berries) < 3 {
-            // Find nearest berry bush with berries that isn't fully claimed
-            let mut nearest_bush = None;
-            let mut nearest_bush_entity = None;
-            let mut nearest_distance = f32::MAX;
-            
+            const MAX_CLAIM_ATTEMPTS: usize = 3;
+            let mut attempt_count = 0;
+            let mut successfully_claimed = false;
+
+            // Collect available berry bushes and sort by distance
+            let mut available_bushes: Vec<(Entity, GridPosition, f32)> = Vec::new();
+
             for (bush_entity, bush_pos, resource) in berry_bushes.iter() {
-                // Check if bush has berries AND isn't fully claimed (or already claimed by us)
-                if resource.amount > 0 && (!resource.is_fully_claimed() || resource.is_claimed_by(entity)) {
-                    let dx = (bush_pos.x as f32 - grid_pos.x as f32);
-                    let dy = (bush_pos.y as f32 - grid_pos.y as f32);
-                    let distance = (dx * dx + dy * dy).sqrt();
-                    
-                    if distance < nearest_distance {
-                        nearest_distance = distance;
-                        nearest_bush = Some(bush_pos.clone());
-                        nearest_bush_entity = Some(bush_entity);
+                // Skip if no berries
+                if resource.amount == 0 {
+                    continue;
+                }
+
+                let dx = bush_pos.x as f32 - grid_pos.x as f32;
+                let dy = bush_pos.y as f32 - grid_pos.y as f32;
+                let distance = (dx * dx + dy * dy).sqrt();
+
+                // Skip if too far
+                if distance > 30.0 {
+                    continue;
+                }
+
+                available_bushes.push((bush_entity, bush_pos.clone(), distance));
+            }
+
+            // Sort by distance (closest first)
+            available_bushes.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+
+            // Try to claim bushes atomically, starting with the closest
+            for (bush_entity, target_pos, _distance) in available_bushes.iter() {
+                if attempt_count >= MAX_CLAIM_ATTEMPTS {
+                    break;
+                }
+                attempt_count += 1;
+
+                // Try to claim the resource atomically with timeout
+                if let Ok((_, _, mut resource)) = berry_bushes.get_mut(*bush_entity) {
+                    if !resource.try_claim_with_timeout(entity, sim_state.tick) {
+                        // Claim failed, try next resource
+                        debug.log(
+                            DebugLevel::Debug,
+                            "CLAIM_FAILED",
+                            &format!(
+                                "{} failed to claim berry bush at ({},{}) - already has {}/{} workers",
+                                name.name, target_pos.x, target_pos.y,
+                                resource.claim_count(), resource.max_workers
+                            ),
+                        );
+                        continue;
+                    }
+
+                    // Claim succeeded! Now find a path to an adjacent position
+                    let adjacent_positions = target_pos.get_adjacent();
+                    let walkable_adjacent = adjacent_positions.into_iter()
+                        .filter(|pos| {
+                            pos.x < 64 && pos.y < 64 &&
+                            world_map.tiles[pos.y as usize][pos.x as usize].is_walkable() &&
+                            !obstacles.contains(&(pos.x as i32, pos.y as i32))
+                        })
+                        .min_by_key(|pos| pos.distance_to(&grid_pos));
+
+                    if let Some(adjacent_target) = walkable_adjacent {
+                        // Save the claimed resource
+                        claimed_resource.claim(*bush_entity);
+                        movement.set_target_from_with_pathfinding(&grid_pos, adjacent_target.clone(), &obstacles);
+                        *mind = UnitMind::GoingThere {
+                            destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
+                        };
+
+                        debug.log(
+                            DebugLevel::Info,
+                            "RESOURCE_CLAIM",
+                            &format!(
+                                "{} claimed berry bush at ({},{}) for harvesting [workers: {}/{}]",
+                                name.name, target_pos.x, target_pos.y,
+                                resource.claim_count(), resource.max_workers
+                            ),
+                        );
+
+                        println!(
+                            "{} {} claimed berries at ({},{}) [workers: {}/{}]",
+                            "⛏️".cyan(),
+                            name.name.yellow(),
+                            target_pos.x,
+                            target_pos.y,
+                            resource.claim_count(),
+                            resource.max_workers
+                        );
+
+                        successfully_claimed = true;
+                        break;
+                    } else {
+                        // No walkable adjacent tiles - release claim
+                        resource.release_claim(entity);
+                        debug.log(
+                            DebugLevel::Debug,
+                            "CLAIM_RELEASED_NO_PATH",
+                            &format!(
+                                "{} released claim on berry bush at ({},{}) - no valid adjacent tiles",
+                                name.name, target_pos.x, target_pos.y
+                            ),
+                        );
                     }
                 }
             }
-            
-            // If found a berry bush, claim it and go there!
-            if let Some(target_pos) = nearest_bush {
-                if let Some(bush_entity) = nearest_bush_entity {
-                    // Try to claim the resource
-                    if let Ok((_, _, mut resource)) = berry_bushes.get_mut(bush_entity) {
-                        if resource.try_claim(entity) {
-                            // Save the claimed resource
-                            claimed_resource.claim(bush_entity);
 
-                            // Find an adjacent tile to move to (not the resource's tile itself)
-                            let adjacent_positions = target_pos.get_adjacent();
-                            let walkable_adjacent = adjacent_positions.into_iter()
-                                .filter(|pos| {
-                                    pos.x < 64 && pos.y < 64 &&
-                                    world_map.tiles[pos.y as usize][pos.x as usize].is_walkable() &&
-                                    !obstacles.contains(&(pos.x as i32, pos.y as i32))
-                                })
-                                .min_by_key(|pos| pos.distance_to(&grid_pos));
-
-                            if let Some(adjacent_target) = walkable_adjacent {
-                                movement.set_target_from_with_pathfinding(&grid_pos, adjacent_target.clone(), &obstacles);
-                                *mind = UnitMind::GoingThere {
-                                    destination: format!("Berry bush at ({}, {})", target_pos.x, target_pos.y),
-                                };
-                            } else {
-                                // No walkable adjacent tiles - release claim
-                                resource.release_claim(entity);
-                                claimed_resource.release();
-                                continue; // Skip to next unit
-                            }
-                            
-                            debug.log(
-                                DebugLevel::Info,
-                                "RESOURCE_CLAIM",
-                                &format!(
-                                    "{} claimed berry bush at ({},{}) for harvesting [workers: {}/{}]",
-                                    name.name, target_pos.x, target_pos.y,
-                                    resource.claim_count(), resource.max_workers
-                                ),
-                            );
-                            
-                            println!(
-                                "{} {} claimed berries at ({},{}) [workers: {}/{}]",
-                                "⛏️".cyan(),
-                                name.name.yellow(),
-                                target_pos.x,
-                                target_pos.y,
-                                resource.claim_count(),
-                                resource.max_workers
-                            );
-                            continue;
-                        }
-                    }
-                }
+            // If we successfully claimed something, continue to next unit
+            if successfully_claimed {
+                continue;
             }
         }
         
@@ -565,13 +600,13 @@ pub fn simple_random_movement_system(
     }
 }
 
-/// System to handle units searching for food - finds and moves to berry bushes
+/// System to handle units searching for food - finds and moves to berry bushes with atomic claiming
 pub fn food_search_movement_system(
     sim_state: Res<SimulationState>,
     mut units: Query<(
         Entity,
         &GridPosition,
-        &mut GridMovement, 
+        &mut GridMovement,
         &mut UnitMind,
         &mut ClaimedResource,
         &UnitNeedsV2,
@@ -590,23 +625,13 @@ pub fn food_search_movement_system(
 
     // Build obstacle map for pathfinding
     let obstacles = build_obstacle_map(&world_map, &occupation_map);
-    
+
     for (entity, grid_pos, mut movement, mut mind, mut claimed_resource, needs, inventory, name) in units.iter_mut() {
         // Only process units that are searching for food
         if !matches!(*mind, UnitMind::SearchingForFood) {
             continue;
         }
-        
-        // Debug log to understand what's happening
-        debug.log(
-            DebugLevel::Info,
-            "FOOD_SEARCH",
-            &format!(
-                "{} is searching for food. is_moving: {}, position: ({},{})",
-                name.name, movement.is_moving, grid_pos.x, grid_pos.y
-            ),
-        );
-        
+
         // Skip if already moving
         if movement.is_moving {
             debug.log(
@@ -616,85 +641,157 @@ pub fn food_search_movement_system(
             );
             continue;
         }
-        
-        // If searching for food, find the nearest berry bush
-        // Remove hunger check - if they're searching, they need food
+
+        // If searching for food, find available berry bushes
         if inventory.get_amount(ResourceType::Berries) == 0 {
-            // Find nearest berry bush with available berries
-            let mut best_bush = None;
-            let mut best_distance = f32::MAX;
-            
+            // Maximum number of resources to try claiming
+            const MAX_CLAIM_ATTEMPTS: usize = 5;
+            let mut attempt_count = 0;
+            let mut successfully_claimed = false;
+
+            // Collect all available berry bushes and sort by distance
+            let mut available_bushes: Vec<(Entity, GridPosition, f32)> = Vec::new();
+
             for (bush_entity, bush_pos, resource) in berry_bushes.iter() {
-                // Skip if no berries or fully claimed
-                if resource.amount == 0 || resource.is_fully_claimed() {
+                // Skip if no berries
+                if resource.amount == 0 {
                     continue;
                 }
-                
+
+                // Don't skip fully claimed ones during collection - we'll try to claim atomically
                 let dx = bush_pos.x as f32 - grid_pos.x as f32;
                 let dy = bush_pos.y as f32 - grid_pos.y as f32;
                 let distance = (dx * dx + dy * dy).sqrt();
-                
-                if distance < best_distance {
-                    best_distance = distance;
-                    best_bush = Some((bush_entity, bush_pos.clone()));
+
+                // Skip if too far (optimization)
+                if distance > 50.0 {
+                    continue;
                 }
+
+                available_bushes.push((bush_entity, bush_pos.clone(), distance));
             }
-            
-            // Move to the best bush if found
-            if let Some((bush_entity, target_pos)) = best_bush {
-                // Try to claim the resource
-                if let Ok((_, _, mut resource)) = berry_bushes.get_mut(bush_entity) {
-                    if resource.try_claim(entity) {
-                        claimed_resource.claim(bush_entity);
 
-                        // Find an adjacent tile to move to (not the resource's tile itself)
-                        let adjacent_positions = target_pos.get_adjacent();
-                        let walkable_adjacent = adjacent_positions.into_iter()
-                            .filter(|pos| {
-                                pos.x < 64 && pos.y < 64 &&
-                                world_map.tiles[pos.y as usize][pos.x as usize].is_walkable() &&
-                                !obstacles.contains(&(pos.x as i32, pos.y as i32))
-                            })
-                            .min_by_key(|pos| pos.distance_to(&grid_pos));
+            // Sort by distance (closest first)
+            available_bushes.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
 
-                        if let Some(adjacent_target) = walkable_adjacent {
-                            movement.set_target_from_with_pathfinding(&grid_pos, adjacent_target.clone(), &obstacles);
+            // Try to claim bushes atomically, starting with the closest
+            for (bush_entity, target_pos, distance) in available_bushes.iter() {
+                if attempt_count >= MAX_CLAIM_ATTEMPTS {
+                    break;
+                }
+                attempt_count += 1;
+
+                // Try to claim the resource atomically with timeout
+                if let Ok((_, _, mut resource)) = berry_bushes.get_mut(*bush_entity) {
+                    // Clean up expired claims and try to claim
+                    if !resource.try_claim_with_timeout(entity, sim_state.tick) {
+                        // Claim failed, try next resource
+                        debug.log(
+                            DebugLevel::Debug,
+                            "CLAIM_FAILED",
+                            &format!(
+                                "{} failed to claim berry bush at ({},{}) - already has {}/{} workers",
+                                name.name, target_pos.x, target_pos.y,
+                                resource.claim_count(), resource.max_workers
+                            ),
+                        );
+                        continue;
+                    }
+
+                    // Claim succeeded! Now find a path to an adjacent position
+                    let adjacent_positions = target_pos.get_adjacent();
+                    let mut found_valid_path = false;
+
+                    for adj_pos in adjacent_positions {
+                        // Check if adjacent position is walkable
+                        if adj_pos.x >= 64 || adj_pos.y >= 64 {
+                            continue;
+                        }
+
+                        if !world_map.tiles[adj_pos.y as usize][adj_pos.x as usize].is_walkable() {
+                            continue;
+                        }
+
+                        if obstacles.contains(&(adj_pos.x as i32, adj_pos.y as i32)) {
+                            continue;
+                        }
+
+                        // Try to find path to this adjacent position
+                        movement.set_target_from_with_pathfinding(&grid_pos, adj_pos.clone(), &obstacles);
+
+                        // Check if a path was actually found (movement is now active)
+                        if movement.is_moving {
+                            // Successfully claimed and found path!
+                            claimed_resource.claim(*bush_entity);
                             *mind = UnitMind::GoingThere {
                                 destination: format!("berry bush at ({},{})", target_pos.x, target_pos.y)
                             };
-                        } else {
-                            // No walkable adjacent tiles - release claim
-                            resource.release_claim(entity);
-                            claimed_resource.release();
-                            continue; // Skip to next unit
+
+                            debug.log(
+                                DebugLevel::Info,
+                                "CLAIM_SUCCESS",
+                                &format!(
+                                    "{} successfully claimed berry bush at ({},{}) - now has {}/{} workers",
+                                    name.name, target_pos.x, target_pos.y,
+                                    resource.claim_count(), resource.max_workers
+                                ),
+                            );
+
+                            println!(
+                                "{} {} claimed food at ({},{}) [workers: {}/{}]",
+                                "🎯".green(),
+                                name.name.yellow(),
+                                target_pos.x,
+                                target_pos.y,
+                                resource.claim_count(),
+                                resource.max_workers
+                            );
+
+                            found_valid_path = true;
+                            successfully_claimed = true;
+                            break;
                         }
-                        
+                    }
+
+                    if found_valid_path {
+                        break; // Exit the resource loop
+                    } else {
+                        // Could not find path to resource, release the claim
+                        resource.release_claim(entity);
                         debug.log(
-                            DebugLevel::Info,
-                            "FOOD_SEARCH",
+                            DebugLevel::Debug,
+                            "CLAIM_RELEASED_NO_PATH",
                             &format!(
-                                "{} found and claimed berry bush at ({},{}) - moving there",
+                                "{} released claim on berry bush at ({},{}) - no valid path",
                                 name.name, target_pos.x, target_pos.y
                             ),
                         );
-                        
-                        println!(
-                            "{} {} found food at ({},{}) and is moving there",
-                            "🎯".green(),
-                            name.name.yellow(),
-                            target_pos.x,
-                            target_pos.y
-                        );
                     }
                 }
-            } else {
-                // No available bushes - go back to idle
-                *mind = UnitMind::Idle;
-                debug.log(
-                    DebugLevel::Debug,
-                    "NO_FOOD_FOUND",
-                    &format!("{} couldn't find any available berry bushes", name.name),
-                );
+            }
+
+            // If we couldn't claim any resource after trying multiple times
+            if !successfully_claimed {
+                if attempt_count >= MAX_CLAIM_ATTEMPTS {
+                    // Tried maximum resources but couldn't claim any
+                    *mind = UnitMind::Idle;
+                    debug.log(
+                        DebugLevel::Debug,
+                        "NO_CLAIMABLE_RESOURCES",
+                        &format!(
+                            "{} couldn't claim any berry bushes after {} attempts",
+                            name.name, attempt_count
+                        ),
+                    );
+                } else {
+                    // No available bushes at all
+                    *mind = UnitMind::Idle;
+                    debug.log(
+                        DebugLevel::Debug,
+                        "NO_FOOD_FOUND",
+                        &format!("{} couldn't find any available berry bushes", name.name),
+                    );
+                }
             }
         } else {
             // Has food in inventory - go back to idle
