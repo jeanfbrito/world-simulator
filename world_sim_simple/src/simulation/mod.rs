@@ -79,7 +79,7 @@ fn tick_accumulator_system(
 }
 
 /// System that runs the appropriate number of simulation ticks
-fn run_simulation_ticks(
+pub fn run_simulation_ticks(
     time: Res<Time>,
     mut accumulator: ResMut<TickAccumulator>,
     mut tick_state: ResMut<SimulationTickState>,

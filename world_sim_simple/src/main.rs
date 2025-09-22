@@ -11,8 +11,10 @@ use std::collections::HashMap;
 #[path = "debug/ai_monitor.rs"]
 mod ai_monitor;
 mod debug;
+mod ipc_output;
 mod legacy_simulation;
 mod simulation;
+#[cfg(feature = "websocket")]
 mod websocket;
 // // mod debug_cli; // Disabled for headless operation
 mod ai;
@@ -36,6 +38,7 @@ use ai::AIPlugin;
 use buildings::{BuildingComponent, BuildingType, BuildingsPlugin};
 use components::{ComponentsPlugin, NameComponent, PositionComponent};
 use crafting::CraftingPlugin;
+use ipc_output::{IpcOutputPlugin, IpcOutputConfig};
 use packs::{PackSystemPlugin, Registry};
 use performance::PerformancePlugin;
 use plugin::{plugin_init_system, PluginManager};
@@ -45,6 +48,7 @@ use save_load::SaveLoadPlugin;
 use spawning::SpawningPlugin;
 use systems::SystemsPlugin;
 use tilemap::TilemapPlugin;
+#[cfg(feature = "websocket")]
 use websocket::WebSocketPlugin;
 
 // Import the new tick-based simulation module
@@ -61,45 +65,52 @@ fn main() {
 
     println!("📦 Initializing Bevy App...");
 
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: None,
             exit_condition: bevy::window::ExitCondition::DontExit,
             close_when_requested: false,
-        })) // Use DefaultPlugins for proper time support but disable window
+        })); // Use DefaultPlugins for proper time support but disable window
         // Removed EguiPlugin for headless operation
         // .add_plugins(DogoapPlugin) // Temporarily disabled for testing
-        .add_plugins(simulation::TickSimulationPlugin) // Enable the new tick event system
-        .add_plugins(WebSocketPlugin) // Re-enabled for web viewer
-        .add_plugins(DebugPlugin)
-        .add_plugins(ComponentsPlugin)
-        .add_plugins(PackSystemPlugin) // Load data-driven content
-        .init_resource::<PluginManager>()
-        .add_plugins(WorldPlugin)
-        .add_plugins(SimPlugin)
-        .add_plugins(TilemapPlugin)
-        .add_plugins(ResourcesPlugin)
-        .add_plugins(BuildingsPlugin)
-        .add_plugins(CraftingPlugin)
-        .add_plugins(AIPlugin)
-        .add_plugins(SaveLoadPlugin)
-        .add_plugins(PerformancePlugin)
-        .add_plugins(SpawningPlugin)
-        .add_plugins(SystemsPlugin)  // Add the new systems plugin (includes work systems)
+        app.add_plugins(simulation::TickSimulationPlugin); // Enable the new tick event system
+        app.add_plugins(IpcOutputPlugin); // IPC output for headless communication
+        app.add_plugins(DebugPlugin);
+        app.add_plugins(ComponentsPlugin);
+        app.add_plugins(PackSystemPlugin); // Load data-driven content
+        app.init_resource::<PluginManager>();
+        app.add_plugins(WorldPlugin);
+        app.add_plugins(SimPlugin);
+        app.add_plugins(TilemapPlugin);
+        app.add_plugins(ResourcesPlugin);
+        app.add_plugins(BuildingsPlugin);
+        app.add_plugins(CraftingPlugin);
+        app.add_plugins(AIPlugin);
+        app.add_plugins(SaveLoadPlugin);
+        app.add_plugins(PerformancePlugin);
+        app.add_plugins(SpawningPlugin);
+        app.add_plugins(SystemsPlugin);  // Add the new systems plugin (includes work systems)
         // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
-        .init_resource::<WorldMap>()
-        .init_resource::<SimulationState>()
+        app.init_resource::<WorldMap>();
+        app.init_resource::<SimulationState>();
         // Removed SelectedTile resource initialization for headless operation
-        .add_systems(Startup, setup)
-        .add_systems(PostStartup, plugin_init_system)
+        app.add_systems(Startup, setup);
+        app.add_systems(PostStartup, plugin_init_system);
         // Removed UI systems for headless operation
-        .add_systems(Update, (
+        app.add_systems(Update, (
             // Simulation systems (can run in parallel) - headless mode
             // simulation_system, // Disabled - using new TickSimulationPlugin
             ai_monitor::simple_ai_monitor_system,
         ))
         // .add_systems(PostUpdate, reset_tick_flag_system) // Not needed with new tick system
-        .run();
+        ;
+
+    #[cfg(feature = "websocket")]
+    {
+        app.add_plugins(WebSocketPlugin);
+    }
+
+    app.run();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

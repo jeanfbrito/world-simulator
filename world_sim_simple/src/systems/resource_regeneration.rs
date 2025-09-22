@@ -45,7 +45,7 @@ pub fn resource_regeneration_system(
             // Send event
             regen_events.send(ResourceRegeneratedEvent {
                 entity,
-                resource_type: resource.resource_type,
+                resource_type: resource.resource_type.clone(),
                 old_amount,
                 new_amount: resource.amount,
                 is_full_respawn,
@@ -145,7 +145,7 @@ pub fn resource_harvest_system(
 
                 depletion_events.send(ResourceDepletedEvent {
                     entity,
-                    resource_type: resource.resource_type,
+                    resource_type: resource.resource_type.clone(),
                     harvester: None, // Would be set by harvesting system
                 });
 
@@ -338,7 +338,7 @@ pub fn resource_status_display_system(
         std::collections::HashMap::new();
 
     for (resource, _, _) in resources.iter() {
-        let entry = by_type.entry(resource.resource_type).or_insert((0, 0));
+        let entry = by_type.entry(resource.resource_type.clone()).or_insert((0, 0));
         entry.0 += resource.amount;
         entry.1 += resource.max_amount;
     }

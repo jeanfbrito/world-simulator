@@ -61,7 +61,7 @@ pub fn resource_growth_system(
                 );
                 events.send(ResourceGrowthEvent {
                     entity,
-                    resource_type: growing.resource_type,
+                    resource_type: growing.resource_type.clone(),
                     update: update.clone(),
                     new_amount: growing.current_amount,
                 });
@@ -74,7 +74,7 @@ pub fn resource_growth_system(
                 );
                 events.send(ResourceGrowthEvent {
                     entity,
-                    resource_type: growing.resource_type,
+                    resource_type: growing.resource_type.clone(),
                     update: update.clone(),
                     new_amount: growing.current_amount,
                 });
@@ -87,7 +87,7 @@ pub fn resource_growth_system(
                 );
                 events.send(ResourceGrowthEvent {
                     entity,
-                    resource_type: growing.resource_type,
+                    resource_type: growing.resource_type.clone(),
                     update: update.clone(),
                     new_amount: growing.current_amount,
                 });
@@ -100,7 +100,7 @@ pub fn resource_growth_system(
                 );
                 events.send(ResourceGrowthEvent {
                     entity,
-                    resource_type: growing.resource_type,
+                    resource_type: growing.resource_type.clone(),
                     update: update.clone(),
                     new_amount: growing.current_amount,
                 });
@@ -113,7 +113,7 @@ pub fn resource_growth_system(
                 );
                 events.send(ResourceGrowthEvent {
                     entity,
-                    resource_type: growing.resource_type,
+                    resource_type: growing.resource_type.clone(),
                     update: update.clone(),
                     new_amount: growing.current_amount,
                 });

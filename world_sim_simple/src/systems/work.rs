@@ -259,7 +259,7 @@ fn handle_work_completion(
                     inventory.items
                 );
 
-                let added = inventory.add_item(resource_work.resource_type, actual_harvest_amount);
+                let added = inventory.add_item(resource_work.resource_type.clone(), actual_harvest_amount);
 
                 if added {
                     println!(
@@ -437,7 +437,7 @@ pub fn auto_gather_system(
                     // Adjacent to resource, queue gathering work
                     let work = QueuedWork {
                         work_type: WorkType::Gathering(ResourceWork {
-                            resource_type: resource_node.resource_type,
+                            resource_type: resource_node.resource_type.clone(),
                             amount: resource_node.yield_amount,
                             tool_bonus: 1.0,
                         }),

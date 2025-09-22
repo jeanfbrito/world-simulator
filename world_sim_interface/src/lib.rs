@@ -10,6 +10,7 @@ pub mod observer;
 pub mod results;
 pub mod state;
 pub mod types;
+pub mod ipc;
 
 // Re-export commonly used types at the crate root
 pub use commands::EngineCommand;
@@ -22,3 +23,7 @@ pub use observer::EngineObserver;
 pub use results::{CommandResult, WorldConfig};
 pub use state::{EntitySnapshot, GlobalState, SettlementSnapshot, WorldSnapshot};
 pub use types::{EntityId, PlayerId, Position, SettlementId, Tick};
+pub use ipc::{
+    IpcMessage, MessagePayload, IpcError, PackMetadata, VisualRegistry,
+    TileVisual, EntityVisual, UITheme, AnimationData, VariantSelector,
+};

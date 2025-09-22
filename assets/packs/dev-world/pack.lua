@@ -1,7 +1,7 @@
 -- Dev World Pack Metadata
 -- This is the base game content pack containing all standard resources, items, recipes, and entities
 
-return {
+pack_metadata = {
     id = "dev-world",
     name = "Development World",
     version = "0.1.0",

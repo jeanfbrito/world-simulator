@@ -64,15 +64,15 @@ pub fn storage_deposit_system(
                 }
 
                 let old_amount = storage.get_amount(&resource_type);
-                let deposited_amount = storage.deposit(resource_type, amount);
+                let deposited_amount = storage.deposit(resource_type.clone(), amount);
 
                 if deposited_amount > 0 {
-                    inventory.remove_item(resource_type, deposited_amount);
+                    inventory.remove_item(resource_type.clone(), deposited_amount);
 
                     // Send event
                     events.send(StorageChangedEvent {
                         storage_entity,
-                        resource_type,
+                        resource_type: resource_type.clone(),
                         old_amount,
                         new_amount: old_amount + deposited_amount,
                         change_type: StorageChangeType::Deposit,
@@ -145,7 +145,7 @@ pub fn storage_withdrawal_system(
                 .stored
                 .iter()
                 .filter(|(_, &amount)| amount > 0)
-                .map(|(k, v)| (*k, *v))
+                .map(|(k, v)| (k.clone(), *v))
                 .collect();
 
             for (resource_type, stored_amount) in available_resources {
@@ -155,15 +155,15 @@ pub fn storage_withdrawal_system(
 
                 if withdraw_amount > 0 {
                     let old_amount = stored_amount;
-                    let withdrawn = storage.withdraw(resource_type, withdraw_amount);
+                    let withdrawn = storage.withdraw(resource_type.clone(), withdraw_amount);
 
                     if withdrawn > 0 {
-                        inventory.add_item(resource_type, withdrawn);
+                        inventory.add_item(resource_type.clone(), withdrawn);
 
                         // Send event
                         events.send(StorageChangedEvent {
                             storage_entity,
-                            resource_type,
+                            resource_type: resource_type.clone(),
                             old_amount,
                             new_amount: old_amount - withdrawn,
                             change_type: StorageChangeType::Withdrawal,
@@ -254,9 +254,9 @@ pub fn storage_task_assignment_system(
                 .get_all_resources()
                 .iter()
                 .max_by_key(|(_, amt)| *amt)
-                .map(|(t, a)| (*t, *a))
+                .map(|(t, a)| (t.clone(), *a))
             {
-                *task = StorageTask::new(target_entity, resource_type, amount);
+                *task = StorageTask::new(target_entity, resource_type.clone(), amount);
 
                 debug.log(
                     DebugLevel::Info,

@@ -47,7 +47,7 @@ pub fn resource_harvesting_system(
                         if !work_progress.is_working {
                             // Start new harvesting work
                             let work_type = WorkType::Gathering(ResourceWork {
-                                resource_type: resource.resource_type,
+                                resource_type: resource.resource_type.clone(),
                                 amount: resource.yield_amount.min(resource.amount),
                                 tool_bonus: 1.0, // TODO: Check for tools
                             });
@@ -75,7 +75,7 @@ pub fn resource_harvesting_system(
                                 let amount_to_harvest = work.amount.min(resource.amount);
                                 
                                 // Try to add to inventory
-                                if inventory.add_item(work.resource_type, amount_to_harvest) {
+                                if inventory.add_item(work.resource_type.clone(), amount_to_harvest) {
                                     // Remove from resource node
                                     resource.amount -= amount_to_harvest;
                                     
@@ -87,7 +87,7 @@ pub fn resource_harvesting_system(
                                             name.name, 
                                             amount_to_harvest,
                                             work.resource_type,
-                                            inventory.get_amount(work.resource_type)
+                                            inventory.get_amount(work.resource_type.clone())
                                         ),
                                     );
                                     
@@ -97,7 +97,7 @@ pub fn resource_harvesting_system(
                                         name.name.green(),
                                         amount_to_harvest,
                                         work.resource_type,
-                                        inventory.get_amount(work.resource_type)
+                                        inventory.get_amount(work.resource_type.clone())
                                     );
                                     
                                     // Check if should continue harvesting or stop
