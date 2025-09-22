@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Simulator Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+
+        #status {
+            background-color: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        #viewer {
+            width: 100%;
+            height: 600px;
+            background-color: #000;
+            border: 2px solid #444;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            font-size: 16px;
+            line-height: 1.2;
+        }
+
+        .tile {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            text-align: center;
+            vertical-align: top;
+            border: 1px solid #333;
+        }
+
+        .entity {
+            position: absolute;
+            font-size: 16px;
+            z-index: 10;
+        }
+
+        #log {
+            background-color: #222;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .connected { color: #4CAF50; }
+        .disconnected { color: #F44336; }
+        .connecting { color: #FF9800; }
+
+        #controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        #info {
+            background-color: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 World Simulator Viewer</h1>
+
+    <div id="status">
+        <span id="connection-status" class="disconnected">Disconnected</span>
+        <span id="viewer-port"></span>
+    </div>
+
+    <div id="info">
+        <div><strong>WebSocket:</strong> <span id="ws-url"></span></div>
+        <div><strong>Pack:</strong> <span id="pack-info">Loading...</span></div>
+        <div><strong>Entities:</strong> <span id="entity-count">0</span></div>
+        <div><strong>Tiles:</strong> <span id="tile-count">0</span></div>
+    </div>
+
+    <div id="controls">
+        <button id="connect-btn" onclick="connectWebSocket()">Connect</button>
+        <button id="disconnect-btn" onclick="disconnectWebSocket()" disabled>Disconnect</button>
+        <button id="clear-btn" onclick="clearViewer()">Clear</button>
+        <button id="toggle-log-btn" onclick="toggleLog()">Toggle Log</button>
+    </div>
+
+    <div id="viewer">
+        <div style="text-align: center; padding-top: 250px; color: #666;">
+            Connect to WebSocket to start simulation
+        </div>
+    </div>
+
+    <div id="log" style="display: none;"></div>
+
+    <script>
+        let ws = null;
+        let viewerState = {
+            tiles: {},
+            entities: {},
+            packData: null,
+            connected: false
+        };
+
+        // Configuration
+        const DEFAULT_PORT = 11722;
+        const wsUrl = `ws://localhost:${window.location.port || DEFAULT_PORT}`;
+
+        // Initialize
+        document.getElementById('ws-url').textContent = wsUrl;
+        document.getElementById('viewer-port').textContent = `Port: ${window.location.port || DEFAULT_PORT}`;
+
+        function updateStatus(status, className) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.textContent = status;
+            statusEl.className = className;
+        }
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            updateStatus('Connecting...', 'connecting');
+            addLog('Connecting to WebSocket...');
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function() {
+                    updateStatus('Connected', 'connected');
+                    addLog('WebSocket connected', 'success');
+                    document.getElementById('connect-btn').disabled = true;
+                    document.getElementById('disconnect-btn').disabled = false;
+                    viewerState.connected = true;
+
+                    // Request initial state
+                    ws.send(JSON.stringify({ type: 'get_state' }));
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (e) {
+                        addLog(`Failed to parse message: ${e.message}`, 'error');
+                    }
+                };
+
+                ws.onclose = function() {
+                    updateStatus('Disconnected', 'disconnected');
+                    addLog('WebSocket disconnected', 'error');
+                    document.getElementById('connect-btn').disabled = false;
+                    document.getElementById('disconnect-btn').disabled = true;
+                    viewerState.connected = false;
+                };
+
+                ws.onerror = function(error) {
+                    updateStatus('Error', 'disconnected');
+                    addLog(`WebSocket error: ${error}`, 'error');
+                };
+
+            } catch (e) {
+                updateStatus('Connection Failed', 'disconnected');
+                addLog(`Failed to connect: ${e.message}`, 'error');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handleWebSocketMessage(data) {
+            addLog(`Received: ${data.type}`, 'debug');
+
+            switch (data.type) {
+                case 'pack_definitions':
+                    handlePackDefinitions(data);
+                    break;
+                case 'world_update':
+                    handleWorldUpdate(data);
+                    break;
+                case 'entity_update':
+                    handleEntityUpdate(data);
+                    break;
+                case 'tile_update':
+                    handleTileUpdate(data);
+                    break;
+                case 'simulation_state':
+                    handleSimulationState(data);
+                    break;
+                default:
+                    addLog(`Unknown message type: ${data.type}`, 'warn');
+            }
+        }
+
+        function handlePackDefinitions(data) {
+            viewerState.packData = data;
+            document.getElementById('pack-info').textContent = data.pack?.name || 'Unknown';
+            addLog(`Loaded pack: ${data.pack?.name || 'Unknown'}`, 'success');
+
+            // Update tile and entity counts
+            if (data.visuals) {
+                document.getElementById('tile-count').textContent = Object.keys(data.visuals.tiles || {}).length;
+                document.getElementById('entity-count').textContent = Object.keys(data.visuals.entities || {}).length;
+            }
+        }
+
+        function handleWorldUpdate(data) {
+            if (data.tiles) {
+                viewerState.tiles = data.tiles;
+                renderWorld();
+            }
+
+            if (data.entities) {
+                viewerState.entities = data.entities;
+                renderEntities();
+            }
+        }
+
+        function handleEntityUpdate(data) {
+            viewerState.entities[data.id] = data;
+            renderEntities();
+        }
+
+        function handleTileUpdate(data) {
+            viewerState.tiles[data.key] = data;
+            renderWorld();
+        }
+
+        function handleSimulationState(data) {
+            // Update simulation statistics
+            if (data.stats) {
+                document.getElementById('entity-count').textContent = data.stats.entities || 0;
+            }
+        }
+
+        function renderWorld() {
+            const viewer = document.getElementById('viewer');
+
+            // Clear previous world rendering
+            const existingTiles = viewer.querySelectorAll('.tile-row');
+            existingTiles.forEach(row => row.remove());
+
+            // Render tiles
+            Object.entries(viewerState.tiles).forEach(([key, tile]) => {
+                const [x, y] = key.split(',').map(Number);
+
+                // Find or create row
+                let row = viewer.querySelector(`.tile-row[data-y="${y}"]`);
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'tile-row';
+                    row.dataset.y = y;
+                    row.style.position = 'absolute';
+                    row.style.top = `${y * 20}px`;
+                    row.style.left = '0px';
+                    viewer.appendChild(row);
+                }
+
+                // Create tile element
+                const tileEl = document.createElement('div');
+                tileEl.className = 'tile';
+                tileEl.style.position = 'absolute';
+                tileEl.style.left = `${x * 20}px`;
+                tileEl.style.top = '0px';
+
+                // Get tile visual
+                let visual = '?';
+                if (viewerState.packData && viewerState.packData.visuals && viewerState.packData.visuals.tiles[tile.type]) {
+                    visual = viewerState.packData.visuals.tiles[tile.type].emoji || '?';
+                }
+
+                tileEl.textContent = visual;
+                tileEl.title = `${tile.type} (${x}, ${y})`;
+                row.appendChild(tileEl);
+            });
+        }
+
+        function renderEntities() {
+            const viewer = document.getElementById('viewer');
+
+            // Clear previous entities
+            const existingEntities = viewer.querySelectorAll('.entity');
+            existingEntities.forEach(entity => entity.remove());
+
+            // Render entities
+            Object.entries(viewerState.entities).forEach(([id, entity]) => {
+                const entityEl = document.createElement('div');
+                entityEl.className = 'entity';
+                entityEl.id = `entity-${id}`;
+                entityEl.style.left = `${entity.x * 20}px`;
+                entityEl.style.top = `${entity.y * 20}px`;
+
+                // Get entity visual
+                let visual = '?';
+                if (viewerState.packData && viewerState.packData.visuals && viewerState.packData.visuals.entities[entity.type]) {
+                    visual = viewerState.packData.visuals.entities[entity.type].emoji || '?';
+                }
+
+                entityEl.textContent = visual;
+                entityEl.title = `${entity.type} at (${entity.x}, ${entity.y})`;
+                viewer.appendChild(entityEl);
+            });
+        }
+
+        function clearViewer() {
+            viewerState.tiles = {};
+            viewerState.entities = {};
+
+            const viewer = document.getElementById('viewer');
+            viewer.innerHTML = '<div style="text-align: center; padding-top: 250px; color: #666;">Viewer cleared. Connect to WebSocket to start simulation.</div>';
+
+            addLog('Viewer cleared');
+        }
+
+        function toggleLog() {
+            const log = document.getElementById('log');
+            log.style.display = log.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                connectWebSocket();
+            }, 1000);
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !viewerState.connected) {
+                connectWebSocket();
+            }
+        });
+    </script>
+</body>
+</html>
