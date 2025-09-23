@@ -88,7 +88,7 @@ fn main() {
         app.add_plugins(AIPlugin);
         app.add_plugins(SaveLoadPlugin);
         app.add_plugins(PerformancePlugin);
-        app.add_plugins(SpawningPlugin);
+        // SpawningPlugin disabled - using pack-based entity spawning via SystemsPlugin
         app.add_plugins(SystemsPlugin);  // Add the new systems plugin (includes work systems)
         // .add_plugins(ScriptingPlugin) // Disabled for headless operation - requires Diagnostics resource
         app.init_resource::<WorldMap>();
