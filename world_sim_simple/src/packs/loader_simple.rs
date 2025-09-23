@@ -477,9 +477,43 @@ fn parse_entity_spawn_config(table: &LuaTable) -> LuaResult<super::EntitySpawnCo
             max_y: t.get("max_y")?,
         })).transpose()?;
 
+    // Parse biome and terrain preferences
+    let preferred_terrain = table.get::<_, Option<Vec<String>>>("preferred_terrain").ok()
+        .flatten();
+    let avoided_terrain = table.get::<_, Option<Vec<String>>>("avoided_terrain").ok()
+        .flatten();
+    let preferred_biomes = table.get::<_, Option<Vec<String>>>("preferred_biomes").ok()
+        .flatten();
+    let min_fertility = table.get::<_, Option<f32>>("min_fertility").ok()
+        .flatten();
+    let max_elevation = table.get::<_, Option<f32>>("max_elevation").ok()
+        .flatten();
+
+    // Parse optional ranges
+    let moisture_range = table.get::<_, Option<LuaTable>>("moisture_range").ok()
+        .flatten()
+        .map(|t| Ok(super::SpawnRange {
+            min: t.get("min")?,
+            max: t.get("max")?,
+        })).transpose()?;
+
+    let temperature_range = table.get::<_, Option<LuaTable>>("temperature_range").ok()
+        .flatten()
+        .map(|t| Ok(super::SpawnRange {
+            min: t.get("min")?,
+            max: t.get("max")?,
+        })).transpose()?;
+
     Ok(super::EntitySpawnConfig {
         initial_count: table.get("initial_count").ok(),
         spawn_area,
         require_walkable: table.get("require_walkable").ok(),
+        preferred_terrain,
+        avoided_terrain,
+        preferred_biomes,
+        min_fertility,
+        max_elevation,
+        moisture_range,
+        temperature_range,
     })
 }

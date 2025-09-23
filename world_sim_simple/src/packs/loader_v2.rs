@@ -497,5 +497,24 @@ fn parse_entity_spawn_config(table: &LuaTable) -> LuaResult<super::EntitySpawnCo
         initial_count: table.get("initial_count").ok(),
         spawn_area,
         require_walkable: table.get("require_walkable").ok(),
+        preferred_terrain: table.get("preferred_terrain").ok(),
+        avoided_terrain: table.get("avoided_terrain").ok(),
+        preferred_biomes: table.get("preferred_biomes").ok(),
+        min_fertility: table.get("min_fertility").ok(),
+        max_elevation: table.get("max_elevation").ok(),
+        moisture_range: table.get::<Option<LuaTable>>("moisture_range").ok()
+            .flatten()
+            .and_then(|t| parse_spawn_range(&t).ok()),
+        temperature_range: table.get::<Option<LuaTable>>("temperature_range").ok()
+            .flatten()
+            .and_then(|t| parse_spawn_range(&t).ok()),
+    })
+}
+
+/// Parse spawn range from Lua table
+fn parse_spawn_range(table: &LuaTable) -> LuaResult<super::SpawnRange> {
+    Ok(super::SpawnRange {
+        min: table.get("min")?,
+        max: table.get("max")?,
     })
 }

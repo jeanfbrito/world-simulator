@@ -325,23 +325,22 @@ pub fn handle_wander_action(
 // Function to find the closest unclaimed berry bush
 pub fn find_closest_unclaimed_berry_bush(
     unit_pos: &crate::components::grid_position::GridPosition,
-    berry_bush_query: &Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    berry_bush_query: &mut Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
     current_tick: u32,
 ) -> Option<(Entity, crate::components::grid_position::GridPosition, u32)> {
     let mut closest = None;
     let mut min_distance = u32::MAX;
 
-    for (entity, bush_pos, resource_node) in berry_bush_query.iter() {
+    for (entity, bush_pos, mut resource_node) in berry_bush_query.iter_mut() {
         // Check if bush has berries
         if resource_node.amount == 0 {
             continue;
         }
 
-        // Check if bush is already fully claimed (using resource's internal claims)
-        // First cleanup expired claims, then check if it's fully claimed
-        let mut resource_mut = resource_node.clone();
-        resource_mut.cleanup_expired_claims(current_tick);
-        if resource_mut.is_fully_claimed() {
+        // Check if bush is already fully claimed (using actual resource state)
+        // Cleanup expired claims first, then check if it's fully claimed
+        resource_node.cleanup_expired_claims(current_tick);
+        if resource_node.is_fully_claimed() {
             continue;
         }
 
@@ -365,7 +364,7 @@ pub fn assign_resource_targets(
         &crate::components::grid_position::GridPosition,
         &crate::components::NameComponent,
     ), Without<crate::components::ClaimedResource>>,
-    berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
+    mut berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
     debug: Res<DebugSystem>,
 ) {
     // Only update on simulation ticks
@@ -381,7 +380,7 @@ pub fn assign_resource_targets(
 
         // Use the new function to find the closest unclaimed berry bush
         if let Some((bush_entity, bush_pos, distance)) =
-            find_closest_unclaimed_berry_bush(unit_pos, &berry_bush_query, sim_state.tick) {
+            find_closest_unclaimed_berry_bush(unit_pos, &mut berry_bush_query, sim_state.tick) {
 
             action.target = Some(bush_entity);
             debug.log(DebugLevel::Info, "ASSIGN_TARGET",
@@ -406,13 +405,10 @@ pub fn handle_move_to_resource_action(
         &crate::components::grid_position::GridPosition,
         &mut crate::components::grid_position::GridMovement,
         &mut crate::components::UnitMind,
-        &mut crate::components::ClaimedResource,
+        Option<&mut crate::components::ClaimedResource>,
         &crate::components::NameComponent,
     )>,
-    mut berry_bush_queries: ParamSet<(
-        Query<(Entity, &crate::components::grid_position::GridPosition, &crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
-        Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
-    )>,
+    mut berry_bush_query: Query<(Entity, &crate::components::grid_position::GridPosition, &mut crate::components::resource::ResourceNode), With<crate::ai::BerryBushTag>>,
     mut planner_query: Query<&mut Planner>,
     debug: Res<DebugSystem>,
 ) {
@@ -420,18 +416,14 @@ pub fn handle_move_to_resource_action(
         return;
     }
 
-    for (entity, mut action, grid_pos, mut movement, mut mind, mut claimed_resource, name) in query.iter_mut() {
+    for (entity, mut action, grid_pos, mut movement, mut mind, claimed_resource, name) in query.iter_mut() {
         if !action.started {
             // PHASE 1: Find and claim a berry bush atomically
-            // First, find the closest unclaimed bush using the immutable query
-            let closest_bush = {
-                let berry_bush_query_immutable = berry_bush_queries.p0();
-                find_closest_unclaimed_berry_bush(grid_pos, &berry_bush_query_immutable, sim_state.tick)
-            };
+            // Find the closest unclaimed bush using the mutable query
+            let closest_bush = find_closest_unclaimed_berry_bush(grid_pos, &mut berry_bush_query, sim_state.tick);
 
             if let Some((bush_entity, bush_pos, distance)) = closest_bush {
                 // Try to claim the resource directly (it tracks its own claims)
-                let mut berry_bush_query = berry_bush_queries.p1();
                 if let Ok((_, _, mut resource)) = berry_bush_query.get_mut(bush_entity) {
                     if resource.try_claim_with_timeout(entity, sim_state.tick) {
                         // SUCCESS: We have exclusive claim
@@ -446,8 +438,15 @@ pub fn handle_move_to_resource_action(
                         action.target_entity = Some(bush_entity);
                         action.target = Some(bush_entity);
 
-                        // Update local claimed resource
-                        claimed_resource.claim_with_position(bush_entity, (bush_pos.x, bush_pos.y));
+                        // Update or add claimed resource component
+                        if let Some(mut claimed_res) = claimed_resource {
+                            claimed_res.claim_with_position(bush_entity, (bush_pos.x, bush_pos.y));
+                        } else {
+                            // Add ClaimedResource component if not present
+                            let mut claimed_res = crate::components::ClaimedResource::new();
+                            claimed_res.claim_with_position(bush_entity, (bush_pos.x, bush_pos.y));
+                            commands.entity(entity).insert(claimed_res);
+                        }
 
                         // Set mind state
                         *mind = crate::components::UnitMind::GoingThere {
@@ -486,15 +485,16 @@ pub fn handle_move_to_resource_action(
             // PHASE 3: Validate that our claim is still valid
             if let Some(target_entity) = action.target_entity {
                 // Check if the resource still has our claim
-                let berry_bush_query_immutable = berry_bush_queries.p0();
-                if let Ok((_, _, resource)) = berry_bush_query_immutable.get(target_entity) {
+                if let Ok((_, _, resource)) = berry_bush_query.get(target_entity) {
                     if !resource.is_claimed_by(entity) {
                         // Our claim was lost somehow (expired?), replan
                         debug.log(DebugLevel::Warn, "CLAIM_LOST",
                             &format!("{} lost claim to berry bush {:?} - replanning", name.name, target_entity));
 
                         // Release local tracking
-                        claimed_resource.release();
+                        if let Some(mut claimed_res) = claimed_resource {
+                            claimed_res.release();
+                        }
 
                         commands.entity(entity).remove::<MoveToResourceAction>();
                         if let Ok(mut planner) = planner_query.get_mut(entity) {
@@ -1048,7 +1048,7 @@ impl Plugin for BevyDogoapPlugin {
                 handle_nap_action,              // Handle nap action for energy recovery
                 handle_gather_food_action,
                 handle_wander_action,
-                assign_resource_targets,        // Assign targets to MoveToResourceAction
+                // Removed: assign_resource_targets - now handled atomically in handle_move_to_resource_action
                 handle_move_to_resource_action,
                 // Cleanup systems for global resource claims
                 refresh_resource_claims,        // Refresh claims for units in transit

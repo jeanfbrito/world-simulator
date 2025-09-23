@@ -373,6 +373,9 @@
     </div>
     
     <script>
+        // Cache busting to ensure latest version loads
+        console.log('Loading World Simulator Viewer v1.0.1');
+
         // Configuration
         const TILE_SIZE = 12;
         const MAP_SIZE = 64;
@@ -439,8 +442,13 @@
             };
             
             ws.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                handleMessage(msg);
+                try {
+                    const msg = JSON.parse(event.data);
+                    console.log('Raw WebSocket message:', msg);
+                    handleMessage(msg);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data);
+                }
             };
             
             ws.onclose = () => {
@@ -464,21 +472,32 @@
 
                 case 'GameState':
                     console.log('GameState message received:', msg);
-                    console.log('GameState payload:', msg.payload);
-                    console.log('GameState state:', msg.state);
 
-                    // Handle both new IPC format (payload.data) and old WebSocket format (state)
+                    // Handle multiple possible GameState formats
                     let gameStateData = null;
+
                     if (msg.payload && msg.payload.data) {
-                        // New IPC format from simulator
+                        // New IPC format: msg.payload.data
                         gameStateData = msg.payload.data;
-                        console.log('Using new IPC format');
+                        console.log('Using new IPC format (payload.data)');
+                    } else if (msg.payload && msg.payload.state) {
+                        // Alternative format: msg.payload.state
+                        gameStateData = msg.payload.state;
+                        console.log('Using alternative format (payload.state)');
                     } else if (msg.state) {
-                        // Old WebSocket format from viewer
+                        // Direct format: msg.state
                         gameStateData = msg.state;
-                        console.log('Using old WebSocket format');
+                        console.log('Using direct format (msg.state)');
+                    } else if (msg.data) {
+                        // Another format: msg.data
+                        gameStateData = msg.data;
+                        console.log('Using direct data format (msg.data)');
+                    } else if (msg.payload) {
+                        // Payload itself might be the game state
+                        gameStateData = msg.payload;
+                        console.log('Using payload as game state');
                     } else {
-                        console.error('GameState data is undefined!', msg);
+                        console.error('GameState data is undefined! Available properties:', Object.keys(msg));
                         break;
                     }
 
@@ -488,22 +507,31 @@
                 case 'PackDefinitions':
                     console.log('PackDefinitions message received:', msg);
 
-                    // Handle both new IPC format (payload.data) and old WebSocket format
+                    // Handle multiple possible PackDefinitions formats
                     let packData = null;
+
                     if (msg.payload && msg.payload.data) {
-                        // New IPC format from simulator
+                        // New IPC format: msg.payload.data
                         packData = msg.payload.data;
-                        console.log('Using new IPC format for PackDefinitions');
-                    } else if (msg.state) {
-                        // Old WebSocket format from viewer
-                        packData = msg.state;
-                        console.log('Using old WebSocket format for PackDefinitions');
+                        console.log('Using new IPC format for PackDefinitions (payload.data)');
+                    } else if (msg.payload && msg.payload.definitions) {
+                        // Alternative format: msg.payload.definitions
+                        packData = msg.payload.definitions;
+                        console.log('Using alternative format (payload.definitions)');
+                    } else if (msg.definitions) {
+                        // Direct format: msg.definitions
+                        packData = msg.definitions;
+                        console.log('Using direct format (msg.definitions)');
                     } else if (msg.payload) {
-                        // Fallback: payload might be the data itself
+                        // Payload itself might be the pack definitions
                         packData = msg.payload;
-                        console.log('Using fallback payload format for PackDefinitions');
+                        console.log('Using payload as pack definitions');
+                    } else if (msg.data) {
+                        // Direct data format: msg.data
+                        packData = msg.data;
+                        console.log('Using direct data format (msg.data)');
                     } else {
-                        console.error('PackDefinitions data is undefined!', msg);
+                        console.error('PackDefinitions data is undefined! Available properties:', Object.keys(msg));
                         break;
                     }
 
@@ -554,7 +582,7 @@
                 }
             }
 
-            // Update entities - handle both old and new formats
+            // Update entities - handle both EntitySnapshot and legacy formats
             if (gameState.entities && gameState.entities.length > 0) {
                 console.log('Entities received:', gameState.entities.length);
 
@@ -562,30 +590,19 @@
                     // Debug the entity structure
                     console.log('Raw entity structure:', entity);
 
-                    // Check if this is the old format (direct x,y) or new format (position.x, position.y)
-                    let x, y, health, max_health, hunger, energy, morale, display_name;
+                    // Handle both EntitySnapshot format (entity.position.x, entity.position.y)
+                    // and legacy format (entity.x, entity.y)
+                    const x = entity.position?.x || entity.x || 0;
+                    const y = entity.position?.y || entity.y || 0;
 
-                    if (entity.position !== undefined) {
-                        // New EntitySnapshot format
-                        x = entity.position.x || 0;
-                        y = entity.position.y || 0;
-                        health = entity.components?.health || 100;
-                        max_health = entity.components?.max_health || 100;
-                        hunger = entity.components?.hunger || 100;
-                        energy = entity.components?.energy || 100;
-                        morale = entity.components?.morale || 100;
-                        display_name = entity.components?.display_name || getEntityName(entity.entity_type);
-                    } else {
-                        // Old format
-                        x = entity.x || 0;
-                        y = entity.y || 0;
-                        health = entity.data?.health || 100;
-                        max_health = entity.data?.max_health || 100;
-                        hunger = entity.data?.hunger || 100;
-                        energy = entity.data?.energy || 100;
-                        morale = entity.data?.morale || 100;
-                        display_name = entity.data?.display_name || getEntityName(entity.entity_type);
-                    }
+                    // Handle both EntitySnapshot format (entity.components) and legacy format (entity.data)
+                    const components = entity.components || entity.data || {};
+                    const health = components.health || 100;
+                    const max_health = components.max_health || 100;
+                    const hunger = components.hunger || 100;
+                    const energy = components.energy || 100;
+                    const morale = components.morale || 100;
+                    const display_name = components.display_name || getEntityName(entity.entity_type);
 
                     const entityData = {
                         id: entity.id,
@@ -597,7 +614,8 @@
                         hunger: hunger,
                         energy: energy,
                         morale: morale,
-                        display_name: display_name
+                        display_name: display_name,
+                        components: components // Store components for advanced features
                     };
 
                     console.log('Converted entity:', entityData);
@@ -925,9 +943,9 @@
                         case 'BerryBush':
                         case 'Berry':
                         case 'berry':
-                            // Check if berry bush has fruit (amount > 0)
-                            if (entity.components?.amount !== undefined || entity.data?.amount !== undefined) {
-                                const amount = entity.components?.amount || entity.data?.amount || 0;
+                            // Check if berry bush has fruit (amount > 0) - new format uses components
+                            if (entity.components?.amount !== undefined) {
+                                const amount = entity.components?.amount || 0;
                                 emoji = amount > 0 ? '🫐' : '🌳';
                             } else {
                                 emoji = '🌳'; // Default to empty if no data
@@ -1205,26 +1223,25 @@
                 const statusEmoji = moveState && moveState.state === 'walking' ? '🚶' : '🧍';
                 const statusText = moveState && moveState.state === 'walking' ? 'Walking' : 'Standing';
                 
-                // Extract additional data from server using component-based structure
+                // Extract data from components (new EntitySnapshot format)
                 const components = peasant.components || {};
-                const peasantData = peasant.data || {};
 
                 // Note: satiety represents fullness (100 = full, 0 = starving)
-                const satiety = components.hunger !== undefined ? (100 - components.hunger) : (peasantData.hunger !== undefined ? (100 - peasantData.hunger) : 50);
-                const energy = components.energy !== undefined ? components.energy : (peasantData.energy !== undefined ? peasantData.energy : 50);
-                const health = components.health !== undefined ? components.health : (peasantData.health !== undefined ? peasantData.health : 100);
-                const morale = components.morale !== undefined ? components.morale : (peasantData.morale !== undefined ? peasantData.morale : 70);
+                const satiety = components.hunger !== undefined ? (100 - components.hunger) : 50;
+                const energy = components.energy !== undefined ? components.energy : 50;
+                const health = components.health !== undefined ? components.health : 100;
+                const morale = components.morale !== undefined ? components.morale : 70;
 
-                // Get inventory from components or fallback to data
-                const inventory = components.inventory || peasantData.inventory || [];
-                const currentAction = components.current_action || peasantData.current_action || peasantData.action_state || 'Idle';
-                const mindState = components.mind_state || peasantData.mind_state || peasantData.action_state || currentAction;
+                // Get inventory and other data from components
+                const inventory = components.inventory || [];
+                const currentAction = components.current_action || components.action_state || 'Idle';
+                const mindState = components.mind_state || components.action_state || currentAction;
 
-                // GOAP-specific data (from components or fallback)
-                const goapGoal = components.goap_goal || peasantData.goap_goal || 'None';
-                const goapAction = components.goap_action || peasantData.goap_action || 'None';
-                const foodCount = components.food_count !== undefined ? components.food_count : (peasantData.food_count !== undefined ? peasantData.food_count : 0);
-                const nearBerryBush = components.near_berry_bush !== undefined ? components.near_berry_bush : (peasantData.near_berry_bush || false);
+                // GOAP-specific data from components
+                const goapGoal = components.goap_goal || 'None';
+                const goapAction = components.goap_action || 'None';
+                const foodCount = components.food_count !== undefined ? components.food_count : 0;
+                const nearBerryBush = components.near_berry_bush || false;
                 
                 // Get mind state icon based on the state
                 let mindIcon = '💤'; // Default idle

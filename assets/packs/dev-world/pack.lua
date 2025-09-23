@@ -8,7 +8,13 @@ return {
     author = "World Simulator Team",
     description = "Basic development pack for testing IPC and viewer functionality",
     dependencies = {},
-    load_order = {},
+    load_order = {
+        "entities",
+        "resources",
+        "items",
+        "recipes",
+        "world"
+    },
 
     config = {
         debug = true,

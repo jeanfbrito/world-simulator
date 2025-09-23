@@ -249,6 +249,28 @@ pub struct EntitySpawnConfig {
     pub initial_count: Option<i32>,
     pub spawn_area: Option<SpawnArea>,
     pub require_walkable: Option<bool>,
+
+    // Biome and terrain-specific spawning
+    #[serde(default)]
+    pub preferred_terrain: Option<Vec<String>>,
+    #[serde(default)]
+    pub avoided_terrain: Option<Vec<String>>,
+    #[serde(default)]
+    pub preferred_biomes: Option<Vec<String>>,
+    #[serde(default)]
+    pub min_fertility: Option<f32>,
+    #[serde(default)]
+    pub max_elevation: Option<f32>,
+    #[serde(default)]
+    pub moisture_range: Option<SpawnRange>,
+    #[serde(default)]
+    pub temperature_range: Option<SpawnRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpawnRange {
+    pub min: f32,
+    pub max: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

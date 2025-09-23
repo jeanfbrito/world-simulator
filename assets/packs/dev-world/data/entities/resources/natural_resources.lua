@@ -38,6 +38,13 @@ register_entity {
         },
         require_walkable = false, -- Can spawn on non-walkable terrain
         avoid_settlements = false,
+
+        -- Biome and terrain preferences for trees
+        preferred_terrain = {"forest", "grass", "dirt"},
+        avoided_terrain = {"water", "deep_water", "desert", "sand"},
+        preferred_biomes = {"forest", "taiga", "rainforest", "plains"},
+        min_fertility = 0.3,
+        max_elevation = 0.8,
     },
 
     visuals = {
@@ -86,6 +93,13 @@ register_entity {
         },
         require_walkable = true,
         avoid_settlements = false,
+
+        -- Biome and terrain preferences
+        preferred_terrain = {"grass", "forest", "dirt"},
+        avoided_terrain = {"water", "deep_water", "stone", "mountain", "desert"},
+        preferred_biomes = {"plains", "forest"},
+        min_fertility = 0.5,
+        max_elevation = 0.6,
     },
 
     visuals = {
@@ -134,6 +148,13 @@ register_entity {
         },
         require_walkable = true,
         avoid_settlements = false,
+
+        -- Biome and terrain preferences
+        preferred_terrain = {"grass", "forest", "dirt"},
+        avoided_terrain = {"water", "deep_water", "stone", "mountain", "desert"},
+        preferred_biomes = {"plains", "forest"},
+        min_fertility = 0.5,
+        max_elevation = 0.6,
     },
 
     visuals = {
