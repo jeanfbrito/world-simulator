@@ -599,9 +599,9 @@ pub fn setup_dogoap_planners(
         // Gather food action - only works when near a berry bush
         let gather_food_action = GatherFoodAction::new()
             .add_precondition(NearBerryBush::is(1.0)) // Must be near a bush
-            .add_precondition(Energy::is_more(2.0))   // Lower threshold - can gather even when tired
+            .add_precondition(Energy::is_more(10.0))  // Need some energy to gather
             .add_mutator(FoodCount::increase(3.0))    // Get 3 food items when gathering
-            .add_mutator(Energy::decrease(2.0))       // Lower energy cost
+            .add_mutator(Energy::decrease(5.0))       // Costs some energy
             .set_cost(2);
         
         // Create the planner with the macro
@@ -614,7 +614,7 @@ pub fn setup_dogoap_planners(
             ],
             state: [
                 Satiety(50.0),
-                Energy(90.0),  // Higher initial energy for more buffer
+                Energy(75.0),  // Start with 75% energy
                 FoodCount(2.0),  // Start with some food
                 NearBerryBush(0.0),  // Not near a bush initially
             ],
@@ -686,16 +686,16 @@ pub fn update_needs_system(
         // Determine energy consumption based on work type
         let energy_change = if let Some(w) = work {
             if w.is_working {
-                // Different energy costs for different work types (reduced for balance)
+                // Different energy costs for different work types
                 let cost = match &w.work_type {
-                    Some(WorkType::Mining(_)) => -0.8,      // Mining is exhausting
-                    Some(WorkType::Building(_)) => -0.6,    // Building is hard work
-                    Some(WorkType::Farming(_)) => -0.5,     // Farming is tiring
-                    Some(WorkType::Gathering(_)) => -0.4,   // Gathering moderate
-                    Some(WorkType::Crafting(_)) => -0.25,   // Crafting is lighter
-                    Some(WorkType::Research(_)) => -0.15,   // Research is mental
-                    Some(WorkType::Repair(_)) => -0.5,      // Repair is physical
-                    _ => -0.3,  // Generic work
+                    Some(WorkType::Mining(_)) => -1.5,      // Mining is exhausting
+                    Some(WorkType::Building(_)) => -1.2,    // Building is hard work
+                    Some(WorkType::Farming(_)) => -1.0,     // Farming is tiring
+                    Some(WorkType::Gathering(_)) => -0.8,   // Gathering moderate
+                    Some(WorkType::Crafting(_)) => -0.5,    // Crafting is lighter
+                    Some(WorkType::Research(_)) => -0.3,    // Research is mental
+                    Some(WorkType::Repair(_)) => -1.0,      // Repair is physical
+                    _ => -0.8,  // Generic work
                 };
 
                 if sim_state.tick % 20 == 0 {
@@ -714,7 +714,7 @@ pub fn update_needs_system(
                 }
                 cost
             } else if is_moving {
-                -0.05  // Moving consumes very little energy (greatly reduced from -0.3)
+                -0.3  // Moving consumes energy
             } else {
                 0.5   // Idle recovers energy (increased)
             }
@@ -722,7 +722,7 @@ pub fn update_needs_system(
             if sim_state.tick % 20 == 0 {
                 debug.log(DebugLevel::Debug, "DOGOAP_STATE", &format!("Unit moving, energy: {:.1}", energy.0));
             }
-            -0.05  // Moving consumes very little energy (greatly reduced from -0.3)
+            -0.3  // Moving consumes energy
         } else {
             0.5   // Idle recovers energy (increased)
         };

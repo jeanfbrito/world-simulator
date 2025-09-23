@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::packs::{PackSystem, EntityDefinition, registry::Registry};
 use futures_util::{SinkExt, StreamExt};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -281,6 +282,7 @@ fn process_client_messages(
     mut commands: Commands,
     connections: Res<WebSocketConnections>,
     peasant_query: Query<Entity, With<crate::components::UnitTag>>,
+    pack_system: Option<Res<crate::packs::PackSystem>>,
 ) {
     let mut messages = message_queue.messages.lock().unwrap();
 
@@ -303,27 +305,27 @@ fn process_client_messages(
             ClientMessage::RespawnPeasants => {
                 // Despawn all existing peasants
                 for entity in peasant_query.iter() {
-                    commands.entity(entity).despawn_recursive();
+                    commands.entity(entity).despawn();
                 }
-                
-                // Respawn 5 new peasants
-                let mut rng = rand::thread_rng();
-                let mut spawned = 0;
-                
-                while spawned < 5 {
-                    let x = rng.gen_range(20..44);
-                    let y = rng.gen_range(20..44);
-                    
-                    // Check if tile is walkable
-                    if world_map.tiles[y][x].is_walkable() {
-                        crate::spawning::spawn_peasant(&mut commands, spawned + 1, x, y);
-                        spawned += 1;
-                        println!("[RESPAWN] Spawned peasant {} at ({}, {})", spawned, x, y);
+
+                // Respawn peasants using pack-based spawning
+                if let Some(pack_system) = &pack_system {
+                    if let Some(peasant_def) = pack_system.entity_registry.get("peasant") {
+                        let spawned_count = crate::systems::entity_spawning::spawn_entity_type(
+                            &mut commands,
+                            peasant_def,
+                            5, // Spawn 5 peasants
+                            pack_system,
+                            Some(&world_map),
+                        );
+                        println!("[RESPAWN] Spawned {} peasants using pack definitions", spawned_count);
+                    } else {
+                        println!("[RESPAWN] Error: Could not find peasant definition in pack");
                     }
+                } else {
+                    println!("[RESPAWN] Error: Pack system not available");
                 }
-                
-                println!("[RESPAWN] Completed respawning 5 peasants");
-                
+
                 // Trigger state update
                 sim_state.set_changed();
             }

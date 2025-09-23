@@ -79,7 +79,7 @@ pub fn spawn_dynamic_entities(
 }
 
 /// Spawn entities of a specific type from pack definition
-fn spawn_entity_type(
+pub fn spawn_entity_type(
     commands: &mut Commands,
     entity_def: &EntityDefinition,
     count: i32,
@@ -394,6 +394,13 @@ fn spawn_unit(
     _pack_system: &PackSystem,
 ) {
     if let Some(unit_props) = &entity_def.unit {
+        // Debug: Log the unit properties we received
+        println!(
+            "{}",
+            format!("[SPAWN-DEBUG] Unit props for {}: movement_speed={}, work_speed={:?}",
+                   entity_def.name, unit_props.movement_speed, unit_props.work_speed).yellow()
+        );
+
         // Create unit-specific components based on the unit type
         let unit_tag = match entity_def.id.as_str() {
             "peasant" => crate::components::PeasantTag::new(),
@@ -409,9 +416,27 @@ fn spawn_unit(
         // Create unit inventory
         let inventory = crate::components::UnitInventory::new();
 
-        // Create work components
+        // Create work components with values from pack definition
         let work_progress = crate::components::WorkProgress::new();
-        let work_speed = crate::components::WorkSpeed::default();
+
+        // Create work speed based on pack definition
+        let mut work_speed = crate::components::WorkSpeed::default();
+        let work_speed_modifier = if let Some(pack_work_speed) = unit_props.work_speed {
+            // Apply work speed modifier from pack (1.0 = normal, > 1.0 = faster, < 1.0 = slower)
+            work_speed.global_modifier = pack_work_speed;
+            println!(
+                "{}",
+                format!("[SPAWN] Unit {} work speed: {:.2}x from pack definition",
+                       entity_def.name, pack_work_speed).cyan()
+            );
+            pack_work_speed
+        } else {
+            1.0
+        };
+
+        // Create movement speed based on pack definition
+        let movement_speed = create_movement_speed_from_pack(unit_props.movement_speed, &entity_def.name);
+
         let work_queue = crate::components::WorkQueue::new(10);
 
         // Spawn the unit entity
@@ -425,12 +450,16 @@ fn spawn_unit(
             inventory,
             work_progress,
             work_speed,
+            movement_speed,
+            crate::components::MovementEffects::default(),
             work_queue,
         ));
 
         println!(
             "{}",
-            format!("[SPAWN] Spawned unit: {} at ({}, {})", entity_def.name, grid_position.x, grid_position.y).blue()
+            format!("[SPAWN] Spawned unit: {} at ({}, {}) with movement_speed: {}, work_speed: {:.2}x",
+                   entity_def.name, grid_position.x, grid_position.y,
+                   unit_props.movement_speed, work_speed_modifier).blue()
         );
     } else {
         println!(
@@ -438,6 +467,32 @@ fn spawn_unit(
             format!("[SPAWN] Unit {} has no unit properties", entity_def.name).yellow()
         );
     }
+}
+
+/// Create MovementSpeed from pack definition
+fn create_movement_speed_from_pack(pack_speed: f32, unit_name: &str) -> crate::components::MovementSpeed {
+    // Convert pack movement speed to our internal representation
+    // Pack speed: 50.0 (from peasant.lua)
+    // Internal: ticks per tile (lower = faster)
+
+    // Convert pack speed to ticks per tile
+    // Higher pack speed = fewer ticks per tile (faster movement)
+    let ticks_per_tile = if pack_speed > 0.0 {
+        (100.0 / pack_speed).max(1.0) as u32
+    } else {
+        3 // Default fallback
+    };
+
+    let mut movement_speed = crate::components::MovementSpeed::default();
+    movement_speed.base_ticks_per_tile = ticks_per_tile;
+
+    println!(
+        "{}",
+        format!("[SPAWN] Unit {} movement speed: {} -> {} ticks/tile",
+               unit_name, pack_speed, ticks_per_tile).cyan()
+    );
+
+    movement_speed
 }
 
 /// Spawn a wildlife entity

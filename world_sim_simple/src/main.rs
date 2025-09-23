@@ -45,7 +45,7 @@ use plugin::{plugin_init_system, PluginManager};
 use plugins::{SimulationPlugin as SimPlugin, WorldPlugin};
 use resources::ResourcesPlugin;
 use save_load::SaveLoadPlugin;
-use spawning::SpawningPlugin;
+// spawning::SpawningPlugin removed - using pack-based entity spawning via SystemsPlugin
 use systems::SystemsPlugin;
 use tilemap::TilemapPlugin;
 #[cfg(feature = "websocket")]
@@ -265,28 +265,19 @@ pub struct TileEntity {
 
 fn setup(
     mut commands: Commands,
-    pack_system: Option<Res<packs::PackSystem>>,
+    _pack_system: Option<Res<packs::PackSystem>>,
 ) {
     // Removed Camera2d for headless operation
 
     // Initialize world map for headless operation (no tile sprites)
     let world_map = WorldMap::default();
 
-    // Peasant spawning is now handled by SpawningPlugin
-    let mut rng = rand::thread_rng();
-
-    // Entity spawning is now handled by the EntitySpawnerPlugin using pack definitions
-    // The following hardcoded spawning has been replaced with pack-based spawning:
-    // - Stockpile and granary buildings (defined in assets/packs/dev-world/data/entities/buildings/storage.lua)
-    // - Trees (defined in assets/packs/dev-world/data/entities/resources/natural_resources.lua)
-    // - Berry bushes (defined in assets/packs/dev-world/data/entities/resources/natural_resources.lua)
+    // All entity spawning is now handled by pack-based systems
     // - Units (defined in assets/packs/dev-world/data/entities/units/peasant.lua)
+    // - Buildings (defined in assets/packs/dev-world/data/entities/buildings/*.lua)
+    // - Resources (defined in assets/packs/dev-world/data/entities/resources/*.lua)
 
-    println!("{}", "[SPAWN] Entity spawning now handled by EntitySpawnerPlugin with pack definitions".cyan());
-
-    // Tree spawning now handled by EntitySpawnerPlugin
-
-    // All entity spawning now handled by EntitySpawnerPlugin
+    println!("{}", "[SETUP] World initialized - entities spawned from pack definitions".cyan());
 }
 
 // Removed ui_system for headless operation

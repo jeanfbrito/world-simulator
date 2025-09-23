@@ -15,7 +15,8 @@ pub struct SpawningPlugin;
 
 impl Plugin for SpawningPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, initial_unit_spawn_system);
+        // Disabled - using pack-based entity spawning instead
+        // app.add_systems(Startup, initial_unit_spawn_system);
     }
 }
 
