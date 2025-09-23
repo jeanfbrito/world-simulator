@@ -22,7 +22,7 @@ pub use bevy_dogoap_impl::{
     EatAction, WanderAction, GatherFoodAction,  // Export GOAP actions
 };
 pub use big_brain_impl::BigBrainAIPlugin;  // ENABLED for reactive execution
-pub use shared_state::{sync_dogoap_to_unit_needs, ai_mode_selection_system};
+pub use shared_state::ai_mode_selection_system;
 
 use crate::debug::{DebugLevel, DebugSystem};
 use crate::SimulationState;

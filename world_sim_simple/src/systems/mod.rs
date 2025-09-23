@@ -12,6 +12,7 @@ pub mod resource_harvesting;
 pub mod consumption;
 pub mod grid_occupation;
 pub mod entity_spawning;
+pub mod needs_update_v2;
 
 pub use movement::*;
 pub use movement_effects::*;
@@ -24,6 +25,7 @@ pub use resource_harvesting::*;
 pub use consumption::*;
 pub use grid_occupation::*;
 pub use entity_spawning::*;
+pub use needs_update_v2::*;
 
 use bevy::prelude::*;
 
@@ -49,7 +51,6 @@ impl Plugin for SystemsPlugin {
         app.add_systems(
             PostStartup,
             (
-                crate::components::migrate_needs_system,
                 crate::components::migrate_positions_system,
                 add_movement_components_system,
                 configure_unit_speeds_system,
@@ -95,6 +96,17 @@ impl Plugin for SystemsPlugin {
                 work_effects_system,
                 // update_unit_mind_system,  // DISABLED - was overwriting movement states every tick
                 log_mind_changes_system,  // Log mind state changes for debugging
+            )
+                .chain()
+                .run_if(crate::simulation::on_simulation_tick_legacy),
+        );
+
+        // Add needs update systems (tick-based)
+        app.add_systems(
+            Update,
+            (
+                update_goap_energy_system,  // Update GOAP HasEnergy component
+                eating_action_system,  // Handle eating actions
             )
                 .chain()
                 .run_if(crate::simulation::on_simulation_tick_legacy),

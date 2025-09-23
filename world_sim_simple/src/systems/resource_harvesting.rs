@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::components::{
-    GridPosition, GridMovement, UnitNeedsV2, UnitInventory, NameComponent, UnitTag, UnitMind,
+    GridPosition, GridMovement, UnitInventory, NameComponent, UnitTag, UnitMind,
     resource::ResourceNode, WorkProgress, WorkType, ResourceWork, ClaimedResource,
 };
 use crate::resources::ResourceType;

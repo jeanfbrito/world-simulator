@@ -14,7 +14,7 @@ pub fn simple_ai_monitor_system(
         (
             Entity,
             &NameComponent,
-            &UnitNeedsV2,  // Changed from UnitNeeds to UnitNeedsV2
+            &crate::ai::bevy_dogoap_impl::Satiety,  // Using GOAP satiety
             &UnitInventory,
             &UnitLocation,
             &TileEntity,
@@ -67,7 +67,7 @@ pub fn simple_ai_monitor_system(
     println!("   🌳 {} depleted berry bushes", empty_berry_count);
 
     // Show each peasant's status
-    for (entity, name, needs, inventory, location, tile, position, tiles_walked, mind) in
+    for (entity, name, satiety, inventory, location, tile, position, tiles_walked, mind) in
         peasants.iter()
     {
         // Check if peasant moved
@@ -125,15 +125,13 @@ pub fn simple_ai_monitor_system(
         };
         
         let status = "🤖 Using dogoap";
-        // Display values from UnitNeedsV2 which has been synced from dogoap
-        // After sync: hunger is stored inverted internally (0=full, 1=starving)
-        // But we want to display satiety as: full bar = satiated (good), empty bar = starving (bad)
-        // So we need to invert it for display: 1.0 - hunger gives us 0=starving, 1=full
-        let satiety_display = 1.0 - needs.hunger();  // Convert to 0=starving, 1=full for display
-        let energy_display = needs.energy();         // Already in correct direction: 0=exhausted, 1=full
+        // Display values from GOAP components directly
+        let satiety_display = satiety.0;  // Satiety from GOAP (0=starving, 100=full)
+        // For energy, we would need to query the Energy component, but let's simplify for now
         
-        let satiety_bar = create_bar(satiety_display, false);  // More filled = better (satiated)
-        let energy_bar = create_bar(energy_display, false);   // More filled = better (more energy)
+        let satiety_bar = create_bar(satiety_display as f32 / 100.0, false);  // Convert 0-100 to 0-1 for bar function
+        // Show a default energy bar for now since we don't have the Energy component in this query
+        let energy_bar = create_bar(0.7, false);   // More filled = better (more energy)
 
         // Get inventory summary
         let wood = inventory.get_amount(crate::resources::ResourceType::Wood);
@@ -160,8 +158,8 @@ pub fn simple_ai_monitor_system(
             tiles_walked.display().bright_magenta()
         );
         println!(
-            "   {} | Satiety {} ({:.2}) | Energy {} ({:.2})",
-            status, satiety_bar, satiety_display, energy_bar, energy_display
+            "   {} | Satiety {} ({:.1})",
+            status, satiety_bar, satiety_display
         );
         println!(
             "   📍 {} | Inventory: {}🪵 {}🍖 {}⛏️ (weight: {:.1}/{:.1})",

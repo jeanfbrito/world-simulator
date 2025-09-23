@@ -62,20 +62,8 @@ impl Default for GoalPriorities {
     }
 }
 
-// Sync dogoap Satiety/Energy values to UnitNeedsV2 for display and other systems
-pub fn sync_dogoap_to_unit_needs(
-    mut query: Query<(
-        &crate::ai::bevy_dogoap_impl::Satiety,
-        &crate::ai::bevy_dogoap_impl::Energy,
-        &mut crate::components::UnitNeedsV2,
-    )>,
-) {
-    for (satiety, energy, mut needs) in query.iter_mut() {
-        // Convert GOAP values (0-100) to UnitNeeds (0.0-1.0)
-        needs.set_hunger_from_dogoap(satiety.0 as f32);
-        needs.set_energy_from_dogoap(energy.0 as f32);
-    }
-}
+// Sync function removed - we now use GOAP components directly
+// This function is no longer needed since UnitNeedsV2 has been removed
 
 // Decide which AI mode to use based on current state
 pub fn ai_mode_selection_system(

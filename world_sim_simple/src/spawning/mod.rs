@@ -78,8 +78,7 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
 
     // Add additional components separately to avoid bundle size limit
     commands.entity(entity).insert((
-        // NEW: Consolidated state components
-        UnitNeeds::new(),
+        // Unit inventory and location
         UnitInventory::with_starting_items(),
         UnitLocation::new(x, y),
         UnitWorkState::default(),
@@ -93,10 +92,10 @@ pub fn spawn_peasant(commands: &mut Commands, id: usize, x: usize, y: usize) -> 
         crate::ai::BehaviorCycle::default(),
     ));
 
-    // Add compatibility components separately
+    // Add GOAP state components
     commands.entity(entity).insert((
         IsHungry(0.5),
-        HasEnergy(1.0),
+        HasEnergy(1.0),  // Start with full energy (1.0 = 100%)
         IsWorking(false),
         HasWood(0),
         HasStone(0),

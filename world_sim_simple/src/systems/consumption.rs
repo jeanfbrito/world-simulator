@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::components::{
-    UnitNeedsV2, UnitInventory, NameComponent, UnitTag, UnitMind,
+    UnitInventory, NameComponent, UnitTag, UnitMind,
 };
 use crate::resources::ResourceType;
 use crate::SimulationState;
@@ -14,10 +14,10 @@ pub fn consumption_system(
     sim_state: Res<SimulationState>,
     mut units: Query<(
         Entity,
-        &mut UnitNeedsV2,
         &mut UnitInventory,
         &mut UnitMind,
         &NameComponent,
+        &mut crate::ai::bevy_dogoap_impl::Satiety,
     ), With<UnitTag>>,
     debug: Res<DebugSystem>,
 ) {
@@ -31,35 +31,36 @@ pub fn consumption_system(
         return;
     }
     
-    for (entity, mut needs, mut inventory, mut mind, name) in units.iter_mut() {
-        // Check if unit is hungry and has food in inventory
-        if needs.is_hungry() {
+    for (entity, mut inventory, mut mind, name, mut satiety) in units.iter_mut() {
+        // Check if unit is hungry and has food in inventory (satiety < 40)
+        if satiety.0 < 40.0 {
             // Check for berries in inventory
             let berry_count = inventory.get_amount(ResourceType::Berries);
             
             if berry_count > 0 {
                 // Eat one unit of berries
                 if inventory.remove_item(ResourceType::Berries, 1) {
-                    needs.eat_food(1);
+                    // Increase satiety by 20 (matches GOAP eat action)
+                    satiety.0 = (satiety.0 + 20.0).min(100.0);
                     *mind = UnitMind::Eating;
                     
                     debug.log(
                         DebugLevel::Info,
                         "CONSUMPTION",
                         &format!(
-                            "{} ate 1 berry from inventory ({}→{}), hunger now {}%",
+                            "{} ate 1 berry from inventory ({}→{}), satiety now {}%",
                             name.name,
                             berry_count,
                             berry_count - 1,
-                            ((1.0 - needs.hunger()) * 100.0) as i32
+                            satiety.0 as i32
                         ),
                     );
                     
                     println!(
-                        "{} {} ate berries from inventory! Hunger: {}%, Berries left: {}",
+                        "{} {} ate berries from inventory! Satiety: {}%, Berries left: {}",
                         "🍽️".yellow(),
                         name.name.green(),
-                        ((1.0 - needs.hunger()) * 100.0) as i32,
+                        satiety.0 as i32,
                         berry_count - 1
                     );
                     
@@ -75,7 +76,7 @@ pub fn consumption_system(
                         &format!(
                             "{} is hungry ({}% full) but has no food in inventory",
                             name.name,
-                            ((1.0 - needs.hunger()) * 100.0) as i32
+                            satiety.0 as i32
                         ),
                     );
                 }
@@ -95,10 +96,10 @@ pub fn hunger_response_system(
     sim_state: Res<SimulationState>,
     mut units: Query<(
         Entity,
-        &UnitNeedsV2,
         &UnitInventory,
         &mut UnitMind,
         &NameComponent,
+        &mut crate::ai::bevy_dogoap_impl::Satiety,
     ), With<UnitTag>>,
     debug: Res<DebugSystem>,
 ) {
@@ -112,9 +113,9 @@ pub fn hunger_response_system(
         return;
     }
     
-    for (entity, needs, inventory, mut mind, name) in units.iter_mut() {
+    for (entity, inventory, mut mind, name, satiety) in units.iter_mut() {
         // If hungry and no food in inventory, signal need to gather
-        if needs.is_hungry() && inventory.get_amount(ResourceType::Berries) == 0 {
+        if satiety.0 < 40.0 && inventory.get_amount(ResourceType::Berries) == 0 {
             // Only update if currently idle
             if matches!(*mind, UnitMind::Idle) {
                 *mind = UnitMind::SearchingForFood;
@@ -123,9 +124,9 @@ pub fn hunger_response_system(
                     DebugLevel::Info,
                     "HUNGER_TRIGGER",
                     &format!(
-                        "{} needs food (hunger: {}%)",
+                        "{} needs food (satiety: {}%)",
                         name.name,
-                        (needs.hunger() * 100.0) as i32
+                        satiety.0 as i32
                     ),
                 );
             }

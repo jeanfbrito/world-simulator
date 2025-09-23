@@ -471,13 +471,22 @@ pub fn handle_move_to_resource_action(
         } else {
             // PHASE 2: Check if we've reached the target
             if let Some(target_pos) = action.target_position {
-                if grid_pos.distance_to(&crate::components::grid_position::GridPosition::new(target_pos.0, target_pos.1)) <= 1 {
+                let distance = grid_pos.distance_to(&crate::components::grid_position::GridPosition::new(target_pos.0, target_pos.1));
+                debug.log(DebugLevel::Info, "DISTANCE_CHECK",
+                    &format!("{} distance to target ({},{}): {}", name.name, target_pos.0, target_pos.1, distance));
+
+                if distance <= 1 {
                     debug.log(DebugLevel::Info, "DOGOAP_ACTION",
                         &format!("{} reached berry bush at ({},{}) - MoveToResourceAction complete!",
                                 name.name, target_pos.0, target_pos.1));
 
-                    // Remove action and let plan continue to next action (gathering)
+                    // Remove action and spawn GatherFoodAction to continue the plan
                     commands.entity(entity).remove::<MoveToResourceAction>();
+                    commands.entity(entity).insert(GatherFoodAction);
+
+                    debug.log(DebugLevel::Info, "DOGOAP_ACTION",
+                        &format!("{} reached berry bush at ({},{}) - spawning GatherFoodAction!",
+                                name.name, target_pos.0, target_pos.1));
                     continue;
                 }
             }
@@ -590,9 +599,9 @@ pub fn setup_dogoap_planners(
         // Gather food action - only works when near a berry bush
         let gather_food_action = GatherFoodAction::new()
             .add_precondition(NearBerryBush::is(1.0)) // Must be near a bush
-            .add_precondition(Energy::is_more(10.0))  // Need some energy to gather
+            .add_precondition(Energy::is_more(2.0))   // Lower threshold - can gather even when tired
             .add_mutator(FoodCount::increase(3.0))    // Get 3 food items when gathering
-            .add_mutator(Energy::decrease(5.0))       // Costs some energy
+            .add_mutator(Energy::decrease(2.0))       // Lower energy cost
             .set_cost(2);
         
         // Create the planner with the macro
@@ -605,7 +614,7 @@ pub fn setup_dogoap_planners(
             ],
             state: [
                 Satiety(50.0),
-                Energy(75.0),
+                Energy(90.0),  // Higher initial energy for more buffer
                 FoodCount(2.0),  // Start with some food
                 NearBerryBush(0.0),  // Not near a bush initially
             ],
@@ -1055,8 +1064,6 @@ impl Plugin for BevyDogoapPlugin {
                 cleanup_stale_claims,           // Cleanup claims when actions complete
                 cleanup_completed_gather_claims, // Cleanup when gathering finishes
                 cleanup_despawned_entity_claims, // Cleanup when entities are removed
-                // Sync dogoap values to UnitNeedsV2 for display
-                crate::ai::shared_state::sync_dogoap_to_unit_needs,
             )
             .after(GoapActionSet)  // Run after the state update systems
             .run_if(crate::simulation::on_simulation_tick_legacy));

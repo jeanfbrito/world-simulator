@@ -341,7 +341,7 @@ fn broadcast_game_state_ipc(
         &crate::components::NameComponent,
         &crate::components::HealthComponent,
         &crate::TileEntity,
-        Option<&crate::components::UnitNeedsV2>,
+        Option<&crate::ai::bevy_dogoap_impl::Satiety>,
         Option<&crate::components::UnitInventory>,
         Option<&crate::components::WorkProgress>,
         Option<&crate::components::UnitMind>,
@@ -378,16 +378,14 @@ fn broadcast_game_state_ipc(
 
     println!("🔍 IPC Debug: Found {} entities and {} resources", entity_count, resource_count);
 
-    for (entity, name, health, tile, needs, inventory, work, mind) in entities_query.iter() {
+    for (entity, name, health, tile, satiety, inventory, work, mind) in entities_query.iter() {
         let mut components = HashMap::new();
         components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.current as i64)));
         components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.maximum as i64)));
         components.insert("display_name".to_string(), serde_json::Value::String(name.display_name.clone()));
 
-        if let Some(needs) = needs {
-            components.insert("hunger".to_string(), serde_json::Value::Number(serde_json::Number::from(needs.hunger() as i64)));
-            components.insert("energy".to_string(), serde_json::Value::Number(serde_json::Number::from(needs.energy() as i64)));
-            components.insert("morale".to_string(), serde_json::Value::Number(serde_json::Number::from(needs.morale() as i64)));
+        if let Some(satiety) = satiety {
+            components.insert("satiety".to_string(), serde_json::Value::Number(serde_json::Number::from(satiety.0 as i64)));
         }
 
             // Map name to EntityType

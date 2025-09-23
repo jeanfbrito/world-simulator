@@ -1,6 +1,6 @@
 use crate::components::{
-    GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, 
-    PositionComponent, UnitInventory, UnitNeedsV2, UnitTag,
+    GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent,
+    PositionComponent, UnitInventory, UnitTag,
 };
 use crate::SimulationState;
 /// System to update movement effects based on unit status
@@ -15,9 +15,9 @@ pub fn update_movement_effects_system(
     mut units: Query<
         (
             &mut MovementEffects,
-            &UnitNeedsV2,
             &UnitInventory,
             &NameComponent,
+            &crate::ai::bevy_dogoap_impl::Energy,
         ),
         With<UnitTag>,
     >,
@@ -35,22 +35,19 @@ pub fn update_movement_effects_system(
         return;
     }
 
-    for (mut effects, needs, inventory, name) in units.iter_mut() {
+    for (mut effects, inventory, name, energy) in units.iter_mut() {
         let old_modifier = effects.get_total_modifier();
 
-        // Update exhaustion based on energy
-        effects.update_exhaustion(needs.energy());
+        // Update exhaustion based on energy (convert from GOAP 0-100 scale to 0.0-1.0)
+        effects.update_exhaustion(energy.0 as f32 / 100.0);
 
         // Update encumbrance based on inventory weight
         let weight_ratio = inventory.current_weight / inventory.max_weight;
         effects.update_encumbrance(weight_ratio);
 
         // Apply additional effects based on conditions
-        if needs.is_starving() {
-            effects.slowed = Some(0.7); // 70% speed when starving
-        } else {
-            effects.slowed = None;
-        }
+        // For now, we'll remove the starving check since it would require accessing satiety component
+        // This can be added back later if needed
 
         let new_modifier = effects.get_total_modifier();
 

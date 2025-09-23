@@ -1,6 +1,6 @@
 use crate::components::{
     GridMovement, GridPosition, MovementEffects, MovementSpeed, NameComponent, UnitTag,
-    VisualPosition, UnitMind, ClaimedResource, UnitNeedsV2, UnitInventory,
+    VisualPosition, UnitMind, ClaimedResource, UnitInventory,
     resource::ResourceNode,
 };
 use crate::{SimulationState, WorldMap, TILE_SIZE};
@@ -402,9 +402,10 @@ pub fn simple_random_movement_system(
             &mut GridMovement,
             &mut UnitMind,
             &NameComponent,
-            &crate::components::UnitNeedsV2,
             &crate::components::UnitInventory,
             &mut crate::components::ClaimedResource,
+            &crate::ai::bevy_dogoap_impl::Satiety,
+            &crate::ai::bevy_dogoap_impl::Energy,
         ),
         With<UnitTag>,
     >,
@@ -422,7 +423,7 @@ pub fn simple_random_movement_system(
     
     let mut rng = rand::thread_rng();
     
-    for (entity, grid_pos, mut movement, mut mind, name, needs, inventory, mut claimed_resource) in units.iter_mut() {
+    for (entity, grid_pos, mut movement, mut mind, name, inventory, mut claimed_resource, satiety, energy) in units.iter_mut() {
         // Skip if already moving
         if movement.is_moving {
             continue;
@@ -439,7 +440,8 @@ pub fn simple_random_movement_system(
         }
         
         // If hungry and no food in inventory, look for berry bushes to harvest with atomic claiming
-        if needs.is_hungry() && inventory.get_amount(crate::resources::ResourceType::Berries) < 3 {
+        // Satiety: lower values = more hungry (0=starving, 100=full)
+        if satiety.0 < 40.0 && inventory.get_amount(crate::resources::ResourceType::Berries) < 3 {
             const MAX_CLAIM_ATTEMPTS: usize = 3;
             let mut attempt_count = 0;
             let mut successfully_claimed = false;
@@ -609,9 +611,9 @@ pub fn food_search_movement_system(
         &mut GridMovement,
         &mut UnitMind,
         &mut ClaimedResource,
-        &UnitNeedsV2,
         &UnitInventory,
         &NameComponent,
+        &crate::ai::bevy_dogoap_impl::Satiety,
     ), With<UnitTag>>,
     mut berry_bushes: Query<(Entity, &GridPosition, &mut ResourceNode), With<BerryBushTag>>,
     world_map: Res<WorldMap>,
@@ -626,7 +628,7 @@ pub fn food_search_movement_system(
     // Build obstacle map for pathfinding
     let obstacles = build_obstacle_map(&world_map, &occupation_map);
 
-    for (entity, grid_pos, mut movement, mut mind, mut claimed_resource, needs, inventory, name) in units.iter_mut() {
+    for (entity, grid_pos, mut movement, mut mind, mut claimed_resource, inventory, name, satiety) in units.iter_mut() {
         // Only process units that are searching for food
         if !matches!(*mind, UnitMind::SearchingForFood) {
             continue;

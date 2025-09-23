@@ -1,5 +1,5 @@
 use crate::components::{
-    GridPosition, NameComponent, QueuedWork, ResourceWork, UnitInventory, UnitNeedsV2, UnitTag,
+    GridPosition, NameComponent, QueuedWork, ResourceWork, UnitInventory, UnitTag,
     WorkProgress, WorkQueue, WorkSpeed, WorkType,
 };
 use crate::simulation::TickEvent;
@@ -20,7 +20,7 @@ pub fn tick_work_system(
             &mut WorkProgress,
             Option<&WorkSpeed>,
             &mut UnitInventory,
-            &mut UnitNeedsV2,
+            &mut crate::ai::bevy_dogoap_impl::Energy,
             &GridPosition,
             &NameComponent,
         ),
@@ -67,8 +67,8 @@ pub fn tick_work_system(
                 continue;
             }
 
-            // Consume energy while working
-            needs.tick_update(); // Additional energy loss while working
+            // Energy update removed - GOAP Energy component doesn't have tick_update method
+            // The GOAP system will handle energy depletion through action costs
 
             // Update work progress
             let completed = work.tick_update();
@@ -157,7 +157,7 @@ pub fn tick_work_system(
 fn handle_work_completion(
     work_type: &WorkType,
     inventory: &mut UnitInventory,
-    _needs: &mut UnitNeedsV2,
+    _energy: &mut crate::ai::bevy_dogoap_impl::Energy,
     _position: &GridPosition,
     name: &NameComponent,
     target_entity: Option<Entity>,
@@ -470,7 +470,7 @@ pub fn work_effects_system(
     mut units: Query<
         (
             &WorkProgress,
-            &mut UnitNeedsV2,
+            &mut crate::ai::bevy_dogoap_impl::Energy,
             &mut WorkSpeed,
             &NameComponent,
         ),

@@ -465,7 +465,7 @@ fn broadcast_game_state(
             &crate::components::HealthComponent,
             &crate::TileEntity,
             &crate::components::PositionComponent,
-            Option<&crate::components::UnitNeedsV2>,
+            Option<&crate::ai::bevy_dogoap_impl::Satiety>,
             Option<&crate::components::UnitInventory>,
             Option<&crate::components::WorkProgress>,
             Option<&crate::components::UnitMind>,  // Add UnitMind component
@@ -505,7 +505,7 @@ fn broadcast_game_state(
         }
     }
     
-    for (entity, name, health, tile, position, needs, inventory, work, mind) in workers.iter() {
+    for (entity, name, health, tile, position, satiety, inventory, work, mind) in workers.iter() {
         let mut data = HashMap::new();
         data.insert("name".to_string(), serde_json::json!(name.display_name));
         data.insert("health".to_string(), serde_json::json!(health.current));
@@ -539,18 +539,12 @@ fn broadcast_game_state(
             data.insert("goap_goal".to_string(), serde_json::json!("Stay Fed (>30 satiety)"));
         }
         
-        // Add needs data if available (energy comes from here now)
-        if let Some(needs) = needs {
-            data.insert("hunger".to_string(), serde_json::json!(needs.hunger() * 100.0)); // Convert to percentage
-            data.insert("energy".to_string(), serde_json::json!(needs.energy() * 100.0)); // Energy from needs
-            data.insert("morale".to_string(), serde_json::json!(needs.morale() * 100.0));
-            data.insert("shelter".to_string(), serde_json::json!(needs.has_shelter));
+        // Add satiety data if available
+        if let Some(satiety) = satiety {
+            data.insert("satiety".to_string(), serde_json::json!(satiety.0)); // GOAP satiety value (0-100)
         } else {
-            // Fallback values if no needs component
-            data.insert("hunger".to_string(), serde_json::json!(0.0));
-            data.insert("energy".to_string(), serde_json::json!(100.0));
-            data.insert("morale".to_string(), serde_json::json!(100.0));
-            data.insert("shelter".to_string(), serde_json::json!(false));
+            // Fallback values if no satiety component
+            data.insert("satiety".to_string(), serde_json::json!(50.0));
         }
         
         // Detect movement

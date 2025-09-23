@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::components::{
-    UnitMind, UnitNeedsV2, UnitInventory, GridPosition, GridMovement, WorkProgress, UnitTag,
+    UnitMind, UnitInventory, GridPosition, GridMovement, WorkProgress, UnitTag,
     NameComponent,
 };
 use crate::resources::ResourceType;
@@ -12,7 +12,7 @@ pub fn update_unit_mind_system(
         (
             Entity,
             &mut UnitMind,
-            Option<&UnitNeedsV2>,
+            Option<&crate::ai::bevy_dogoap_impl::Satiety>,
             Option<&UnitInventory>,
             Option<&GridPosition>,
             Option<&GridMovement>,
@@ -60,7 +60,7 @@ pub fn update_unit_mind_system(
 }
 
 fn determine_unit_mind(
-    needs: Option<&UnitNeedsV2>,
+    needs: Option<&crate::ai::bevy_dogoap_impl::Satiety>,
     inventory: Option<&UnitInventory>,
     position: Option<&GridPosition>,
     movement: Option<&GridMovement>,
@@ -92,8 +92,8 @@ fn determine_unit_mind(
     
     // Priority 2: Check critical needs
     if let Some(needs) = needs {
-        // Very hungry - actively looking for food
-        if needs.hunger() > 0.7 {
+        // Very hungry - actively looking for food (satiety < 30 = hunger > 0.7 in old system)
+        if needs.0 < 30.0 {
             // Check if we have food
             if let Some(inv) = inventory {
                 if inv.has_item(ResourceType::Berries, 1) {
@@ -112,7 +112,7 @@ fn determine_unit_mind(
         if move_comp.is_moving {
             // Try to determine destination based on context
             if let Some(needs) = needs {
-                if needs.hunger() > 0.5 {
+                if needs.0 < 50.0 {  // satiety < 50 = hunger > 0.5 in old system
                     return UnitMind::SearchingForFood;
                 }
             }
@@ -123,7 +123,7 @@ fn determine_unit_mind(
 
     // Priority 4: Random idle states based on needs
     if let Some(needs) = needs {
-        if needs.hunger() > 0.4 && needs.hunger() < 0.7 {
+        if needs.0 >= 30.0 && needs.0 < 60.0 {  // satiety 30-60 = hunger 0.4-0.7 in old system
             return UnitMind::LookingAround; // Mildly hungry, looking for opportunities
         }
     }

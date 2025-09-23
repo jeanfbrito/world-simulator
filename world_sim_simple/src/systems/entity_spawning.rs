@@ -406,9 +406,8 @@ fn spawn_unit(
             }
         };
 
-        // Create unit inventory and needs
+        // Create unit inventory
         let inventory = crate::components::UnitInventory::new();
-        let needs = crate::components::UnitNeedsV2::new();
 
         // Create work components
         let work_progress = crate::components::WorkProgress::new();
@@ -424,7 +423,6 @@ fn spawn_unit(
             pos_clone,
             unit_tag,
             inventory,
-            needs,
             work_progress,
             work_speed,
             work_queue,
@@ -465,9 +463,6 @@ fn spawn_wildlife(
         }
     };
 
-    // Create basic wildlife components
-    let needs = crate::components::UnitNeedsV2::new();
-
     // Spawn the wildlife entity
     let pos_clone = grid_position.clone();
     commands.spawn((
@@ -476,7 +471,6 @@ fn spawn_wildlife(
         tile_entity,
         pos_clone,
         crate::components::UnitTag, // Use UnitTag for wildlife for now
-        needs,
     ));
 
     println!(
