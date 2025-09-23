@@ -1,4 +1,5 @@
 use crate::{BuildingComponent, TileEntity, BuildingType, WorldMap};
+use crate::tilemap::{TerrainType, BiomeType};
 use crate::components::{GridPosition, NameComponent, PositionComponent, ResourceNode, GrowingResource, ResourceRegenerationTag};
 use crate::packs::{PackSystem, EntityDefinition, registry::Registry};
 use crate::resources::ResourceType;
@@ -148,31 +149,162 @@ fn is_position_valid(
         return false;
     }
 
-    // Check if entity requires walkable terrain
-    if let Some(spawn_config) = &entity_def.spawn {
-        if spawn_config.require_walkable.unwrap_or(false) {
-            if let Some(map) = world_map {
-                if !map.tiles[y][x].is_walkable() {
-                    return false;
-                }
-            } else {
-                // If no world map is available, fall back to basic validation
-                // This prevents spawning in water/deep water areas when map is not available
-                let center = MAP_SIZE / 2;
-                let dist = ((x as f32 - center as f32).powi(2) + (y as f32 - center as f32).powi(2)).sqrt();
-                let max_dist = center as f32;
+    let spawn_config = match &entity_def.spawn {
+        Some(config) => config,
+        None => return true, // No spawn config = no restrictions
+    };
 
-                // Prevent spawning in water/deep water areas (outside 75% of map radius)
-                if dist > max_dist * 0.75 {
-                    return false;
-                }
+    // Check basic walkable requirement
+    if spawn_config.require_walkable.unwrap_or(false) {
+        if let Some(map) = world_map {
+            if !map.tiles[y][x].is_walkable() {
+                return false;
             }
+        } else {
+            // Fallback validation for when world map is not available
+            let center = MAP_SIZE / 2;
+            let dist = ((x as f32 - center as f32).powi(2) + (y as f32 - center as f32).powi(2)).sqrt();
+            let max_dist = center as f32;
+
+            // Prevent spawning in water/deep water areas (outside 75% of map radius)
+            if dist > max_dist * 0.75 {
+                return false;
+            }
+        }
+    }
+
+    // Enhanced biome and terrain validation
+    if let Some(map) = world_map {
+        // Convert TileType to TerrainType for enhanced validation
+        let terrain_type = tile_type_to_terrain_type(map.tiles[y][x]);
+        let biome_type = estimate_biome_from_position(x, y, map);
+
+        // Check terrain preferences
+        if !validate_terrain_preferences(terrain_type, biome_type, spawn_config, x, y) {
+            return false;
         }
     }
 
     // TODO: Add occupation checking when entity tracking is implemented
     // For now, assume position is not occupied
 
+    true
+}
+
+/// Convert old TileType to new TerrainType for compatibility
+fn tile_type_to_terrain_type(tile_type: TileType) -> TerrainType {
+    match tile_type {
+        TileType::Grass => TerrainType::Grass,
+        TileType::Stone => TerrainType::Stone,
+        TileType::Sand => TerrainType::Sand,
+        TileType::Water => TerrainType::Water,
+        TileType::DeepWater => TerrainType::DeepWater,
+        TileType::Tree => TerrainType::Forest, // Treat tree resources as forest terrain
+        TileType::Ore => TerrainType::Stone,   // Treat ore as stone terrain
+        TileType::Berry => TerrainType::Grass, // Treat berry resources as grass terrain
+        TileType::Wall => TerrainType::Stone,
+        TileType::Blocked => TerrainType::Mountain,
+        TileType::Storage => TerrainType::Stone,
+        TileType::Workshop => TerrainType::Stone,
+        TileType::Door => TerrainType::Stone,
+        TileType::Floor => TerrainType::Stone,
+        TileType::Empty => TerrainType::Grass,
+    }
+}
+
+/// Estimate biome type based on position and surrounding tiles
+fn estimate_biome_from_position(x: usize, y: usize, map: &WorldMap) -> BiomeType {
+    let center = MAP_SIZE / 2;
+    let dist = ((x as f32 - center as f32).powi(2) + (y as f32 - center as f32).powi(2)).sqrt();
+    let max_dist = center as f32;
+    let normalized_dist = dist / max_dist;
+
+    // Simple biome estimation based on distance from center and tile type
+    let current_tile = map.tiles[y][x];
+
+    if normalized_dist > 0.9 {
+        return BiomeType::Ocean;
+    } else if normalized_dist > 0.75 {
+        return BiomeType::Ocean;
+    } else if normalized_dist > 0.6 {
+        // Beach/coastal area
+        if matches!(current_tile, TileType::Sand) {
+            return BiomeType::Desert;
+        } else {
+            return BiomeType::Plains;
+        }
+    } else {
+        // Inner land area - estimate based on tile type
+        match current_tile {
+            TileType::Grass | TileType::Berry => BiomeType::Plains,
+            TileType::Tree => BiomeType::Forest,
+            TileType::Stone | TileType::Ore => BiomeType::Mountain,
+            TileType::Sand => BiomeType::Desert,
+            TileType::Water | TileType::DeepWater => BiomeType::Ocean,
+            TileType::Wall | TileType::Blocked => BiomeType::Mountain,
+            TileType::Storage | TileType::Workshop | TileType::Door | TileType::Floor => BiomeType::Mountain,
+            TileType::Empty => BiomeType::Plains,
+        }
+    }
+}
+
+/// Validate terrain and biome preferences for spawning
+fn validate_terrain_preferences(
+    terrain_type: TerrainType,
+    biome_type: BiomeType,
+    spawn_config: &crate::packs::definitions::EntitySpawnConfig,
+    x: usize,
+    y: usize,
+) -> bool {
+    // Debug output
+    let terrain_str = format!("{:?}", terrain_type).to_lowercase();
+    let biome_str = format!("{:?}", biome_type).to_lowercase();
+
+    // Check fertility requirements
+    if let Some(min_fertility) = spawn_config.min_fertility {
+        let fertility = terrain_type.fertility();
+        if fertility < min_fertility {
+            println!("[SPAWN-DEBUG] Failed fertility check: terrain={:?} fertility={} min_required={}", terrain_type, fertility, min_fertility);
+            return false;
+        }
+    }
+
+    // Check preferred terrain types
+    if let Some(preferred_terrain) = &spawn_config.preferred_terrain {
+        if !preferred_terrain.iter().any(|pref| pref.to_lowercase() == terrain_str) {
+            println!("[SPAWN-DEBUG] Failed preferred terrain check: terrain={:?} ({}), preferred={:?}", terrain_type, terrain_str, preferred_terrain);
+            return false;
+        }
+    }
+
+    // Check avoided terrain types
+    if let Some(avoided_terrain) = &spawn_config.avoided_terrain {
+        if avoided_terrain.iter().any(|avoid| avoid.to_lowercase() == terrain_str) {
+            println!("[SPAWN-DEBUG] Failed avoided terrain check: terrain={:?} ({}), avoided={:?}", terrain_type, terrain_str, avoided_terrain);
+            return false;
+        }
+    }
+
+    // Check preferred biomes
+    if let Some(preferred_biomes) = &spawn_config.preferred_biomes {
+        if !preferred_biomes.iter().any(|pref| pref.to_lowercase() == biome_str) {
+            println!("[SPAWN-DEBUG] Failed preferred biome check: biome={:?} ({}), preferred={:?}", biome_type, biome_str, preferred_biomes);
+            return false;
+        }
+    }
+
+    // Check elevation requirements (estimate from position)
+    if let Some(max_elevation) = spawn_config.max_elevation {
+        let center = MAP_SIZE / 2;
+        let dist = ((x as f32 - center as f32).powi(2) + (y as f32 - center as f32).powi(2)).sqrt();
+        let normalized_elevation = dist / (center as f32);
+        if normalized_elevation > max_elevation {
+            println!("[SPAWN-DEBUG] Failed elevation check: normalized_elevation={} max_allowed={}", normalized_elevation, max_elevation);
+            return false;
+        }
+    }
+
+    println!("[SPAWN-DEBUG] Validation passed: terrain={:?} ({}) biome={:?} ({})", terrain_type, terrain_str, biome_type, biome_str);
     true
 }
 
