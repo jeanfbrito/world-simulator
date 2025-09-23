@@ -32,17 +32,20 @@ pub struct IpcOutputConfig {
     pub compression_enabled: bool,
     /// Maximum message size before splitting
     pub max_message_size: usize,
+    /// IPC output file path (if None, uses stdout/stderr)
+    pub ipc_file_path: Option<String>,
 }
 
 impl Default for IpcOutputConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            use_stdout: true,
+            use_stdout: false, // Changed to use dedicated file by default
             buffer_size: 100,
             flush_interval_ms: 50,
             compression_enabled: false,
             max_message_size: 1024 * 1024, // 1MB
+            ipc_file_path: Some("/tmp/simulator_pipe".to_string()),
         }
     }
 }
@@ -69,7 +72,16 @@ impl FromWorld for IpcOutputBuffer {
 
 impl IpcOutputBuffer {
     pub fn new(config: &IpcOutputConfig) -> Self {
-        let writer: Box<dyn Write + Send> = if config.use_stdout {
+        let writer: Box<dyn Write + Send> = if let Some(ref file_path) = config.ipc_file_path {
+            // Try to open the specified file for writing
+            match std::fs::File::options().write(true).create(true).open(file_path) {
+                Ok(file) => Box::new(file),
+                Err(e) => {
+                    eprintln!("Failed to open IPC file {}: {}, falling back to stderr", file_path, e);
+                    Box::new(io::stderr())
+                }
+            }
+        } else if config.use_stdout {
             Box::new(io::stdout())
         } else {
             Box::new(io::stderr())
@@ -317,16 +329,16 @@ fn flush_ipc_buffer(
     }
 
     if buffer.should_flush(&config) {
-        println!("💧 IPC Debug: Flushing {} messages", buffer.len());
+        // println!("💧 IPC Debug: Flushing {} messages", buffer.len());
         if let Err(e) = buffer.flush() {
             error!("Failed to flush IPC buffer: {:?}", e);
         } else {
-            println!("✅ IPC Debug: Successfully flushed {} messages", buffer.len());
+            // println!("✅ IPC Debug: Successfully flushed {} messages", buffer.len());
         }
     } else {
         // Debug: Show why we're not flushing
-        println!("⏳ IPC Debug: Not flushing - buffer has {} messages, threshold: {}, interval: {}ms",
-                 buffer.len(), config.buffer_size, config.flush_interval_ms);
+        // println!("⏳ IPC Debug: Not flushing - buffer has {} messages, threshold: {}, interval: {}ms",
+        //          buffer.len(), config.buffer_size, config.flush_interval_ms);
     }
 }
 
@@ -369,16 +381,16 @@ fn broadcast_game_state_ipc(
     }
 
     // Debug: Log simulation state every tick
-    println!("🔍 IPC Debug: tick={}, just_ticked={}, running={}, changed={}",
-        sim_state.tick, sim_state.just_ticked, sim_state.running, sim_state.is_changed());
+    // println!("🔍 IPC Debug: tick={}, just_ticked={}, running={}, changed={}",
+    //     sim_state.tick, sim_state.just_ticked, sim_state.running, sim_state.is_changed());
 
     // Only broadcast on simulation ticks or when state changes
     if !sim_state.just_ticked && !sim_state.is_changed() {
-        println!("🚫 IPC Debug: Skipping broadcast - no tick and no change");
+        // println!("🚫 IPC Debug: Skipping broadcast - no tick and no change");
         return;
     }
 
-    println!("📡 IPC Debug: Broadcasting game state at tick {}", sim_state.tick);
+    // println!("📡 IPC Debug: Broadcasting game state at tick {}", sim_state.tick);
 
     // Create entity snapshots
     let mut entity_snapshots = Vec::new();
@@ -389,8 +401,8 @@ fn broadcast_game_state_ipc(
     let resource_count = resource_query.iter().count();
     let total_entity_count = goap_entity_count + basic_entity_count;
 
-    println!("🔍 IPC Debug: Found {} entities ({} GOAP, {} basic) and {} resources",
-             total_entity_count, goap_entity_count, basic_entity_count, resource_count);
+    // println!("🔍 IPC Debug: Found {} entities ({} GOAP, {} basic) and {} resources",
+    //          total_entity_count, goap_entity_count, basic_entity_count, resource_count);
 
     // Process GOAP entities (old hardcoded peasants)
     for (entity, name, health, tile, satiety, inventory, work, mind, energy) in goap_entities_query.iter() {
@@ -527,11 +539,11 @@ fn broadcast_game_state_ipc(
 
     let payload = MessagePayload::GameState(game_state);
 
-    println!("📡 IPC Debug: Adding game state message to buffer");
+    // println!("📡 IPC Debug: Adding game state message to buffer");
     if let Err(e) = buffer.add_message(payload) {
         error!("Failed to add game state to IPC buffer: {:?}", e);
     } else {
-        println!("✅ IPC Debug: Successfully added message to buffer (total: {})", buffer.len());
+        // println!("✅ IPC Debug: Successfully added message to buffer (total: {})", buffer.len());
     }
 }
 

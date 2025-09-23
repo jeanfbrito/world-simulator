@@ -344,6 +344,137 @@ Message 4: Write "file.js"
 
 Remember: **Claude Flow coordinates, Claude Code creates!**
 
+# World Simulator Specific Guidelines
+
+## 🎯 Simulation Development Workflow
+
+### Essential Commands for World Simulator
+```bash
+# Run simulation with automated logging
+./run-simulation.sh
+
+# Monitor logs in real-time
+tail -f logs/simulation-*.log
+
+# Debug specific issues
+grep -E '\[SPAWN\]|WARNING|ERROR' logs/simulation-*.log
+grep -E 'peasant|entities|Found' logs/simulation-*.log
+
+# Stop all simulations
+pkill -f "world_sim_simple.*--headless"
+
+# Build and test
+cargo build
+cargo test
+```
+
+### Project Structure
+```
+world-simulator/
+├── assets/packs/dev-world/          # Pack definitions (Lua files)
+│   └── data/entities/units/        # Unit definitions
+├── world_sim_simple/src/            # Core simulation code
+│   ├── systems/                   # Game systems
+│   ├── components/                # ECS components
+│   └── packs/                     # Pack loading system
+├── web-viewer/                     # Real-time simulation viewer
+├── docs/                          # Documentation
+└── logs/                          # Simulation logs (auto-generated)
+```
+
+### Key Development Principles
+
+#### 1. **Logging First Approach**
+- ALWAYS use `./run-simulation.sh` to run simulations
+- Logs are automatically saved with timestamps
+- Never wait for 2-minute timeouts - use the script
+- Check logs immediately after making changes
+
+#### 2. **Simple Entity System**
+- Currently using ONLY peasant units (keep it simple)
+- All units must use `UnitTag` component
+- Movement speed configured via `ticks_per_tile` in Lua files
+- No complex unit types (blacksmith, farmer, merchant, etc.)
+
+#### 3. **Pack-Based Spawning**
+- All entities defined in Lua files under `assets/packs/dev-world/`
+- Use `ticks_per_tile` instead of `movement_speed`
+- Spawning handled by `EntitySpawnerPlugin`
+- Remove hardcoded spawning systems
+
+#### 4. **Debug Common Issues**
+```bash
+# Check if entities spawned
+grep -E "\[SPAWN\].*Spawned.*entities" logs/simulation-*.log
+
+# Check if IPC detected entities
+grep -E "Found.*entities" logs/simulation-*.log
+
+# Check movement configuration
+grep -E "movement speed.*ticks/tile" logs/simulation-*.log
+
+# Look for unit property errors
+grep -E "has no unit properties" logs/simulation-*.log
+```
+
+### Critical File Locations
+- **Unit Definitions**: `assets/packs/dev-world/data/entities/units/peasant.lua`
+- **Spawning Logic**: `world_sim_simple/src/systems/entity_spawning.rs`
+- **IPC Output**: `world_sim_simple/src/ipc_output.rs`
+- **Movement System**: `world_sim_simple/src/systems/movement.rs`
+- **Web Viewer**: `web-viewer/viewer.html`
+
+### Common Patterns and Fixes
+
+#### Movement Speed Issues
+```lua
+-- WRONG (old format)
+unit = {
+    movement_speed = 1.0,
+}
+
+-- CORRECT (new format)
+unit = {
+    ticks_per_tile = 2,  -- 2 ticks per tile
+}
+```
+
+#### Entity Spawning Issues
+```bash
+# If entities not spawning, check:
+grep -E "\[PACK\].*entities" logs/simulation-*.log
+grep -E "Unknown unit type" logs/simulation-*.log
+```
+
+#### IPC Detection Issues
+```bash
+# If IPC not finding entities:
+grep -E "Found.*entities" logs/simulation-*.log
+# Should show: "Found 5 entities (5 GOAP, 0 basic) and 46 resources"
+```
+
+### Documentation Reference
+- **Simulation Logging**: `docs/SIMULATION_LOGGING.md`
+- **Development Workflow**: `docs/DEVELOPMENT_WORKFLOW.md`
+- **Pack System**: Refer to Lua files in `assets/packs/dev-world/`
+
+### Current Status (2025-09-23)
+- ✅ Simplified peasant-only simulation
+- ✅ Automated logging system
+- ✅ Pack-based entity spawning
+- ✅ Fixed movement speed (ticks_per_tile)
+- ✅ Working IPC output
+- ✅ Clean web viewer integration
+
+### Important Notes
+- **Never run simulation without the script** - use `./run-simulation.sh`
+- **Always check logs after changes** - don't assume it works
+- **Keep entities simple** - only peasants for now
+- **Use proper speed format** - `ticks_per_tile`, not `movement_speed`
+- **Verify IPC output** - ensure entities are being detected
+
+---
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
