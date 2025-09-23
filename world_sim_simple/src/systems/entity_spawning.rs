@@ -1,4 +1,4 @@
-use crate::{BuildingComponent, TileEntity, BuildingType};
+use crate::{BuildingComponent, TileEntity, BuildingType, WorldMap};
 use crate::components::{GridPosition, NameComponent, PositionComponent, ResourceNode, GrowingResource, ResourceRegenerationTag};
 use crate::packs::{PackSystem, EntityDefinition, registry::Registry};
 use crate::resources::ResourceType;
@@ -23,6 +23,7 @@ impl Plugin for EntitySpawnerPlugin {
 pub fn spawn_initial_entities(
     mut commands: Commands,
     pack_system: Option<Res<PackSystem>>,
+    world_map: Option<Res<WorldMap>>,
 ) {
     if let Some(pack_system) = pack_system {
         println!("{}", "[SPAWN] Starting entity spawning from pack definitions...".cyan());
@@ -44,6 +45,7 @@ pub fn spawn_initial_entities(
                     entity_def,
                     spawn_config.initial_count.unwrap_or(0),
                     &pack_system,
+                    world_map.as_deref(),
                 );
 
                 total_spawned += spawned_count;
@@ -81,12 +83,13 @@ fn spawn_entity_type(
     entity_def: &EntityDefinition,
     count: i32,
     pack_system: &PackSystem,
+    world_map: Option<&WorldMap>,
 ) -> usize {
     let mut spawned = 0;
     let mut rng = rand::thread_rng();
 
     for _ in 0..count {
-        if let Some(position) = find_valid_spawn_position(entity_def, &mut rng) {
+        if let Some(position) = find_valid_spawn_position(entity_def, &mut rng, world_map) {
             spawn_entity_at_position(commands, entity_def, position, pack_system);
             spawned += 1;
         }
@@ -99,6 +102,7 @@ fn spawn_entity_type(
 fn find_valid_spawn_position(
     entity_def: &EntityDefinition,
     rng: &mut rand::rngs::ThreadRng,
+    world_map: Option<&WorldMap>,
 ) -> Option<(usize, usize)> {
     let spawn_config = entity_def.spawn.as_ref()?;
 
@@ -110,9 +114,10 @@ fn find_valid_spawn_position(
             let y = rng.gen_range(area.min_y as usize..=area.max_y as usize);
 
             if x < MAP_SIZE && y < MAP_SIZE {
-                // TODO: Check if position is valid (walkable, not occupied, etc.)
-                // For now, just check basic bounds
-                return Some((x, y));
+                // Check if position is valid (walkable, not occupied, etc.)
+                if is_position_valid(x, y, entity_def, world_map) {
+                    return Some((x, y));
+                }
             }
         }
     } else {
@@ -121,12 +126,54 @@ fn find_valid_spawn_position(
             let x = rng.gen_range(20..44);
             let y = rng.gen_range(20..44);
 
-            // TODO: Add terrain validation when world map is available
-            return Some((x, y));
+            // Check terrain validation
+            if is_position_valid(x, y, entity_def, world_map) {
+                return Some((x, y));
+            }
         }
     }
 
     None
+}
+
+/// Check if a position is valid for spawning an entity
+fn is_position_valid(
+    x: usize,
+    y: usize,
+    entity_def: &EntityDefinition,
+    world_map: Option<&WorldMap>,
+) -> bool {
+    // Basic bounds check
+    if x >= MAP_SIZE || y >= MAP_SIZE {
+        return false;
+    }
+
+    // Check if entity requires walkable terrain
+    if let Some(spawn_config) = &entity_def.spawn {
+        if spawn_config.require_walkable.unwrap_or(false) {
+            if let Some(map) = world_map {
+                if !map.tiles[y][x].is_walkable() {
+                    return false;
+                }
+            } else {
+                // If no world map is available, fall back to basic validation
+                // This prevents spawning in water/deep water areas when map is not available
+                let center = MAP_SIZE / 2;
+                let dist = ((x as f32 - center as f32).powi(2) + (y as f32 - center as f32).powi(2)).sqrt();
+                let max_dist = center as f32;
+
+                // Prevent spawning in water/deep water areas (outside 75% of map radius)
+                if dist > max_dist * 0.75 {
+                    return false;
+                }
+            }
+        }
+    }
+
+    // TODO: Add occupation checking when entity tracking is implemented
+    // For now, assume position is not occupied
+
+    true
 }
 
 /// Spawn a single entity at a specific position
