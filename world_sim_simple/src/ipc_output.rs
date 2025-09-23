@@ -336,16 +336,27 @@ fn broadcast_game_state_ipc(
     config: Res<IpcOutputConfig>,
     sim_state: Res<crate::SimulationState>,
     world_map: Res<crate::WorldMap>,
-    entities_query: Query<(
+    // Query for GOAP entities (old hardcoded peasants)
+    goap_entities_query: Query<(
         Entity,
         &crate::components::NameComponent,
-        &crate::components::HealthComponent,
+        Option<&crate::components::HealthComponent>,
         &crate::TileEntity,
         Option<&crate::ai::bevy_dogoap_impl::Satiety>,
         Option<&crate::components::UnitInventory>,
         Option<&crate::components::WorkProgress>,
         Option<&crate::components::UnitMind>,
-    ), Without<crate::components::ResourceNode>>,
+        Option<&crate::components::HasEnergy>,
+    ), (With<crate::components::UnitTag>, Without<crate::components::ResourceNode>)>,
+
+    // Query for basic entities (pack-based entities)
+    basic_entities_query: Query<(
+        Entity,
+        &crate::components::NameComponent,
+        Option<&crate::components::HealthComponent>,
+        &crate::TileEntity,
+        Option<&crate::components::HasEnergy>,
+    ), (Without<crate::components::UnitTag>, Without<crate::components::ResourceNode>)>,
     resource_query: Query<(
         &crate::TileEntity,
         &crate::components::ResourceNode,
@@ -373,24 +384,83 @@ fn broadcast_game_state_ipc(
     let mut entity_snapshots = Vec::new();
 
     // Process regular entities (units, buildings, etc.)
-    let entity_count = entities_query.iter().count();
+    let goap_entity_count = goap_entities_query.iter().count();
+    let basic_entity_count = basic_entities_query.iter().count();
     let resource_count = resource_query.iter().count();
+    let total_entity_count = goap_entity_count + basic_entity_count;
 
-    println!("🔍 IPC Debug: Found {} entities and {} resources", entity_count, resource_count);
+    println!("🔍 IPC Debug: Found {} entities ({} GOAP, {} basic) and {} resources",
+             total_entity_count, goap_entity_count, basic_entity_count, resource_count);
 
-    for (entity, name, health, tile, satiety, inventory, work, mind) in entities_query.iter() {
+    // Process GOAP entities (old hardcoded peasants)
+    for (entity, name, health, tile, satiety, inventory, work, mind, energy) in goap_entities_query.iter() {
         let mut components = HashMap::new();
-        components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.current as i64)));
-        components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.maximum as i64)));
+
+        // Handle optional health component
+        if let Some(health) = health {
+            components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.current as i64)));
+            components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.maximum as i64)));
+        } else {
+            // Default health values for entities without health component
+            components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(10)));
+            components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(10)));
+        }
+
         components.insert("display_name".to_string(), serde_json::Value::String(name.display_name.clone()));
 
         if let Some(satiety) = satiety {
             components.insert("satiety".to_string(), serde_json::Value::Number(serde_json::Number::from(satiety.0 as i64)));
         }
 
-            // Map name to EntityType
+        if let Some(energy) = energy {
+            components.insert("energy".to_string(), serde_json::Value::Number(serde_json::Number::from((energy.0 * 100.0) as i64)));
+        }
+
+        // Map name to EntityType - all entities are workers for now
         let entity_type = match name.name.as_str() {
-            "peasant" => world_sim_interface::entities::EntityType::Worker,
+            "peasant" | "blacksmith" | "farmer" | "merchant" => world_sim_interface::entities::EntityType::Worker,
+            _ => world_sim_interface::entities::EntityType::Worker, // Default fallback
+        };
+
+        let snapshot = EntitySnapshot {
+            id: entity.index() as u64,
+            entity_type,
+            position: Position {
+                x: tile.x as i32,
+                y: tile.y as i32,
+            },
+            components,
+        };
+        entity_snapshots.push(snapshot);
+    }
+
+    // Process basic entities (pack-based entities)
+    for (entity, name, health, tile, energy) in basic_entities_query.iter() {
+        let mut components = HashMap::new();
+
+        // Handle optional health component
+        if let Some(health) = health {
+            components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.current as i64)));
+            components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(health.maximum as i64)));
+        } else {
+            // Default health values for entities without health component
+            components.insert("health".to_string(), serde_json::Value::Number(serde_json::Number::from(10)));
+            components.insert("max_health".to_string(), serde_json::Value::Number(serde_json::Number::from(10)));
+        }
+
+        components.insert("display_name".to_string(), serde_json::Value::String(name.display_name.clone()));
+
+        // Handle optional energy component
+        if let Some(energy) = energy {
+            components.insert("energy".to_string(), serde_json::Value::Number(serde_json::Number::from((energy.0 * 100.0) as i64)));
+        }
+
+        // Map name to EntityType - pack-based entities
+        let entity_type = match name.name.as_str() {
+            "peasant" | "blacksmith" | "farmer" | "merchant" => world_sim_interface::entities::EntityType::Worker,
+            "stockpile" => world_sim_interface::entities::EntityType::Building(world_sim_interface::entities::BuildingType::Stockpile),
+            "granary" => world_sim_interface::entities::EntityType::Building(world_sim_interface::entities::BuildingType::Granary),
+            "storage" => world_sim_interface::entities::EntityType::Building(world_sim_interface::entities::BuildingType::Warehouse),
             _ => world_sim_interface::entities::EntityType::Worker, // Default fallback
         };
 

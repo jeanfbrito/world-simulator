@@ -396,7 +396,15 @@
             workshop: { color: '#696969', emoji: '🔨' },
             empty: { color: '#1a1a1a', emoji: '⬛' },
             blocked: { color: '#8b0000', emoji: '🚫' },
-            ore: { color: '#696969', emoji: '⛏️' }
+            ore: { color: '#696969', emoji: '⛏️' },
+            // New pack-based entity types
+            wood: { color: '#8B4513', emoji: '🪵' },
+            stone_deposit: { color: '#696969', emoji: '⛏️' },
+            stockpile: { color: '#8B4513', emoji: '📦' },
+            granary: { color: '#DAA520', emoji: '🏛️' },
+            blacksmith: { color: '#2F4F4F', emoji: '🔨' },
+            farmer: { color: '#228B22', emoji: '👨‍🌾' },
+            merchant: { color: '#4169E1', emoji: '🧑‍💼' }
         };
         
         // Canvas setup
@@ -597,11 +605,14 @@
 
                     // Handle both EntitySnapshot format (entity.components) and legacy format (entity.data)
                     const components = entity.components || entity.data || {};
-                    const health = components.health || 100;
-                    const max_health = components.max_health || 100;
-                    const hunger = components.hunger || 100;
-                    const energy = components.energy || 100;
-                    const morale = components.morale || 100;
+                    const health = components.health || 10;
+                    const max_health = components.max_health || 10;
+
+                    // New GOAP-based components
+                    const satiety = components.satiety !== undefined ? components.satiety : 50;
+                    const energy = components.energy !== undefined ? components.energy : 75;
+
+                    // Use display_name from components or generate from entity_type
                     const display_name = components.display_name || getEntityName(entity.entity_type);
 
                     const entityData = {
@@ -611,9 +622,8 @@
                         entity_type: entity.entity_type,
                         health: health,
                         max_health: max_health,
-                        hunger: hunger,
+                        satiety: satiety,
                         energy: energy,
-                        morale: morale,
                         display_name: display_name,
                         components: components // Store components for advanced features
                     };
@@ -741,7 +751,15 @@
                 'Tree': 'Tree',
                 'BerryBush': 'Berry Bush',
                 'Stone': 'Stone',
-                'IronOre': 'Iron Ore'
+                'IronOre': 'Iron Ore',
+                // New pack-based entity types
+                'peasant': 'Peasant',
+                'blacksmith': 'Blacksmith',
+                'farmer': 'Farmer',
+                'merchant': 'Merchant',
+                'stockpile': 'Stockpile',
+                'granary': 'Granary',
+                'storage': 'Storage'
             };
             return entityNames[entityType] || entityType || 'Unknown';
         }
@@ -938,14 +956,23 @@
                             break;
                         case 'Tree':
                         case 'tree':
-                            emoji = '🌲';
+                            // Check if tree has wood (amount > 0) - new format uses components
+                            if (entity.components?.amount !== undefined) {
+                                const amount = entity.components?.amount || 0;
+                                const maxAmount = entity.components?.max_amount || 12;
+                                emoji = amount > 0 ? '🌲' : '🪵';
+                            } else {
+                                emoji = '🌲'; // Default to tree if no data
+                            }
                             break;
                         case 'BerryBush':
                         case 'Berry':
                         case 'berry':
+                        case 'berry_bush':
                             // Check if berry bush has fruit (amount > 0) - new format uses components
                             if (entity.components?.amount !== undefined) {
                                 const amount = entity.components?.amount || 0;
+                                const maxAmount = entity.components?.max_amount || 4;
                                 emoji = amount > 0 ? '🫐' : '🌳';
                             } else {
                                 emoji = '🌳'; // Default to empty if no data
@@ -953,7 +980,23 @@
                             break;
                         case 'Building':
                         case 'building':
+                        case 'stockpile':
+                        case 'granary':
+                        case 'storage':
                             emoji = '🏠';
+                            break;
+                        case 'blacksmith':
+                            emoji = '🔨';
+                            break;
+                        case 'farmer':
+                            emoji = '👨‍🌾';
+                            break;
+                        case 'merchant':
+                            emoji = '🧑‍💼';
+                            break;
+                        case 'stone_deposit':
+                        case 'Stone Deposit':
+                            emoji = '⛏️';
                             break;
                         default:
                             // Fallback to entity-specific emoji if available
@@ -1034,19 +1077,36 @@
             const berries = entities.filter(e =>
                 e.entity_type === 'BerryBush' ||
                 e.entity_type === 'Berry' ||
-                e.entity_type === 'berry'
+                e.entity_type === 'berry' ||
+                e.entity_type === 'berry_bush'
             ).length;
             const buildings = entities.filter(e =>
                 e.entity_type === 'Building' ||
                 e.entity_type === 'building' ||
                 e.entity_type === 'House' ||
-                e.entity_type === 'Storage'
+                e.entity_type === 'Storage' ||
+                e.entity_type === 'stockpile' ||
+                e.entity_type === 'granary' ||
+                e.entity_type === 'storage'
+            ).length;
+            const resources = entities.filter(e =>
+                e.entity_type === 'stone_deposit' ||
+                e.entity_type === 'Stone Deposit' ||
+                e.entity_type === 'Tree' ||
+                e.entity_type === 'tree'
             ).length;
 
+            // Update stats with new entity types
             document.getElementById('unit-count').textContent = units;
             document.getElementById('tree-count').textContent = trees;
             document.getElementById('berry-count').textContent = berries;
             document.getElementById('building-count').textContent = buildings;
+
+            // Update resource count if element exists
+            const resourceCountEl = document.getElementById('resource-count');
+            if (resourceCountEl) {
+                resourceCountEl.textContent = resources;
+            }
         }
 
         // Enhanced entity rendering with pack definition support
@@ -1069,14 +1129,25 @@
                 case 'unit':
                 case 'worker':
                 case 'peasant':
-                    return { emoji: '👤', color: '#8B4513', visual_states: {} };
+                    return { emoji: '👨‍🌾', color: '#8B4513', visual_states: {} };
                 case 'tree':
                     return { emoji: '🌲', color: '#166534', visual_states: {} };
                 case 'berry':
                 case 'berry_bush':
                     return { emoji: '🫐', color: '#7C3AED', visual_states: {} };
                 case 'building':
+                case 'stockpile':
+                case 'granary':
+                case 'storage':
                     return { emoji: '🏠', color: '#DC2626', visual_states: {} };
+                case 'blacksmith':
+                    return { emoji: '🔨', color: '#2F4F4F', visual_states: {} };
+                case 'farmer':
+                    return { emoji: '👨‍🌾', color: '#228B22', visual_states: {} };
+                case 'merchant':
+                    return { emoji: '🧑‍💼', color: '#4169E1', visual_states: {} };
+                case 'stone_deposit':
+                    return { emoji: '⛏️', color: '#696969', visual_states: {} };
                 default:
                     return { emoji: '❓', color: '#6B7280', visual_states: {} };
             }
@@ -1226,21 +1297,20 @@
                 // Extract data from components (new EntitySnapshot format)
                 const components = peasant.components || {};
 
-                // Note: satiety represents fullness (100 = full, 0 = starving)
-                const satiety = components.hunger !== undefined ? (100 - components.hunger) : 50;
-                const energy = components.energy !== undefined ? components.energy : 50;
-                const health = components.health !== undefined ? components.health : 100;
-                const morale = components.morale !== undefined ? components.morale : 70;
+                // Use GOAP components (new system)
+                const satiety = components.satiety !== undefined ? components.satiety : 50;
+                const energy = components.energy !== undefined ? components.energy : 75;
+                const health = components.health !== undefined ? components.health : 10;
+                const max_health = components.max_health !== undefined ? components.max_health : 10;
 
                 // Get inventory and other data from components
                 const inventory = components.inventory || [];
+                const mindState = components.mind_state || components.action_state || 'Idle';
                 const currentAction = components.current_action || components.action_state || 'Idle';
-                const mindState = components.mind_state || components.action_state || currentAction;
 
                 // GOAP-specific data from components
                 const goapGoal = components.goap_goal || 'None';
                 const goapAction = components.goap_action || 'None';
-                const foodCount = components.food_count !== undefined ? components.food_count : 0;
                 const nearBerryBush = components.near_berry_bush || false;
                 
                 // Get mind state icon based on the state
@@ -1280,17 +1350,27 @@
                             
                             <span class="peasant-label">GOAP Action:</span>
                             <span class="peasant-value">${goapAction} ${nearBerryBush ? '🫐' : ''}</span>
-                            
-                            <span class="peasant-label">Food Count:</span>
-                            <span class="peasant-value">🍖 ${foodCount}</span>
-                            
-                            <span class="peasant-label">Satiety:</span>
-                            <div>
-                                <span class="peasant-value">${Math.round(satiety)}%</span>
-                                <div class="progress-bar">
-                                    <div class="progress-fill progress-satiety" style="width: ${satiety}%"></div>
-                                </div>
-                            </div>
+
+                            <span class="peasant-label">Action:</span>
+                            <span class="peasant-value">${currentAction}</span>
+
+                            <span class="peasant-label">Inventory:</span>
+                            <span class="peasant-value">${inventory.length > 0 ?
+                                inventory.map(item => {
+                                    // Parse "ResourceType:count" format
+                                    const parts = item.split(':');
+                                    if (parts.length === 2) {
+                                        const resource = parts[0];
+                                        const count = parts[1];
+                                        // Add emojis for resources
+                                        const emoji = resource.includes('Wood') ? '🪵' :
+                                                     resource.includes('Food') ? '🍖' :
+                                                     resource.includes('Berries') ? '🫐' :
+                                                     resource.includes('Stone') ? '⛏️' : '';
+                                        return `${emoji} ${count}`;
+                                    }
+                                    return item;
+                                }).join(' ') : 'Empty'}</span>
                             
                             <span class="peasant-label">Energy:</span>
                             <div>

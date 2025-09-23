@@ -143,6 +143,7 @@ pub fn ensure_unit_mind_system(
     }
 }
 
+
 /// System to log mind state changes for debugging
 pub fn log_mind_changes_system(
     query: Query<(&crate::components::NameComponent, &UnitMind), Changed<UnitMind>>,

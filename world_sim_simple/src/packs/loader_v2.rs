@@ -427,7 +427,7 @@ fn parse_unit_properties(table: &LuaTable) -> LuaResult<super::UnitProperties> {
     });
 
     Ok(super::UnitProperties {
-        movement_speed: table.get("movement_speed")?,
+        ticks_per_tile: table.get("ticks_per_tile")?,
         energy: table.get("energy")?,
         max_energy: table.get("max_energy")?,
         needs: super::UnitNeeds {

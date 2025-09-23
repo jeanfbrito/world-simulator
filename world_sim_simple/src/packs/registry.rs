@@ -358,7 +358,7 @@ impl Registry<EntityDefinition> for EntityRegistry {
 
             // Validate unit properties if present
             if let Some(unit) = &entity.unit {
-                if unit.movement_speed <= 0.0 {
+                if unit.ticks_per_tile == 0 {
                     return Err(PackError::ValidationError(
                         format!("Entity '{}' has invalid movement speed", id)
                     ));

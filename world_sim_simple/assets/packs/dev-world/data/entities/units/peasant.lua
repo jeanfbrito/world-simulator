@@ -14,7 +14,7 @@ register_entity {
     },
     
     unit = {
-        movement_speed = 50.0,
+        ticks_per_tile = 2,
         energy = 100.0,
         max_energy = 100.0,
         needs = {

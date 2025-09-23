@@ -183,7 +183,7 @@ pub struct EntitySize {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnitProperties {
-    pub movement_speed: f32,
+    pub ticks_per_tile: u32,
     pub energy: f32,
     pub max_energy: f32,
     pub needs: UnitNeeds,

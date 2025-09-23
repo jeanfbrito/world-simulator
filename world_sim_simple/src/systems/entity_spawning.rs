@@ -361,6 +361,9 @@ fn spawn_building(
         // Create the building component
         let building_component = BuildingComponent::new(building_type, (grid_position.x as i32, grid_position.y as i32));
 
+        // Create health component for buildings too
+        let health = crate::components::HealthComponent::new(20.0); // Buildings have more health
+
         // Spawn the building entity
         let pos_clone = grid_position.clone();
         commands.spawn((
@@ -368,6 +371,7 @@ fn spawn_building(
             position,
             tile_entity,
             pos_clone,
+            health,
             building_component,
         ));
 
@@ -397,13 +401,20 @@ fn spawn_unit(
         // Debug: Log the unit properties we received
         println!(
             "{}",
-            format!("[SPAWN-DEBUG] Unit props for {}: movement_speed={}, work_speed={:?}",
-                   entity_def.name, unit_props.movement_speed, unit_props.work_speed).yellow()
+            format!("[SPAWN-DEBUG] Unit props for {}: ticks_per_tile={}, work_speed={:?}",
+                   entity_def.name, unit_props.ticks_per_tile, unit_props.work_speed).yellow()
         );
 
         // Create unit-specific components based on the unit type
         let unit_tag = match entity_def.id.as_str() {
-            "peasant" => crate::components::PeasantTag::new(),
+            "peasant" | "blacksmith" | "farmer" | "merchant" => {
+                // Use UnitTag for all units as requested
+                println!(
+                    "{}",
+                    format!("[SPAWN] Using UnitTag for: {}", entity_def.id).yellow()
+                );
+                crate::components::UnitTag
+            },
             _ => {
                 println!(
                     "{}",
@@ -415,6 +426,9 @@ fn spawn_unit(
 
         // Create unit inventory
         let inventory = crate::components::UnitInventory::new();
+
+        // Create health component with default values
+        let health = crate::components::HealthComponent::new(10.0);
 
         // Create work components with values from pack definition
         let work_progress = crate::components::WorkProgress::new();
@@ -435,7 +449,7 @@ fn spawn_unit(
         };
 
         // Create movement speed based on pack definition
-        let movement_speed = create_movement_speed_from_pack(unit_props.movement_speed, &entity_def.name);
+        let movement_speed = create_movement_speed_from_pack(unit_props.ticks_per_tile, &entity_def.name);
 
         let work_queue = crate::components::WorkQueue::new(10);
 
@@ -446,6 +460,7 @@ fn spawn_unit(
             position,
             tile_entity,
             pos_clone,
+            health,
             unit_tag,
             inventory,
             work_progress,
@@ -457,9 +472,9 @@ fn spawn_unit(
 
         println!(
             "{}",
-            format!("[SPAWN] Spawned unit: {} at ({}, {}) with movement_speed: {}, work_speed: {:.2}x",
+            format!("[SPAWN] Spawned unit: {} at ({}, {}) with ticks_per_tile: {}, work_speed: {:.2}x",
                    entity_def.name, grid_position.x, grid_position.y,
-                   unit_props.movement_speed, work_speed_modifier).blue()
+                   unit_props.ticks_per_tile, work_speed_modifier).blue()
         );
     } else {
         println!(
@@ -470,26 +485,17 @@ fn spawn_unit(
 }
 
 /// Create MovementSpeed from pack definition
-fn create_movement_speed_from_pack(pack_speed: f32, unit_name: &str) -> crate::components::MovementSpeed {
-    // Convert pack movement speed to our internal representation
-    // Pack speed: 50.0 (from peasant.lua)
-    // Internal: ticks per tile (lower = faster)
-
-    // Convert pack speed to ticks per tile
-    // Higher pack speed = fewer ticks per tile (faster movement)
-    let ticks_per_tile = if pack_speed > 0.0 {
-        (100.0 / pack_speed).max(1.0) as u32
-    } else {
-        3 // Default fallback
-    };
+fn create_movement_speed_from_pack(ticks_per_tile: u32, unit_name: &str) -> crate::components::MovementSpeed {
+    // Use direct ticks per tile from pack definition
+    // Lower values = faster movement
 
     let mut movement_speed = crate::components::MovementSpeed::default();
     movement_speed.base_ticks_per_tile = ticks_per_tile;
 
     println!(
         "{}",
-        format!("[SPAWN] Unit {} movement speed: {} -> {} ticks/tile",
-               unit_name, pack_speed, ticks_per_tile).cyan()
+        format!("[SPAWN] Unit {} movement speed: {} ticks/tile",
+               unit_name, ticks_per_tile).cyan()
     );
 
     movement_speed

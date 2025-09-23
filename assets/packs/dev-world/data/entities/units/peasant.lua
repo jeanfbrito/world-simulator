@@ -16,7 +16,7 @@ register_entity {
 
     -- Unit-specific configuration
     unit = {
-        movement_speed = 1.0,  -- Base movement speed
+        ticks_per_tile = 2,  -- Base movement speed (2 ticks per tile)
         energy = 100.0,
         max_energy = 100.0,
 
