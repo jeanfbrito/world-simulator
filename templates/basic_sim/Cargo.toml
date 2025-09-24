@@ -1,0 +1,65 @@
+[package]
+name = "basic_simulation"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A basic world simulation using the world-simulator framework"
+license = "MIT"
+repository = "https://github.com/yourusername/world-simulator"
+readme = "README.md"
+
+[dependencies]
+# Core dependencies
+world_sim = { path = "../../", features = ["full"] }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Configuration
+toml = "0.8"
+config = "0.13"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+rand = "0.8"
+
+# Performance
+parking_lot = "0.12"
+crossbeam = "0.8"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.0"
+mockall = "0.11"
+
+[features]
+default = ["std"]
+std = []
+no-std = []
+networking = ["world_sim/networking"]
+ai = ["world_sim/ai"]
+economy = ["world_sim/economy"]
+
+[[bin]]
+name = "basic_simulation"
+path = "src/main.rs"
+
+[[bench]]
+name = "simulation_bench"
+harness = false
+
+[profile.dev]
+opt-level = 1
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1

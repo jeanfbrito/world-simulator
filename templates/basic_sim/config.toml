@@ -1,0 +1,74 @@
+# Basic World Simulation Configuration
+
+[world]
+width = 100
+height = 100
+# seed = 42  # Comment out for random seed
+tile_size = 32
+
+[entities]
+peasant_count = 20
+peasant_speed = 1.0
+peasant_health = 100
+peasant_inventory_size = 10
+
+[[resources.types]]
+name = "wood"
+density = 0.1
+max_per_tile = 5
+respawn_time = 30.0
+color = "#8B4513"
+
+[[resources.types]]
+name = "stone"
+density = 0.05
+max_per_tile = 3
+respawn_time = 60.0
+color = "#808080"
+
+[[resources.types]]
+name = "food"
+density = 0.08
+max_per_tile = 10
+respawn_time = 20.0
+color = "#FF6347"
+
+resources.respawn_time_seconds = 30.0
+
+[systems.movement]
+enabled = true
+update_interval = 0.1
+priority = 10
+
+[systems.gathering]
+enabled = true
+update_interval = 0.2
+priority = 5
+
+[systems.crafting]
+enabled = true
+update_interval = 0.5
+priority = 3
+
+[systems.ai]
+enabled = true
+update_interval = 0.3
+priority = 8
+
+[simulation]
+tick_duration_ms = 100
+# max_ticks = 1000  # Uncomment to limit simulation duration
+enable_monitoring = true
+debug_mode = false
+save_state_on_exit = false
+enable_websocket = false
+websocket_port = 8080
+enable_saves = true
+auto_save_interval = 300
+
+[performance]
+enabled = true
+metrics_interval = 1.0
+enable_memory_profiling = false
+enable_cpu_profiling = false
+log_level = "info"
