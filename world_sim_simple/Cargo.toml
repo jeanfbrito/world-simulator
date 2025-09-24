@@ -41,7 +41,7 @@ bevy_dogoap = "0.5"
 big-brain = { git = "https://github.com/zkat/big-brain", branch = "main" }  # Utility AI for reactive behaviors
 
 # Scripting support
-bevy_mod_scripting = { version = "0.15.1", default-features = false, features = ["lua54"] }
+bevy_mod_scripting = { version = "0.16.0", default-features = false, features = ["lua54"] }
 mlua = { version = "0.10", features = ["lua54", "vendored"] }  # For parsing Lua config files
 
 # File system utilities
