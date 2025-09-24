@@ -1,6 +1,6 @@
 use crate::{BuildingComponent, TileEntity, BuildingType, WorldMap};
 use crate::tilemap::{TerrainType, BiomeType};
-use crate::components::{GridPosition, NameComponent, PositionComponent, ResourceNode, GrowingResource, ResourceRegenerationTag};
+use crate::components::{GridPosition, NameComponent, PositionComponent, ResourceNode, GrowingResource, ResourceRegenerationTag, GridMovement, VisualPosition};
 use crate::packs::{PackSystem, EntityDefinition, registry::Registry};
 use crate::resources::ResourceType;
 use crate::TileType;
@@ -451,11 +451,21 @@ fn spawn_unit(
         // Create movement speed based on pack definition
         let movement_speed = create_movement_speed_from_pack(unit_props.ticks_per_tile, &entity_def.name);
 
+        // Create movement components
+        let grid_movement = GridMovement::new();
+        let visual_position = VisualPosition::new(&grid_position, TILE_SIZE);
+        let unit_mind = crate::components::UnitMind::Idle;
+        let claimed_resource = crate::components::ClaimedResource::new();
+
+        // Create AI components with default values
+        let satiety = crate::ai::bevy_dogoap_impl::Satiety(80.0); // Start well-fed
+        let energy = crate::ai::bevy_dogoap_impl::Energy(100.0); // Start with full energy
+
         let work_queue = crate::components::WorkQueue::new(10);
 
-        // Spawn the unit entity
+        // Spawn the unit entity (split into multiple spawns to avoid bundle size limit of 16)
         let pos_clone = grid_position.clone();
-        commands.spawn((
+        let mut entity = commands.spawn((
             name,
             position,
             tile_entity,
@@ -466,9 +476,17 @@ fn spawn_unit(
             work_progress,
             work_speed,
             movement_speed,
-            crate::components::MovementEffects::default(),
-            work_queue,
+            grid_movement,
+            visual_position,
+            unit_mind,
+            claimed_resource,
+            satiety,
         ));
+
+        // Add remaining components to avoid bundle size limit
+        entity.insert(energy);
+        entity.insert(crate::components::MovementEffects::default());
+        entity.insert(work_queue);
 
         println!(
             "{}",

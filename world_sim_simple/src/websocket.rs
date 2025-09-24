@@ -56,7 +56,7 @@ pub enum ServerMessage {
         client_id: String,
     },
     GameState {
-        state: GameStateSnapshot,
+        payload: GameStatePayload,
     },
     TileUpdate {
         x: usize,
@@ -90,6 +90,11 @@ pub struct GameStateSnapshot {
     pub map_size: usize,
     pub tiles: Vec<Vec<String>>,
     pub entities: Vec<EntityData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameStatePayload {
+    pub data: GameStateSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -642,7 +647,7 @@ fn broadcast_game_state(
         entities,
     };
 
-    let msg = ServerMessage::GameState { state: snapshot };
+    let msg = ServerMessage::GameState { payload: GameStatePayload { data: snapshot } };
     let _ = connections.sender.send(msg);
 
     // Clear changed flag after broadcasting

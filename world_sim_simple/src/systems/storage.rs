@@ -70,7 +70,7 @@ pub fn storage_deposit_system(
                     inventory.remove_item(resource_type.clone(), deposited_amount);
 
                     // Send event
-                    events.send(StorageChangedEvent {
+                    events.write(StorageChangedEvent {
                         storage_entity,
                         resource_type: resource_type.clone(),
                         old_amount,
@@ -161,7 +161,7 @@ pub fn storage_withdrawal_system(
                         inventory.add_item(resource_type.clone(), withdrawn);
 
                         // Send event
-                        events.send(StorageChangedEvent {
+                        events.write(StorageChangedEvent {
                             storage_entity,
                             resource_type: resource_type.clone(),
                             old_amount,
