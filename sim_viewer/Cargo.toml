@@ -9,7 +9,7 @@ description = "IPC-to-WebSocket bridge for World Simulator viewer"
 [dependencies]
 # Async runtime and WebSocket
 tokio = { version = "1.0", features = ["full"] }
-tokio-tungstenite = "0.20"
+tokio-tungstenite = "0.28"
 futures-util = "0.3"
 
 # Serialization
