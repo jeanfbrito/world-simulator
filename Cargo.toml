@@ -18,7 +18,7 @@ repository = "https://github.com/jeanfbrito/world-simulator"
 # Bevy - using specific version for stability
 bevy = { version = "0.14", default-features = false, features = ["bevy_asset", "bevy_winit", "bevy_render", "bevy_sprite", "x11"] }
 bevy_ecs = "0.14"
-bevy_app = "0.14"
+bevy_app = "0.17"
 bevy_tasks = "0.14"
 bevy_egui = "0.28"
 
